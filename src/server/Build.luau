@@ -2112,6 +2112,7 @@ export type Work = {
 	swing: number, -- HP one Build swing of the class asked for adds (none: a soldier's of no listed class; Config/Build.Power)
 	left: number, -- Build swings to full (Rules.workLeft); 0 when whole
 	built: boolean, -- has stood once (a standing gun is repaired, not built)
+	extra: number?, -- a trench square's HP past its max (reinforced: Config/Build.Trench.hp.extra)
 }
 
 -- Every piece and trench square of `team` (nil: every team's) and the work each wants of a builder of `class` (nil: a
@@ -2158,6 +2159,7 @@ function Build.worksOf(team: string?, class: string?): { Work }
 			swing = T.swing * power,
 			left = Rules.workLeft(s.hp, T.max, T.swing * power),
 			built = s.built,
+			extra = s.extra,
 		})
 	end
 	return out

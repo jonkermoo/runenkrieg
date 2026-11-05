@@ -507,4 +507,24 @@ function BotBuild.safeToWork(
 	return (sinceThreat >= calm and sinceHurt >= calm) or hidden
 end
 
+-- How many of its dug squares a side's bots reinforce now (Config/Bots.Trenches.Reinforce `cfg`): `holder` the side
+-- holding the initiative (nil: nobody yet), `pushing` whether its own offensive runs, `standTo` its holders standing
+-- to, `troops` its bots, `wanted` its squares listed for digging (buried or not dug yet: those first)
+export type ReinforceState = {
+	side: string,
+	holder: string?,
+	pushing: boolean,
+	standTo: boolean,
+	troops: number,
+	wanted: number,
+}
+function BotBuild.reinforceSlots(s: ReinforceState, cfg: any): number
+	if s.wanted > 0 or s.standTo or s.holder == nil or s.pushing then
+		return 0
+	elseif s.holder ~= s.side then
+		return cfg.defend
+	end
+	return if s.troops >= cfg.crowd then cfg.crowded else 0
+end
+
 return BotBuild

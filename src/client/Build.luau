@@ -1067,13 +1067,18 @@ function Build.start()
 				if type(hp) ~= "number" or type(max) ~= "number" then
 					hp, max = m:GetAttribute("Work"), m:GetAttribute("Need")
 				end
-				view.title = if block then "Trench square" else ((p or { name = "Piece" }) :: any).name
+				-- (a reinforced square past its max: "100 + x", Config/Build.Trench.hp.extra)
+				local extra = if block then m:GetAttribute("Extra") else nil
+				local reinforced = type(extra) == "number" and extra > 0
+				view.title = if block
+					then (if reinforced then "Reinforced trench" else "Trench square")
+					else ((p or { name = "Piece" }) :: any).name
 				-- (a foxhole's spot has no HP: one swing digs it)
 				local spot = p and p.kind == "Foxhole"
 				view.sub = if type(hp) == "number"
 						and type(max) == "number"
 						and not spot
-					then `HP {math.ceil(hp)} / {max}`
+					then Rules.trenchHPText(hp, max, extra, m:GetAttribute("ExtraMax"))
 					else nil
 			elseif m then
 				view.title = "Tree"

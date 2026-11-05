@@ -448,6 +448,79 @@ return {
 		assert(B.trenchShownHP(99.6, max) == max - 1, "a blast's fraction short isn't shown full")
 		assert(B.trenchShownHP(max, max) == max and B.trenchShownHP(42.4, max) == 42 and B.trenchShownHP(0, max) == 0)
 	end,
+	["reinforced trenches: Build swings past 100 add the extra up to 100 + 75, the extra soaks blasts first"] = function()
+		local H = C.Trench.hp
+		assert(H.extra == 75 and H.extraSwing > 0 and H.extraSwing <= H.swing)
+		assert(B.trenchBuild(90, H, H.swing, H.extraSwing) == H.max, "the swing that fills it stops at full")
+		local hp: number? = H.max
+		local swings = 0
+		while hp do
+			local nxt = B.trenchBuild(hp, H, H.swing, H.extraSwing)
+			if nxt then
+				swings += 1
+			end
+			hp = nxt or nil
+			if hp then
+				assert(hp <= H.max + H.extra)
+			end
+		end
+		assert(swings == math.ceil(H.extra / H.extraSwing), `{swings} swings reinforce it fully`)
+		assert(B.trenchBuild(H.max + H.extra, H, H.swing, H.extraSwing) == nil, "nothing past 100 + 75")
+		-- blasts take a share of the base max: the extra goes first, depth and stage untouched until back at 100
+		local field = H.max * C.Trench.blast.field.hit / 100
+		local reinforced, plain = H.max + H.extra, H.max
+		local hitsR, hitsP = 0, 0
+		while reinforced > 0 do
+			reinforced -= field
+			hitsR += 1
+		end
+		while plain > 0 do
+			plain -= field
+			hitsP += 1
+		end
+		assert(hitsP == 4 and hitsR == 7, `field hits to bury: {hitsP} plain, {hitsR} reinforced`)
+		assert(B.trenchDepth(H.max + 40, true, H) == 1, "reinforced: full depth")
+		local stage = B.trenchStage(H.max + 40, true, H, C.Trench.stages)
+		assert(stage == "Full", "reinforced: the finished pieces")
+	end,
+	["reinforced trenches: the panel shows 100 + x, whole numbers, full only once it is"] = function()
+		local H = C.Trench.hp
+		assert(B.trenchShownExtra(80, H.max, H.extra) == 0)
+		assert(B.trenchShownExtra(H.max + 40.4, H.max, H.extra) == 40)
+		assert(B.trenchShownExtra(H.max + 74.7, H.max, H.extra) == H.extra - 1)
+		assert(B.trenchShownExtra(H.max + H.extra, H.max, H.extra) == H.extra)
+		assert(B.trenchHPText(80, 100, 0, 75) == "HP 80 / 100")
+		assert(B.trenchHPText(100, 100, 40, 75) == "HP 100 + 40 / 100 + 75")
+		assert(B.trenchHPText(42.2, 100, nil, nil) == "HP 43 / 100")
+	end,
+	["reinforced trenches: a sheet or two at +25, +50, +75; rust by age; a rebuilt sheet starts new"] = function()
+		local Sh = C.Trench.sheets
+		assert(#Sh.at == 4, "four sheets a square, two a side")
+		assert(B.sheetsUp(0, Sh.at) == 0 and B.sheetsUp(24.9, Sh.at) == 0)
+		assert(B.sheetsUp(25, Sh.at) == 1 and B.sheetsUp(49, Sh.at) == 1, "+25: one")
+		assert(B.sheetsUp(50, Sh.at) == 3 and B.sheetsUp(74, Sh.at) == 3, "+50: two more")
+		assert(B.sheetsUp(75, Sh.at) == 4, "+75: the last")
+		for seed = 1, 50 do
+			local o = B.sheetOrder(seed * 7919, 4)
+			local seen = {}
+			for _, i in o do
+				assert(i >= 1 and i <= 4 and not seen[i], "a shuffle of 1..4")
+				seen[i] = true
+			end
+		end
+		local same = B.sheetOrder(1234, 4)
+		assert(table.concat(same, ",") == table.concat(B.sheetOrder(1234, 4), ","), "the same seed, the same order")
+		assert(B.sheetAge(0, Sh.rustAt) == 0, "new: no rust")
+		assert(B.sheetAge(Sh.rustAt[1], Sh.rustAt) == 1 and B.sheetAge(Sh.rustAt[3] + 1, Sh.rustAt) == 3)
+		assert(B.sheetTone(0, 3) == 1 and B.sheetTone(1, 3) == 1, "new metal while new or lightly rusted")
+		assert(B.sheetTone(2, 3) == 2 and B.sheetTone(3, 3) == 3 and B.sheetTone(3, 1) == 1)
+		for i = 1, 8 do
+			for s = 1, 2 do
+				local t = Sh.tones[`Wall{i}Sheet{s}`]
+				assert(t and t[1] >= 1 and t[1] <= 3 and t[2] >= 1 and t[2] <= 3, `Wall{i}Sheet{s}'s tones`)
+			end
+		end
+	end,
 	["trenches v2: a built square is buried by what it loses: a little at 80%, nearly level at 5-10%"] = function()
 		local H = C.Trench.hp
 		assert(near(B.trenchDepth(H.max / 2, false, H), 0.5), "digging: depth is the HP's share")
