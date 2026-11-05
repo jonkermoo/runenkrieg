@@ -23,6 +23,8 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Dragging)
+local ClassCfg = require(Shared.Config.Classes)
+local ClassRules = require(Shared.Rules.Classes)
 local BotsCfg = require(Shared.Config.Bots)
 local DevCfg = require(Shared.Config.DevTools)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
@@ -45,11 +47,17 @@ type Drag = {
 	added: RBXScriptConnection,
 	made: { Instance },
 	held: Tool?,
+	from: Vector3?, -- where the body was when the drag began (the drag's pay, Config/Classes.DragPay)
 }
 
 local PARTS = { "HumanoidRootPart", "Torso", "Head", "Left Arm", "Right Arm", "Left Leg", "Right Leg" }
 
 local drags: { [Model]: Drag } = {} -- by dragger
+-- `fn(player)` when a player's drag pays (Config/Classes.Earn.Drag: far enough, once per knock-down)
+local dragWatchers: { (Player) -> () } = {}
+function Dragging.onDragged(fn: (Player) -> ())
+	table.insert(dragWatchers, fn)
+end
 local lastAsk: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
 
 local function soldier(m: Instance?): (Model?, Humanoid?)
@@ -202,6 +210,27 @@ local function stop(dragger: Model)
 		return
 	end
 	drags[dragger] = nil
+	-- the drag's pay: a living body moved far enough, once per knock-down (the "DragPaid" mark goes when it is up)
+	local root = d.body:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local bh = d.body:FindFirstChildOfClass("Humanoid")
+	local payee = Players:GetPlayerFromCharacter(dragger)
+	if payee and root and d.from and bh and bh.Health > 0 then
+		local moved = (root.Position - d.from).Magnitude
+		if ClassRules.dragPays(moved, ClassCfg.DragPay.least, d.body:GetAttribute("DragPaid") == true) then
+			local body = d.body
+			body:SetAttribute("DragPaid", true)
+			local up: RBXScriptConnection
+			up = body:GetAttributeChangedSignal("Ragdolled"):Connect(function()
+				if body:GetAttribute("Ragdolled") == nil then
+					body:SetAttribute("DragPaid", nil)
+					up:Disconnect()
+				end
+			end)
+			for _, fn in dragWatchers do
+				task.spawn(fn, payee)
+			end
+		end
+	end
 	if d.body.Parent then
 		pcall(settle, d) -- (whatever happens there, the clean-up below still runs)
 	end
@@ -333,6 +362,8 @@ local function start(character: Model?, target: Model)
 		added = added,
 		made = made,
 		held = held,
+		from = (body:FindFirstChild("HumanoidRootPart") :: BasePart?)
+			and (body:FindFirstChild("HumanoidRootPart") :: BasePart).Position,
 	}
 	body:SetAttribute("Dragged", true)
 	dragger:SetAttribute("Dragging", true)

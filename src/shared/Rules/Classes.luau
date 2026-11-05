@@ -4,24 +4,43 @@
 
 local Classes = {}
 
+-- What a life as class `d` costs now: its fee, and its unlock on top while it isn't unlocked this match (`unlocked`).
+function Classes.price(d: any, unlocked: boolean?): number
+	return (if unlocked then 0 else d.unlock) + d.fee
+end
+
 -- The class a soldier spawns as and what it pays: their `picked` class when it exists, isn't locked and `points` cover
--- its cost; else the default (free). A `forced` class (the admin panel's, src/server/DevTools) that exists wins, locked
--- or not, and is free.
+-- its price (Classes.price, with `unlocked` the classes they unlocked this match); else the default (free). A `forced`
+-- class (the admin panel's, src/server/DevTools) that exists wins, locked or not, and is free.
 function Classes.resolve(
 	picked: unknown,
 	points: number,
 	defs: { [string]: any },
 	default: string,
-	forced: unknown?
+	forced: unknown?,
+	unlocked: { [string]: boolean }?
 ): (string, number)
 	if type(forced) == "string" and defs[forced] then
 		return forced, 0
 	end
 	local d = if type(picked) == "string" then defs[picked] else nil
-	if d and not d.locked and d.cost <= points then
-		return picked :: string, d.cost
+	if d and not d.locked then
+		local price = Classes.price(d, unlocked and unlocked[picked :: string])
+		if price <= points then
+			return picked :: string, price
+		end
 	end
 	return default, 0
+end
+
+-- The points a heal of `hp` health pays: `per` points for every `every` health (Config/Classes.Earn.Heal, HealPer).
+function Classes.healPay(hp: number, per: number, every: number): number
+	return math.max(hp, 0) * per / every
+end
+
+-- Whether a drag that moved the body `moved` studs pays: far enough and not yet paid this knock-down.
+function Classes.dragPays(moved: number, least: number, paid: boolean?): boolean
+	return not paid and moved >= least
 end
 
 -- Whether a class can be picked at all (exists and isn't locked); paying is checked at the spawn.
@@ -114,26 +133,43 @@ function Classes.earn(points: number, amount: number): number
 	return math.max(points + amount, 0)
 end
 
-export type Card = { key: string, name: string, cost: number, locked: boolean, affordable: boolean }
+-- `cost`: what a life as it costs now (Classes.price); `unlock` and `fee` its prices; `unlocked` this match
+export type Card = {
+	key: string,
+	name: string,
+	cost: number,
+	unlock: number,
+	fee: number,
+	unlocked: boolean,
+	locked: boolean,
+	affordable: boolean,
+}
 export type State = { points: number, picked: string, current: string?, classes: { Card } }
 
--- What the loadout menu shows (Net "Loadout"): the points, the pick, the class this life and every class's card.
+-- What the loadout menu shows (Net "Loadout"): the points, the pick, the class this life and every class's card
+-- (`unlocked`: the classes unlocked this match).
 function Classes.state(
 	points: number,
 	picked: string,
 	current: string?,
 	list: { string },
-	defs: { [string]: any }
+	defs: { [string]: any },
+	unlocked: { [string]: boolean }?
 ): State
 	local cards = {}
 	for _, key in list do
 		local d = defs[key]
+		local open = (unlocked and unlocked[key]) == true or d.unlock == 0
+		local cost = Classes.price(d, open)
 		table.insert(cards, {
 			key = key,
 			name = d.name,
-			cost = d.cost,
+			cost = cost,
+			unlock = d.unlock,
+			fee = d.fee,
+			unlocked = open,
 			locked = d.locked == true,
-			affordable = d.locked ~= true and d.cost <= points,
+			affordable = d.locked ~= true and cost <= points,
 		})
 	end
 	return { points = points, picked = picked, current = current, classes = cards }

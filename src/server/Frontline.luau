@@ -121,7 +121,7 @@ local frozen: { BasePart } = {} -- the roots anchored at a match's end, until th
 local playedAt = 0 -- os.clock() when play began (the capture log's times)
 local log: { { t: number, index: number, side: string } } = {} -- the match's captures, in order (the results' replay)
 
--- `fn(player, reason)` for each award (a Config/Classes.Earn key: Capture, Neutralise, Defend, Win); `fn()` at each
+-- `fn(player, reason)` for each award (a Config/Classes.Earn key: Capture, Neutralise, Defend); `fn()` at each
 -- match's start
 function Frontline.onAward(fn: (Player, string) -> ())
 	table.insert(awardWatchers, fn)
@@ -904,19 +904,7 @@ local function run()
 		if force then
 			winner = force.winner
 		end
-		-- the results
-		if winner then
-			for _, p in Players:GetPlayers() do
-				if Rules.sideOf(pair, Kits.next(p)) == winner then
-					award(p, "Win")
-				end
-			end
-			for _, m in bots() do
-				if sideOfModel(m) == winner then
-					award(m, "Win")
-				end
-			end
-		end
+		-- (no Win award since the marks rebalance, user 2026-11-05: "drop"; the points reset with the next match)
 		folder:SetAttribute("Winner", winner)
 		release()
 		setWave(nil)

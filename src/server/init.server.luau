@@ -82,7 +82,7 @@ if loadouts then
 		L.award(player, "Capture")
 	end)
 	require(script.ZoneMatch).onMatchStart(L.resetMatch)
-	-- Normal mode's frontline: captures, neutralisations, Defends and the win pay match points (Config/Classes.Earn)
+	-- Normal mode's frontline: captures, neutralisations and Defends pay match points (Config/Classes.Earn)
 	local Frontline = require(script.Frontline)
 	Frontline.onAward(L.award)
 	Frontline.onMatchStart(L.resetMatch)
@@ -95,8 +95,14 @@ if loadouts then
 	L.onEarn(function(player, n)
 		Stats.add(player, "Earned", n)
 	end)
+	-- support pays (the marks rebalance, user 2026-11-05): health healed on others, a downed teammate dragged
+	local ClassCfg = require(game:GetService("ReplicatedStorage").Shared.Config.Classes) :: any
 	require(script.Healing).onHealed(function(player, n)
 		Stats.add(player, "Healed", n)
+		L.award(player, "Heal", n / ClassCfg.HealPer)
+	end)
+	require(script.Dragging).onDragged(function(player)
+		L.award(player, "Drag")
 	end)
 	require(script.Build).onBuilt(function(player, n)
 		Stats.add(player, "Built", n)
