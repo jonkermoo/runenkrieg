@@ -13,6 +13,7 @@ local Net = require(Shared.Net)
 local Map = require(Shared.LiveMap).map -- (the match's map)
 local BotBuild = require(Shared.Rules.BotBuild)
 local BotTrenches = require(Shared.Rules.BotTrenches)
+local BotWait = require(Shared.Rules.BotWait)
 local Trenches = require(script.Parent.Parent.Trenches)
 local Artillery = require(script.Parent.Parent.Artillery)
 local Damage = require(script.Parent.Parent.Damage)
@@ -95,7 +96,7 @@ local function report(now: number, governor: { cap: number })
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts (%.1f/min); %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug, %d given up; %d squads pressed on out of the open; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger, %d left with no way there, %d with no swing, %d begun and broken off, %d out of reach for the side, %d idle resets, %d teammates guarded first, %d rescues claimed, %d let go; front %d moved on, %d contacts, %d parallels, runs %d zig-zag, %d straight; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned (%d squares without the ground), %d sheltered, %d came up, %d lifted out, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped, %d held off its own cover; %d doors opened (%d walked into, %d paths again after a swing, %d doorway spots behind a door, %d steps along a flight), %d waypoints walked on between thinks, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; %s; %s; %d saps due, %d at a ford; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts (%.1f/min); %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug, %d given up; %d squads pressed on out of the open; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger, %d left with no way there, %d with no swing, %d begun and broken off, %d out of reach for the side, %d idle resets, waits %d in trenches, %d in cover, %d spread out, %d where they stood, %d teammates guarded first, %d rescues claimed, %d let go; front %d moved on, %d contacts, %d parallels, runs %d zig-zag, %d straight; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned (%d squares without the ground), %d sheltered, %d came up, %d lifted out, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped, %d held off its own cover; %d doors opened (%d walked into, %d paths again after a swing, %d doorway spots behind a door, %d steps along a flight), %d waypoints walked on between thinks, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; %s; %s; %d saps due, %d at a ford; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -155,6 +156,10 @@ local function report(now: number, governor: { cap: number })
 			stats.workFlapped,
 			stats.workOutOfReach,
 			stats.idleResets,
+			stats.waitTrench,
+			stats.waitCover,
+			stats.waitSpread,
+			stats.waitHere,
 			stats.guarded,
 			stats.rescues,
 			stats.rescuesLet,
@@ -467,10 +472,14 @@ local function squadNote(b: Bot, p: Vector3): string
 end
 
 local still: { [Bot]: { at: Vector3, since: number } } = setmetatable({}, { __mode = "k" }) :: any
+-- (shuffling about in a few studs, never quite standing still: Config/Bots.Move.Wait.mill)
+local milling: { [Bot]: { at: Vector3, since: number } } = setmetatable({}, { __mode = "k" }) :: any
+local WT = Cfg.Move.Wait
 local function stuckLine()
 	local A = DevCfg.Admin
 	local now = os.clock()
 	local lines = {}
+	local points: { BotWait.Point } = {}
 	for _, b in bots do
 		local root = b.root
 		local m = b.m
@@ -479,11 +488,35 @@ local function stuckLine()
 			continue
 		end
 		local p = (root :: BasePart).Position
-		-- (standing meant: building, healing or dragging, or on its post)
+		table.insert(points, { x = p.X, z = p.Z })
+		-- (standing meant: building, healing or dragging, on its post or at its wait spot)
 		local post = b.post
-		if b.act or (post and flat((post :: Vector3) - p).Magnitude <= 4) then
-			still[b] = nil
+		local wt = b.wait
+		if
+			b.act
+			or (post and flat((post :: Vector3) - p).Magnitude <= 4)
+			or (wt and flat(wt.at - p).Magnitude <= 4)
+		then
+			still[b], milling[b] = nil, nil
 			continue
+		end
+		local mi = milling[b]
+		if not mi or flat(p - mi.at).Magnitude > WT.mill.radius then
+			milling[b] = { at = p, since = now }
+		elseif now - mi.since >= WT.mill.seconds then
+			local sv = still[b]
+			if not sv or now - sv.since < A.stuckFor then
+				local waitNote = if wt
+					then `waiting {wt.kind} {math.floor(flat(wt.at - p).Magnitude)} studs off`
+					else "no wait"
+				table.insert(
+					lines,
+					`{b.name} milling {math.floor(now - mi.since)}s within {WT.mill.radius} studs, {b.side or "?"} {b.order or "-"} S{b.sector or "-"}, role {b.role or "-"}, brain {b.brain.state}, {waitNote}, {squadNote(
+						b,
+						p
+					)}`
+				)
+			end
 		end
 		local s = still[b]
 		if not s or flat(p - s.at).Magnitude > 1.5 then
@@ -507,6 +540,7 @@ local function stuckLine()
 				`path {#b.nav.waypoints} pts{if b.nav.computing then " computing" else ""}`,
 				if m:GetAttribute(FrontCfg.HoldAttribute) ~= nil then "held in the wave line" else "",
 				`think in {string.format("%.1f", b.nextThink - now)}s`,
+				if wt then `waiting {wt.kind} {wt.why}, {math.floor(flat(wt.at - p).Magnitude)} studs off` else "",
 			}
 			local kept = {}
 			for _, x in parts do
@@ -516,6 +550,11 @@ local function stuckLine()
 			end
 			table.insert(lines, table.concat(kept, ", "))
 		end
+	end
+	local C = WT.clump
+	local clumped = BotWait.clumped(points, C.within, C.count)
+	if clumped > 0 then
+		table.insert(lines, `{clumped} bots in clumps ({C.count}+ others within {C.within} studs)`)
 	end
 	workspace:SetAttribute(A.BotStuckAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end

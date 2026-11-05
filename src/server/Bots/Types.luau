@@ -208,6 +208,12 @@ export type Bot = {
 	idleAt: Vector3?,
 	idleSince: number?,
 	unstick: { to: Vector3, untilAt: number }?,
+	-- waiting instead of milling (Rules/BotWait, Config/Bots.Move.Wait): what it waits out ("fight", "zone", "hold",
+	-- "go"), why ("stop" for "go", "stalled" for "go" and "hold"), the goal or zone it stands in for (`key`), its spot and the way it faces
+	-- there, until when (stalled: then a fresh path); when it may look for one again; its progress toward its goal
+	wait: { kind: string, why: string, key: Vector3?, at: Vector3, face: Vector3?, untilAt: number? }?,
+	waitAt: number?,
+	prog: { key: { x: number, z: number }?, best: number, at: number }?,
 	-- Normal: a downed or hurt teammate it guards, gun out, until it may drag or heal them (Config/Bots.Actions.Guard)
 	guard: { who: Model, since: number }?,
 	buildWhy: string?, -- Normal, an Engineer: its build job's key, or why it has none (the admin panel's readout)

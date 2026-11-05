@@ -283,6 +283,12 @@ local stats = {
 	workFlapped = 0, -- jobs left after Work.flapMax starts broken off at once
 	workOutOfReach = 0, -- jobs Work.giveUpAfter bots left: refused for their side (moved or dropped)
 	idleResets = 0, -- bots standing still off their post reset by the idle watchdog (Config/Bots.Move.Idle)
+	-- wait spots taken instead of milling (Config/Bots.Move.Wait): in a trench (step, support line, square), at a hidden
+	-- spot, a step away from the crowd, where it stood
+	waitTrench = 0,
+	waitCover = 0,
+	waitSpread = 0,
+	waitHere = 0,
 	guarded = 0, -- teammates guarded, gun out, before a drag or heal (Config/Bots.Actions.Guard)
 	rescues = 0, -- casualties claimed by one rescuer (Config/Bots.Actions.Rescue)
 	rescuesLet = 0, -- claims let go (the rescuer dead or pulled away)
