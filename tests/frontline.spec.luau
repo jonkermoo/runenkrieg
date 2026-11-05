@@ -286,6 +286,23 @@ return {
 		assert(R.gunLocked(A, "Howitzer", 4, false) == A.why and R.gunLocked(A, "Howitzer", 4) == A.why)
 		assert(R.gunLocked(A, "Trench", 4, false) == nil)
 	end,
+	["the center taken opens the howitzer for both sides (user 2026-11-04)"] = function()
+		assert(table.concat(R.center(5), ",") == "3" and table.concat(R.center(3), ",") == "2")
+		assert(table.concat(R.center(4), ",") == "2,3" and #R.center(0) == 0 and table.concat(R.center(1), ",") == "1")
+		local s = R.new(Map1.sectors)
+		local start = table.clone(s.owner)
+		assert(start[3] == "Neutral" and not R.centerTaken(start, s.owner), "the start")
+		s.owner[2] = "East"
+		assert(not R.centerTaken(start, s.owner), "a sector off the center")
+		s.owner[3] = "West"
+		assert(R.centerTaken(start, s.owner), "West takes the center")
+		s.owner[3] = "East"
+		assert(R.centerTaken(start, s.owner), "or East")
+		-- an even chain: either middle sector lost to the other side
+		local st, now = { "West", "West", "East", "East" }, { "West", "West", "West", "East" }
+		assert(R.centerTaken(st, now) and not R.centerTaken(st, st))
+		assert(not R.centerTaken(st, { "West", "Neutral", "East", "East" }), "neutralised isn't taken")
+	end,
 	["reinforcements only on a big mismatch (user 2026-10-29)"] = function()
 		local C = Cfg.Reinforcements
 		assert(C.gap == 3 and C.share == 0.25 and C.times > 1)

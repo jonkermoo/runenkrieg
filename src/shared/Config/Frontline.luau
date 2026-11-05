@@ -123,12 +123,15 @@ local Frontline = {
 	-- the rune howitzer can be built any time once you only have 2 sectors left. once you did and gain sectors back, you
 	-- will still have access to the howitzer"; Rules/Frontline.latched, the Frontline folder's "<Side>" ..
 	-- `LatchAttribute`, reset at a new match). Holding that few from the start isn't a push back.
+	-- Both sides also keep them once the center sector first falls (user 2026-11-04: "let's make it so once the center
+	-- sector has been captured, the rune howitzer is available for building"; both sides, user: "yeah"): the middle of
+	-- the map's chain (Rules/Frontline.center, .centerTaken), taken by a side that didn't hold it at the start.
 	-- While locked, the build panel's title reads "<GUN NAME>: " .. `unavailable` in the bad colour, `why` under it (src/client/Build;
 	-- user 2026-11-04: "clearly make it state in the title card that 'Unavailable'").
 	Artillery = {
 		lastStand = { Howitzer = true },
 		unlockAt = 2,
-		why = "Unlocks once you're pushed back to your last two sectors, then stays for the match",
+		why = "Unlocks once the center sector is taken, or you're pushed back to your last two",
 		unavailable = "Unavailable",
 	},
 	-- Reinforcements (user 2026-10-29: "'reinforcements' boost that gives extra battle points. only when there is a lot
