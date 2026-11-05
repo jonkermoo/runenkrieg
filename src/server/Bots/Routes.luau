@@ -4,7 +4,7 @@
 -- approach spots on rings outside the zone toward that side's home (where an attacking squad gathers before it
 -- pushes in) and hold spots inside the zone (where defenders stand), each on dry open ground with room to stand,
 -- scored by whether the other side's view can't see it (a ray), how much stands close by (walls, trees, houses,
--- built pieces) and its lane (north, centre or south of the straight line home). Worked out a few spots a frame in
+-- built pieces), a hold spot by how much of the other side's way in it sees (rays from its eye), and its lane (north, centre or south of the straight line home). Worked out a few spots a frame in
 -- the background, again every Routes.refresh seconds (building changes the ground); until the first list is ready a
 -- sector has none (the squads walk to the zone straight).
 
@@ -24,7 +24,7 @@ local Routes = {}
 
 local RT = Cfg.Routes
 
-export type Spot = { pos: Vector3, hidden: boolean, near: number, distance: number, lane: number }
+export type Spot = { pos: Vector3, hidden: boolean, near: number, distance: number, lane: number, sees: number? }
 type Entry = { spots: { Spot }?, at: number, building: boolean }
 
 local cache: { [string]: Entry } = {}
@@ -109,6 +109,14 @@ local function build(i: number, side: string, hold: boolean, gen: number): { Spo
 	-- the far side's view: from the zone's middle (attackers' approach), or from out on the enemy's side (holding)
 	local view = if hold then c - home * (s.radius + RT.view) else c
 	view += Vector3.yAxis * RT.eye
+	-- (holding: the far side's view points across its way in, each a spot's eye looks at)
+	local views: { Vector3 } = {}
+	if hold then
+		for _, deg in RT.holdViews do
+			local dir = CFrame.fromAxisAngle(Vector3.yAxis, math.rad(deg)) * -home
+			table.insert(views, c + dir * (s.radius + RT.view) + Vector3.yAxis * RT.eye)
+		end
+	end
 	local homeX, homeZ = c.X + home.X * 100, c.Z + home.Z * 100
 	local out: { Spot } = {}
 	local radii = {}
@@ -140,12 +148,24 @@ local function build(i: number, side: string, hold: boolean, gen: number): { Spo
 				local hidden = hit ~= nil and hit.Distance < (chest - view).Magnitude - 1
 				local around =
 					workspace:GetPartBoundsInRadius((pos :: Vector3) + Vector3.yAxis * 3, RT.nearRadius, near)
+				local sees: number? = nil
+				if hold then
+					local eyeAt = (pos :: Vector3) + Vector3.yAxis * RT.eye
+					sees = 0
+					for _, v in views do
+						local look = workspace:Raycast(eyeAt, v - eyeAt, rays)
+						if not look or look.Distance >= (v - eyeAt).Magnitude - 1 then
+							sees = (sees :: number) + 1
+						end
+					end
+				end
 				table.insert(out, {
 					pos = pos :: Vector3,
 					hidden = hidden,
 					near = #around,
 					distance = if hold then flat((pos :: Vector3) - c).Magnitude else r - s.radius,
 					lane = Squads.lane(homeX, homeZ, c.X, c.Z, pos.X, pos.Z, RT.laneWithin),
+					sees = sees,
 				})
 			end
 			done += 1

@@ -302,17 +302,24 @@ local function sense(b: Bot, d: Rules.Difficulty, now: number): boolean
 	table.sort(seen, function(x, y)
 		return x.distance < y.distance
 	end)
+	-- the nearest few get a ray; when none of them was in sight last think (behind a wall: a village), the next few
+	-- nearest after them this think, and so on round (user 2026-11-05: "in this area bots dont attack. they just
+	-- awkwardly stand": in Map 1's inn yard the nearest enemies stood behind the houses, one in plain view further off
+	-- was never looked at)
+	local from0 = if (b.senseFrom or 0) < #seen then b.senseFrom or 0 else 0
 	rayParams.FilterDescendantsInstances = { m }
 	local list = {}
 	local out: { Target } = {}
+	local any = false
 	b.spotted = false
 	for i = 1, rays do
-		local t = seen[i]
+		local t = seen[from0 + i] or seen[from0 + i - #seen]
 		local other = parts[t.model]
 		local hit = workspace:Raycast(from, other.pos - from, rayParams)
 		stats.rays += 1
 		budget.rays -= 1
 		t.visible = hit ~= nil and hit.Instance:IsDescendantOf(t.model)
+		any = any or t.visible
 		table.insert(out, t)
 		table.insert(list, { id = t.model, distance = t.distance, visible = t.visible })
 		-- an enemy in sight looking its way has spotted it
@@ -326,6 +333,7 @@ local function sense(b: Bot, d: Rules.Difficulty, now: number): boolean
 			end
 		end
 	end
+	b.senseFrom = if any then 0 else from0 + rays
 	local pick = Rules.pick(list, b.brain.targetId)
 	b.target = nil
 	if pick then

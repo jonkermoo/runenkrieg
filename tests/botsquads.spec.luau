@@ -119,6 +119,24 @@ return {
 		assert(R.pickSpot(spots, nil, { [1] = 3 }, zero, RT.weights, RT.nearCap) == 2, "the crowded lane avoided")
 		assert(R.pickSpot({}, nil, {}, {}, RT.weights, RT.nearCap) == nil)
 	end,
+	["scoreSpot: a hold spot seeing the way in beats a blind one by the walls (Map 1's inn yard)"] = function()
+		local w = RT.weights
+		-- hidden by the yard's walls, walls all round, but sees none of the way in
+		local blind: R.Spot = { hidden = true, near = 4, distance = 10, lane = 0, sees = 0 }
+		-- in the yard's mouth: in the open, little near, sees two of the view points
+		local mouth: R.Spot = { hidden = false, near = 1, distance = 20, lane = 0, sees = 2 }
+		-- behind a low wall: hidden and seeing
+		local wall: R.Spot = { hidden = true, near = 2, distance = 20, lane = 0, sees = 1 }
+		local function v(s: R.Spot): number
+			return R.scoreSpot(s, 0, 0, w, RT.nearCap)
+		end
+		assert(v(mouth) > v(blind), "seeing the way in beats hiding blind")
+		assert(v(wall) > v(blind), "hidden and seeing beats hidden and blind")
+		assert(v(wall) > v({ hidden = false, near = 2, distance = 20, lane = 0, sees = 1 }), "cover still counts")
+		-- an approach spot (sees nil) scores as before
+		local ap: R.Spot = { hidden = true, near = 2, distance = 20, lane = 0 }
+		assert(math.abs(v(ap) - (w.hidden + 2 * w.near - 20 * w.distance)) < 1e-9)
+	end,
 	["lane: the centre within the angle, the sides by which side"] = function()
 		-- home at the origin, the goal 100 east: spots round the goal, measured against the way back west
 		assert(R.lane(0, 0, 100, 0, 80, 2, 25) == 0, "on the way home")

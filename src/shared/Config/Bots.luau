@@ -203,12 +203,17 @@ local Bots = {
 	-- Worked out again every `refresh` seconds (built pieces change it), `perFrame` spots a frame. A squad going more
 	-- than `midFrom` studs walks through a waypoint `midShare` of the way along, `laneOffset` of the distance to its
 	-- lane's side.
+	-- Hold spots must see the way in (user 2026-11-05 play test, Map 1's inn yard: "in this area bots dont attack. they
+	-- just awkwardly stand"; the yard's walls hid every spot, so the defenders stood blind along them): each hold spot
+	-- also looks from `eye` up at the far side's view points (`holdViews` degrees either side of the enemy's way, `view`
+	-- studs past the zone); `weights.sees` for each it sees, `weights.blind` (negative) when it sees none.
 	Routes = {
 		rings = { 15, 35 },
 		perRing = 9,
 		arc = 80,
 		holdRings = { 0.35, 0.7 },
 		holdPerRing = 8,
+		holdViews = { -50, 0, 50 },
 		view = 40,
 		eye = 5,
 		chest = 3,
@@ -220,7 +225,7 @@ local Bots = {
 		midFrom = 140,
 		midShare = 0.5,
 		laneOffset = 0.25,
-		weights = { hidden = 3, near = 0.6, distance = 0.02, crowd = 1.5, random = 1 },
+		weights = { hidden = 3, near = 0.6, distance = 0.02, crowd = 1.5, random = 1, sees = 3, blind = -4 },
 	},
 
 	-- Normal's actions besides fighting (Rules/BotActions; user 2026-11-01), weighed every `every` seconds a bot:
@@ -932,6 +937,11 @@ local Bots = {
 		--   squad's stop (a squad counts its members within Squads.arrive * 3 of a waypoint, Trenches.Jump.at of its
 		--   jump-off), `stalled` of where it got stuck (for `hold` s, then a fresh path);
 		-- - `arrive`: studs from its goal that count as there; a bot with none looks again every `every` s.
+		-- - there, or holding its post with nothing to aim at, it looks at the enemy its squad last saw, or where it was
+		--   last shot at from within `look` s, else the enemy's way (user 2026-11-05: "in this area bots dont attack.
+		--   they just awkwardly stand": holders in Map 1's inn yard faced the wall they had walked to, and bots only
+		--   spot what is in front of them unless shot at); a hidden spot that sees none of the enemy's way in is no
+		--   wait spot for a holder.
 		-- The stuck readout lists bots `mill.seconds` s inside `mill.radius` studs off post (shuffling, not standing
 		-- still), and how many stand in a clump (`clump.count` others within `clump.within` studs).
 		Wait = {
@@ -945,6 +955,7 @@ local Bots = {
 			gain = 4,
 			hold = 12,
 			every = 1,
+			look = 20,
 			weights = { step = 30, reserve = 22, square = 15, cover = 10, distance = 0.5, facing = 10 },
 			mill = { radius = 8, seconds = 20 },
 			clump = { within = 4, count = 3 },

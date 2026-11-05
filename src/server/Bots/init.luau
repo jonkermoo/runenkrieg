@@ -693,7 +693,8 @@ local function waitSpots(b: Bot, ax: number, az: number, reach: number): ({ BotW
 	end
 	if b.sector and b.side then
 		for _, sp in Routes.spots(b.sector :: number, b.side :: string, b.role == "Hold") or {} do
-			if sp.hidden then
+			-- (a holder's hidden spot that sees none of the enemy's way in: no use to it)
+			if sp.hidden and (sp.sees == nil or sp.sees > 0) then
 				put(sp.pos, "cover", nil)
 			end
 		end
@@ -850,6 +851,22 @@ local function waitStep(
 		return true, nil
 	end
 	return true, spot
+end
+
+-- Which way a bot holding its post or waiting looks with nothing to aim at (Config/Bots.Move.Wait.look): at the enemy
+-- its squad last saw, or where it was last shot at from, else `face` (nil: wherever it turned).
+local function lookOut(b: Bot, now: number, face: Vector3?): Vector3?
+	local at = knownSpot(b, now)
+	if not at and b.threatFrom and b.threatAt and now - (b.threatAt :: number) <= WT.look then
+		at = b.threatFrom
+	end
+	if at then
+		local f = flat((at :: Vector3) - (b.root :: BasePart).Position)
+		if f.Magnitude > 1 then
+			return f.Unit
+		end
+	end
+	return face
 end
 
 local function think(b: Bot, now: number, d: Rules.Difficulty)
@@ -1252,11 +1269,27 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		humanoid.AutoRotate = false
 		turn.CFrame = CFrame.lookAt(Vector3.zero, b.postFace :: Vector3)
 		turn.Enabled = true
-	elseif b.wait and b.wait.face and flat(b.wait.at - root.Position).Magnitude < MV.Arrive then
-		-- at its wait spot with nothing to aim at: looking out toward the enemy
+	elseif b.wait and flat(b.wait.at - root.Position).Magnitude < MV.Arrive and lookOut(b, now, b.wait.face) then
+		-- at its wait spot with nothing to aim at: looking out at the enemy last seen, else toward the enemy's way
 		humanoid.AutoRotate = false
-		turn.CFrame = CFrame.lookAt(Vector3.zero, b.wait.face :: Vector3)
+		turn.CFrame = CFrame.lookAt(Vector3.zero, lookOut(b, now, b.wait.face) :: Vector3)
 		turn.Enabled = true
+	elseif
+		b.role == "Hold"
+		and b.post
+		and b.sector
+		and b.side
+		and b.nav.goal == nil
+		and flat((b.post :: Vector3) - root.Position).Magnitude < MV.Arrive
+	then
+		-- at an open hold spot with nothing to aim at: the same, not the way it walked in (a yard wall)
+		local tx, tz = BotBuild.toward(Map.sectors, b.sector :: number, b.side :: string)
+		local look = lookOut(b, now, Vector3.new(tx, 0, tz)) :: Vector3
+		humanoid.AutoRotate = look.Magnitude < 1e-3
+		if look.Magnitude >= 1e-3 then
+			turn.CFrame = CFrame.lookAt(Vector3.zero, look)
+		end
+		turn.Enabled = look.Magnitude >= 1e-3
 	else
 		humanoid.AutoRotate = true
 		turn.Enabled = false
