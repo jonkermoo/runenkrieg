@@ -27,7 +27,9 @@ return function(map: any): any
 	end
 	local lots = {}
 	for _, l in layout.lots do
-		table.insert(lots, { corners = V.corners(l, 0), stories = l.stories, storyHeight = l.storyHeight })
+		for _, f in V.footprints(l, B, 0) do
+			table.insert(lots, f)
+		end
 	end
 	local g = Check.grid(map, MT, Cfg, trees, lots, Assets.TreeTargetHeight, M.Movement.MaxSlopeAngle)
 

@@ -54,6 +54,33 @@ local function clear(a: { number }, ah: number, b: { number }, bh: number): bool
 end
 
 return {
+	["S4 is the coaching inn's yard: in the inn's footprint, clear of its buildings, open to the road (user 2026-11-04)"] = function()
+		local B = require("../src/shared/Config/Buildings")
+		local V = require("../src/shared/Rules/Village")
+		local P = require("../src/shared/Config/Props")
+		local inn
+		for _, l in V.layout(Map1, B, M, MT, P).lots do
+			if l.id == "Inn" then
+				inn = l
+			end
+		end
+		assert(inn, "no inn")
+		local s4 = sectors[4]
+		local function inside(q: { { number } }, x: number, z: number): boolean
+			return V.quadsOverlap(
+				q,
+				{ { x - 0.1, z - 0.1 }, { x + 0.1, z - 0.1 }, { x + 0.1, z + 0.1 }, { x - 0.1, z + 0.1 } }
+			)
+		end
+		assert(inside(V.corners(inn, 0), s4.x, s4.z), "S4 isn't in the inn's footprint")
+		for _, f in V.footprints(inn, B, 3) do
+			assert(not inside(f.corners, s4.x, s4.z), "S4 is inside an inn building")
+			-- and a clear way from the point to the road (north) past every block
+			for z = s4.z, 0, 2 do
+				assert(not inside(f.corners, s4.x, z), `the yard's mouth is shut at z {z}`)
+			end
+		end
+	end,
 	["spawns behind cover: the ground hides a wave line from the next sector's point and wave line (user 2026-11-01)"] = function()
 		local eye, head = M.Character.EyeHeight, M.Character.Height
 		for i = 1, #sectors - 1 do

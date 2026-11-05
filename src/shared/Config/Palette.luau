@@ -67,6 +67,10 @@ local Palette = {
 		Metal = { 54, 52, 50 }, -- iron hinges, handles
 		Sign = { 210, 196, 162 },
 		Wood = { 104, 82, 62 },
+		-- furniture (Config/Buildings.Furniture): bedding, blankets, hay
+		Linen = { 214, 206, 186 },
+		Cloth = { 140, 64, 54 },
+		Hay = { 194, 166, 98 },
 		-- the lantern festival's pieces (Lantern Meadows' stage, lantern poles; a part's Paint "Festival", its Swatch the key)
 		Festival = {
 			Canvas = { 200, 184, 148 },

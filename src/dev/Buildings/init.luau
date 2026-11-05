@@ -8,6 +8,7 @@
 local CollectionService = game:GetService("CollectionService")
 
 local Geometry = require(script.Geometry)
+local Interior = require(script.Interior)
 
 local Buildings = {}
 
@@ -133,6 +134,8 @@ local function shell(model: Model, t: any, ctx: Geometry.Ctx, deps: Deps): (numb
 	for story, n in wallCounts do
 		model:SetAttribute("WallCount_" .. story, n)
 	end
+	-- the furniture (t.interior): tables and benches, beds, pillars, stalls...
+	Interior.build(model, ctx, t, floorTop, H)
 	local wallTop = floorTop + t.stories * H
 	if t.quoins then
 		Geometry.quoins(model, ctx, W, Dp, floorTop + 0.5, floorTop + t.stories * H)
@@ -282,6 +285,9 @@ function Buildings.paint(model: Instance, scheme: any, palette: any)
 		Sign = rgb(P.Sign),
 		Wood = rgb(P.Wood),
 		Quoin = rgb(P.Quoin),
+		Linen = rgb(P.Linen),
+		Cloth = rgb(P.Cloth),
+		Hay = rgb(P.Hay),
 	}
 	local door = rgb(P.Doors[scheme.door])
 	colors.DoorDark = Color3.new(door.R * 0.86, door.G * 0.86, door.B * 0.86)
