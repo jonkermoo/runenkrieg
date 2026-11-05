@@ -342,6 +342,8 @@ local function build(player: Player): DevPanel.Panel
 	local loadLine = DevPanel.heading(p.panel, "Load: none yet", order)
 	order += 1
 	local waitLine = DevPanel.heading(p.panel, "Server waits for: nobody", order)
+	order += 1
+	local groundLine = DevPanel.heading(p.panel, "Held over unloaded ground: 0 times", order)
 	local slowRows: { [number]: TextButton } = {}
 	local function showSlow()
 		local now = player:GetAttribute(LoadCfg.SlowAttribute)
@@ -386,6 +388,8 @@ local function build(player: Player): DevPanel.Panel
 			local f = workspace:FindFirstChild(FrontCfg.FolderName)
 			local who = f and f:GetAttribute(FrontCfg.WaitingAttribute)
 			waitLine.Text = `Server waits for: {if type(who) == "string" then who else "nobody"}`
+			groundLine.Text =
+				`Held over unloaded ground: {player:GetAttribute(LoadCfg.Ground.HeldAttribute) or 0} times`
 			task.wait(A.LoadReadout)
 		end
 	end)

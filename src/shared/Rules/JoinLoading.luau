@@ -7,6 +7,7 @@
 --     `margin`: the middle of each cell of a grid whose cells fit inside a circle of `radius` (side radius * √2).
 --   JoinLoading.progress(done, total) -> 0..1 (nothing to do: done).
 --   JoinLoading.held(held, parts, share) -> boolean: this client holds enough of the server's parts (no count: yes).
+--   JoinLoading.within(bounds, margin, x, z) -> boolean: inside the bounds grown by `margin`.
 --   JoinLoading.status(progress) -> the words under the name ("Loading the front · 42%").
 
 local JoinLoading = {}
@@ -64,6 +65,14 @@ function JoinLoading.held(held: number, parts: number?, share: number): boolean
 		return true
 	end
 	return held >= parts * share
+end
+
+-- (x, z) inside the bounds grown by `margin` on every side
+function JoinLoading.within(bounds: Rect, margin: number, x: number, z: number): boolean
+	return x >= bounds.minX - margin
+		and x <= bounds.maxX + margin
+		and z >= bounds.minZ - margin
+		and z <= bounds.maxZ + margin
 end
 
 function JoinLoading.status(progress: number): string
