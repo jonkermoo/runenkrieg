@@ -126,6 +126,35 @@ function BotTrenches.laid(run: Run, squares: { { x: number, z: number } }, withi
 	return nil
 end
 
+-- The real free end of a run A-B as it was laid (Config/Bots.Trenches.Chain): of `ends` (the free ends of its side's
+-- squares, flat points), those within `off` studs of its line and no further than `past` of its length beyond B, the
+-- one furthest along it; nil when none (nothing of it laid yet). The next run starts there, so the planner joins it
+-- (a run starting anywhere else near a trench is refused "Too close to another trench").
+function BotTrenches.lastEnd(
+	ends: { { x: number, z: number } },
+	ax: number,
+	az: number,
+	bx: number,
+	bz: number,
+	off: number,
+	past: number
+): { x: number, z: number }?
+	local best, bestT = nil, -math.huge
+	for _, e in ends do
+		local d, t = BotTrenches.offRun(e.x, e.z, ax, az, bx, bz)
+		if d <= off and t <= 1 + past and t > bestT then
+			best, bestT = e, t
+		end
+	end
+	return best
+end
+
+-- How many pioneers a side wants (Config/Bots.Trenches.pioneers, More): `base`, one more for each `per` squares it has
+-- planned and not dug yet, up to `max`.
+function BotTrenches.pioneersWanted(base: number, undug: number, more: { per: number, max: number }): number
+	return math.clamp(base + math.floor(undug / math.max(more.per, 1)), 0, math.max(more.max, base))
+end
+
 -- Whether run `k` of `runs` may be planned yet: every run before it planned (`laid`), so each one joins the last (a
 -- run that joins nothing must keep Config/Build.Trench.spacing from every other trench, and the bays lie closer):
 -- the fire trench bay by bay, then the support line, then the communication trench. The support line joins nothing and

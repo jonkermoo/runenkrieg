@@ -45,6 +45,8 @@ export type BuildJob = {
 	fix: boolean?, -- a gun of its side out of service (Rules/BotCrew.repairOrder): fixed first, wherever it stands
 	why: string?, -- why it was last refused (Build.placeAs; the Engineer readout)
 	from: { x: number, z: number }?, -- a trench run planned part way: where it began (its job goes on from the part's end)
+	buried: boolean?, -- a trench square dug full once and buried since (pioneers dig it first, Config/Bots.Trenches.Redig)
+	redig: number?, -- a buried-to-nothing square planned again where it lay: kept on the list until then (Trenches.Redig)
 	lostBy: { [number]: boolean }?, -- bots (by id) that left it with no way there, no swing or flapping (Build.Work)
 	sys: string?, -- a trench run's system: "S<sector>", or "S<sector>F<k>" a forward line (Config/Bots.Trenches.Forward)
 }
@@ -280,6 +282,10 @@ export type SideBuild = {
 	gunNote: string?, -- why each gun is or isn't on its list (locked, its spots, or why none fit; the Engineer readout)
 	inFront: { [string]: number }?, -- its guns and MG nests in its front sector by key, captured ones it uses counted
 	systems: { [string]: TrenchSystem }, -- its trench systems by key (BuildJob.sys)
+	-- its squares dug full, each one's line (BlockA, BlockB), and those buried to nothing to plan again where they lay
+	-- (Config/Bots.Trenches.Redig)
+	had: { [Model]: { a: Vector3, b: Vector3 } }?,
+	redigs: { BuildJob }?,
 }
 -- every soldier alive this frame, gathered once for all the bots' sight (entries reused frame to frame)
 export type Soldier = {

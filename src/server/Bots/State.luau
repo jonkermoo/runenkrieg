@@ -59,6 +59,10 @@ local ByTrench = {
 	-- each side's bots' deaths this match: all, in a trench square, by a shell, in a sector's capture zone (Config/Bots.Trenches.Stats; the admin
 	-- trench stats)
 	deaths = {} :: { [string]: { all: number, trench: number, shell: number, zone: number } },
+	-- each side's trench run plans this match, by "<side> <what>": laid, refused (and by Trenches.plan's reason),
+	-- chained (started at the real free end of the run before, Config/Bots.Trenches.Chain), redug (buried squares
+	-- planned again); the admin trench stats
+	runs = {} :: { [string]: number },
 }
 for _, name in TM.materials do
 	ByTrench.costs[name] = TM.open

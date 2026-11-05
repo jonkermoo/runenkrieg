@@ -605,6 +605,31 @@ local function trenchStats()
 				d.shell
 			)}), {d.zone} in a zone ({pct(d.zone)})`
 		)
+		-- (its run plans this match: State.ByTrench.runs)
+		local runs = State.ByTrench.runs
+		local function n(what: string): number
+			return runs[`{side} {what}`] or 0
+		end
+		local why = {}
+		local pre = `{side} refused: `
+		for k, v in runs do
+			if string.sub(k, 1, #pre) == pre then
+				table.insert(why, { k = string.sub(k, #pre + 1), v = v })
+			end
+		end
+		table.sort(why, function(x, y)
+			return x.v > y.v
+		end)
+		local parts = {}
+		for _, w in why do
+			table.insert(parts, `{w.k} {w.v}`)
+		end
+		table.insert(
+			lines,
+			`  runs {n("laid")} laid, {n("refused")} refused ({table.concat(parts, "; ")}); {n("chained")} started at the real end; {n(
+				"redug"
+			)} buried squares planned again`
+		)
 	end
 	-- (minutes since a sector last changed hands, or since the match began: how stale the fighting is)
 	local owners = fronts.owners
