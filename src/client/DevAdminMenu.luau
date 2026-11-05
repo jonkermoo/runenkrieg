@@ -287,7 +287,10 @@ local function build(player: Player): DevPanel.Panel
 		table.insert(front, b)
 	end
 	-- the capture readout (Config/Frontline.BotWeight: a player 1, a bot half): each sector's weights in its zone, its
-	-- control, its speed (control per second, momentum in) and the seconds left to the capture
+	-- control, its speed (control per second) and the seconds left to the capture; above them one soldier's worth of
+	-- lead on this server and how long the last capture took from its first push (Config/Frontline.Unit)
+	order += 1
+	local lastCapture = DevPanel.heading(p.panel, "Last capture: none yet", order)
 	local readout: { TextLabel } = {}
 	for i = 1, #LiveMap.map.sectors do
 		order += 1
@@ -304,6 +307,10 @@ local function build(player: Player): DevPanel.Panel
 				b.Text = `{side} howitzer kept for the match: {if on then "on" else "off"}`
 				paint(b, on)
 			end
+			local unit, took =
+				f and f:GetAttribute(FrontCfg.UnitAttribute), f and f:GetAttribute(FrontCfg.LastCaptureAttribute)
+			lastCapture.Text = `Last capture took {if type(took) == "number" then num(took) .. " s" else "(none yet)"}`
+				.. ` · a soldier's worth: {if type(unit) == "number" then num(unit) else "?"}`
 			for i, label in readout do
 				local s = f and f:FindFirstChild(LiveMap.map.sectors[i] and LiveMap.map.sectors[i].id or "")
 				if s then
