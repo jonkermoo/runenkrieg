@@ -204,6 +204,8 @@ export type Bot = {
 	postKind: string?, -- "step", "reserve" (the support line), "dugout" (sheltering), "window" or "open"
 	postFoot: Vector3?, -- its dugout's foot (where the steps start): walked straight down from there, and up to it
 	dugSince: number?, -- when it went down into its dugout (Config/Bots.Dugouts.Heat.stay)
+	dugFrom: Vector3?, -- where it went down from: the heat there brings it up (Dugouts.Heat.leave)
+	dugStuck: number?, -- since when it has been down in a dugout it isn't sheltering in (Config/Bots.Dugouts.Free)
 	dugRest: number?, -- up to fight till then, after a stay (Dugouts.Heat.rest)
 	gun: Model?, -- Normal: the gun its commander gave it (src/server/Bots/Crew): it walks there, mans and fires it
 	gunWait: number?, -- not given a gun again before this (taken over by a teammate, or gave up the walk)

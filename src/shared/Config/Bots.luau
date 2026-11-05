@@ -712,10 +712,13 @@ local Bots = {
 	-- - Sheltering (user 2026-11-03: "make bots utilize dug outs more often, especially in trenches highly contested or
 	--   often shelled"): by how hot its post is (Rules/BotTrenches.heat, `Heat`): shells landing within `Heat.radius`,
 	--   the side's own dead there and enemies known within `Heat.enemyNear`, each fading by e every `Heat.fade` s. At
-	--   `Heat.enter` (and not standing to, not falling back) a holder goes down into the nearest standing dugout with a
+	--   `Heat.enter` (and not standing to, not falling back) a holder goes down into the nearest standing dugout within `reach` studs with a
 	--   place, one per fire bay staying on the fire step as a sentry ("1 per fire bay"); it comes up to its post once
-	--   its dugout cools under `Heat.leave`, the side stands to, or after `Heat.stay` s down, then fights `Heat.rest` s
-	--   before it may go down again ("They still need to come back out and fight").
+	--   its post cools under `Heat.leave` (the heat where it sheltered from, not at the dugout: user 2026-11-04, "a
+	--   crazy amount of bots are stuck in dugouts", holders went down hot and came straight up cold, over and over),
+	--   but never before `Heat.least` s down; the side stands to, or after `Heat.stay` s down; then fights `Heat.rest`
+	--   s before it may go down again ("They still need to come back out and fight"). A dugout's `room` places count
+	--   every body down in it, not only the holders sent there; a holder sent off to attack leaves it.
 	-- - Bombing out ("Yes"): a Grenadier of a pushing squad throws a grenade down the steps of an enemy dugout its squad
 	--   knows someone is in (a known enemy within `Bomb.inside` studs of its room, under the trench floor), from `min`-`max`
 	--   studs, no teammate within Actions.Grenade.safe of the steps.
@@ -729,12 +732,16 @@ local Bots = {
 		near = 40,
 		recent = 8,
 		room = 3,
+		reach = 50, -- (a holder only goes down into a dugout this near: never across the front to another's)
 		dug = 0.95,
 		spacing = 16, -- (as Config/Build.Dugout.spacing: a dugout there is refused nearer)
 		recheck = 60, -- (a square refused one, Build.dugoutFor: no ground round its room, left out this many seconds)
 		engineers = 1,
 		Bomb = { inside = 6, min = 6, max = 25 },
 		Fox = { trench = 30, apart = 5, keep = 120 },
+		-- (a bot down in a dugout's steps or room that isn't sheltering there walks straight up to its foot; still
+		-- down after `after` s, it is lifted out onto the trench floor `out` studs in front of the foot)
+		Free = { after = 12, out = 2 },
 		-- (`weight`: a shell, an own death, an enemy known near; `edge`: a shell's or death's share at `radius`;
 		-- `keep`: the seconds a shell or death is remembered; `enemyMost`: the most heat its known enemies add)
 		Heat = {
@@ -748,6 +755,7 @@ local Bots = {
 			enemyMost = 0.5,
 			enter = 0.8,
 			leave = 0.35,
+			least = 10,
 			stay = 40,
 			rest = 12,
 			build = 1.5,
