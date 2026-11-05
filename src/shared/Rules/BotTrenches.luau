@@ -159,9 +159,29 @@ end
 -- run that joins nothing must keep Config/Build.Trench.spacing from every other trench, and the bays lie closer):
 -- the fire trench bay by bay, then the support line, then the communication trench. The support line joins nothing and
 -- lies `Support.back` behind, so it may be planned at once alongside the fire trench (`kinds`: each run's kind; user
--- 2026-11-04, the trench priority: one run open at a time left a side's diggers idle).
+-- 2026-11-04, the trench priority: one run open at a time left a side's diggers idle); the communication trench once
+-- the support line and the fire bays up to the middle one are.
 function BotTrenches.ready(laid: { [number]: boolean }, k: number, kinds: { string }?): boolean
 	if kinds and kinds[k] == "Support" then
+		return true
+	end
+	-- (a communication run once the support line, its own runs before it and the fire bays up to the middle one, which
+	-- it tees into (fireMid), are planned: dug alongside the fire trench's far bays, 2026-11-04 throughput)
+	if kinds and kinds[k] == "Comm" then
+		local fires = 0
+		for i = 1, #kinds do
+			fires += if kinds[i] == "Fire" then 1 else 0
+		end
+		local need, seen = math.ceil(fires / 2), 0
+		for i = 1, k - 1 do
+			local kind = kinds[i]
+			if kind == "Fire" then
+				seen += 1
+			end
+			if not laid[i] and (kind ~= "Fire" or seen <= need) then
+				return false
+			end
+		end
 		return true
 	end
 	for i = 1, k - 1 do
