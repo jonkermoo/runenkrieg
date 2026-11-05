@@ -784,7 +784,7 @@ local Bots = {
 		dug = 0.95,
 		spacing = 16, -- (as Config/Build.Dugout.spacing: a dugout there is refused nearer)
 		recheck = 60, -- (a square refused one, Build.dugoutFor: no ground round its room, left out this many seconds)
-		engineers = 1,
+		engineers = 2, -- (was 1: forward lines mostly went on without their dugout, user 2026-11-05)
 		Bomb = { inside = 6, min = 6, max = 25 },
 		Fox = { trench = 30, apart = 5, keep = 120 },
 		-- (a bot down in a dugout's steps or room that isn't sheltering there walks straight up to its foot; still
