@@ -725,6 +725,7 @@ local Bots = {
 		room = 3,
 		dug = 0.95,
 		spacing = 16, -- (as Config/Build.Dugout.spacing: a dugout there is refused nearer)
+		recheck = 60, -- (a square refused one, Build.dugoutFor: no ground round its room, left out this many seconds)
 		engineers = 1,
 		Bomb = { inside = 6, min = 6, max = 25 },
 		Fox = { trench = 30, apart = 5, keep = 120 },

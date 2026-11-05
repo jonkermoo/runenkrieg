@@ -704,7 +704,27 @@ export type DugoutSpot = {
 	bridge: boolean, -- a bridge on that square
 	nearest: number, -- flat, doorway to doorway, to the nearest other dugout
 	clash: boolean?, -- its room or tunnel within Dugout.apart of another's (Build.dugoutClash)
+	cover: number?, -- the lowest ground over and round its room, studs over the trench floor (Build.dugoutCoverAt)
 }
+
+-- Where the ground round a dugout's room is read (Config/Build.Dugout `cover`), in its own frame (x along the trench,
+-- z back into the wall from its foot): a grid over its room and `cover.around` past its sides and back (out to the
+-- edge of the ground its dig hollows), `cover.cols` along by `cover.rows` back
+function Build.dugoutCoverAt(piece: Piece, d: any): { { x: number, z: number } }
+	local c = d.cover
+	local half = piece.width / 2 + c.around
+	local z0, z1 = d.stair, d.stair + piece.depth + c.around
+	local out = {}
+	for i = 0, c.cols - 1 do
+		for j = 0, c.rows - 1 do
+			table.insert(out, {
+				x = -half + 2 * half * i / (c.cols - 1),
+				z = z0 + (z1 - z0) * j / (c.rows - 1),
+			})
+		end
+	end
+	return out
+end
 
 -- A dugout's dug-out space in its own frame (x along the trench, y up from the trench floor, z back into the wall from
 -- the wall's foot; Config/Build.Dugout `d`, the piece's room): its tunnel and room as one box, `pad` more each way
@@ -747,7 +767,9 @@ function Build.dugoutClash(a: any, b: any, piece: Piece, d: any): boolean
 end
 
 -- Why a dugout can't go in the trench square wall `s` describes (Config/Build.Dugout `d`), nil when it can: a square
--- dug out and long enough for its doorway, no trench joining that wall, no bridge over it, no other dugout close by
+-- dug out and long enough for its doorway, no trench joining that wall, no bridge over it, no other dugout close by,
+-- and ground over and round its room (`s.cover` at least `d.cover.over` over the trench floor: the dig's top lies at
+-- the trench floor, so lower ground leaves it open to the sky; user 2026-11-04, a dugout on a downhill trench poked out)
 function Build.dugoutSpot(s: DugoutSpot, d: any): string?
 	if not s.found or s.dug < d.dug then
 		return "Needs a dug trench"
@@ -766,6 +788,9 @@ function Build.dugoutSpot(s: DugoutSpot, d: any): string?
 	end
 	if s.nearest < d.spacing or s.clash then
 		return `Too close to another dugout (keep {d.spacing} studs apart)`
+	end
+	if s.cover and s.cover < d.cover.over then
+		return "Not enough ground here: a dugout must be dug into a bank or level ground"
 	end
 	return nil
 end
