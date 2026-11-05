@@ -289,6 +289,11 @@ local Artillery = {
 	-- degrees; a bot put off for a player is set down `aside` studs to the gun's side of the crew spot. While a bot mans
 	-- it, the prompt reads `takeOver` for its teammates.
 	Bot = { reach = 1.5, laid = 0.5, aside = 4, takeOver = "Take over the gun" },
+	-- A gun broken or taken away under its gunner (user 2026-11-05: "if a teammates destroys a cannon while u are manning
+	-- it, you should get kicked off. you stay on the hud when its broken"): the gunner, player or bot, set down `aside`
+	-- studs to their left of the crew spot and `up` over it (clear of the wreck), `after` seconds after the gun let go of
+	-- them, off the gun's camera and panel.
+	PutOff = { aside = 3, up = 0.5, after = 0.3 },
 	-- a bot gunner's tracks on every client (src/client/Artillery), each an AnimationPriority a step over its own (brace
 	-- Action3, loading and box reload Action2, hand wheel and stance Action): over the bot's weapon hold (Action, played
 	-- from the server: src/server/Bots/Animate), in a player gunner's order

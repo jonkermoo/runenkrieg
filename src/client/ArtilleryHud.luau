@@ -338,7 +338,7 @@ function ArtilleryHud.start()
 			return nil
 		end
 		for _, m in f:GetChildren() do
-			if m:IsA("Model") and m:GetAttribute("Gunner") == player.UserId then
+			if m:IsA("Model") and m:GetAttribute("Gunner") == player.UserId and m:GetAttribute("Broken") ~= true then
 				return m
 			end
 		end

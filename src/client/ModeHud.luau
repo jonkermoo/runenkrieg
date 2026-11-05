@@ -636,22 +636,26 @@ function ModeHud.start()
 	ffaBox.Parent = gui
 	SketchMap.new(ffaBox, Playtest.name, { you = true, zone = true })
 	nodes.SketchMapFFA = ffaBox
-	local scales = {}
+	local scales: { [UIScale]: boolean } = {} -- (true: also by the HUD size setting)
 	-- the wave countdown, shown only while the soldier stands in its wave line
 	nodes.WaveBar.Visible = false
 	set("waveTitle", Cfg.Wave.title)
 	for _, id in { "FrontBar", "ZoneBar", "WaveBar", "SketchMap", "SketchMapFFA" } do
 		local scale = Instance.new("UIScale")
 		scale.Parent = nodes[id]
-		table.insert(scales, scale)
+		-- the map follows the HUD size setting too (user 2026-11-05: "can you make the map scale with the HUD size?";
+		-- it grows from its top-left corner, so it stays in its place)
+		scales[scale] = id == "SketchMap" or id == "SketchMapFFA"
 	end
 	local function rescale()
 		local k = math.clamp(gui.AbsoluteSize.Y / T.scale.referenceHeight, T.scale.min, T.scale.max)
-		for _, scale in scales do
-			scale.Scale = k
+		local size = tonumber(Settings.get("HudSize")) or 1
+		for scale, sized in scales do
+			scale.Scale = if sized then k * size else k
 		end
 	end
 	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(rescale)
+	Settings.changed("HudSize", rescale)
 	gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
 	rescale()
 

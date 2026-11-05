@@ -49,6 +49,7 @@ local viewNow: () -> (number, number, number) = function()
 end
 local manned = false
 local handBackTo: (number, number) -> () = function() end
+local release: () -> () = function() end
 
 local HEAD = Vector3.new(0, 1.5, 0) -- head centre above the root (R6)
 local ROBLOX_MIN = 0.5 -- StarterPlayer.CameraMinZoomDistance: Roblox's first person
@@ -221,6 +222,21 @@ function WeaponCamera.start()
 		character:SetAttribute("CameraMode", nil)
 		character:SetAttribute("CameraInside", nil)
 		character:SetAttribute("Handover", nil)
+	end
+
+	-- a gun taking the camera (WeaponCamera.manning): the rifle's view let go where it stands, without handing the
+	-- camera back to Roblox (its glide out ended in Custom while the field gun was manned: user 2026-11-05, "sometimes the
+	-- camera tweaks out when manning the cannon and requires you to get on and off")
+	release = function()
+		active, leaving = false, false
+		UserInputService.MouseIconEnabled = true
+		local character = player.Character
+		if character then
+			character:SetAttribute("CameraMode", nil)
+			character:SetAttribute("CameraInside", nil)
+			character:SetAttribute("Handover", nil)
+			show(character, 0)
+		end
 	end
 
 	viewNow = function()
@@ -475,12 +491,16 @@ function WeaponCamera.view(): (number, number, number)
 	return viewNow()
 end
 
--- A machine gun's camera holds the view while it is manned (src/client/Artillery): nothing here moves the camera
+-- A gun's camera (any gun: the field gun's and the howitzer's too) holds the view while it is manned
+-- (src/client/Artillery): nothing here moves the camera
 function WeaponCamera.manning(on: boolean)
+	if on and not manned then
+		release()
+	end
 	manned = on
 end
 
--- Getting off a machine gun: Roblox's camera back at the same share of the way out as `distance` of `max` (0: first
+-- Getting off a gun: Roblox's camera back at the same share of the way out as `distance` of `max` (0: first
 -- person)
 function WeaponCamera.handBack(distance: number, max: number)
 	handBackTo(distance, max)
