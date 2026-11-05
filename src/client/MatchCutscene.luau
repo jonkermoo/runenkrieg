@@ -36,6 +36,7 @@ local Ink = require(script.Parent.Ink)
 local Audio = require(script.Parent.Audio)
 local DevPanel = require(script.Parent.DevPanel)
 local MatchCam = require(script.Parent.MatchCam)
+local MapLoader = require(script.Parent.MapLoader)
 local PointSeal = require(script.Parent.PointSeal)
 local Menus = require(script.Parent.Menus) :: any
 local SketchMap = require(script.Parent.SketchMap)
@@ -510,9 +511,10 @@ local function fadeStep()
 	if not folder then
 		return
 	end
-	local endsAt = folder:GetAttribute("PhaseEndsAt")
+	-- (the drain and the cover take FadeSeconds from the phase's start; the victory screen then holds: Victory)
+	local startAt = folder:GetAttribute("PhaseAt")
 	local length = FrontCfg.FadeSeconds
-	local t = if type(endsAt) == "number" then length - (endsAt - workspace:GetServerTimeNow()) else length
+	local t = if type(startAt) == "number" then workspace:GetServerTimeNow() - startAt else length
 	local u = math.clamp(t / length, 0, 1)
 	drain.Saturation = -math.clamp(u / Cfg.Fade.drain, 0, 1)
 	local cover = math.clamp((u - (1 - Cfg.Fade.cover)) / Cfg.Fade.cover, 0, 1)
@@ -651,13 +653,14 @@ local function streamAhead(p: Play, t: number)
 	end
 end
 
--- The next map loaded in the armory (Net "MapLoad", src/server/Frontline): every spot its flight looks at streamed in,
--- for either side and either winner (the sides are dealt after), then the server told. `loaded` the share done.
-local loading = { key = "", done = 0, total = 0 }
+-- The next map loaded in the armory (Net "MapLoad", src/server/Frontline): the WHOLE map (src/client/MapLoader; user
+-- 2026-11-04: "during this time, we will be loading the map FULLY"), every spot its flight looks at too, for either
+-- side and either winner (the sides are dealt after), then the server told.
+local loadingKey = ""
 local function loadMap(key: string, assets: { string })
-	local map = LiveMap.get(key)
-	if not map then
-		loading = { key = key, done = 0, total = 0 }
+	loadingKey = key
+	local ok, map = pcall(LiveMap.get, key)
+	if not ok or not map then
 		Net.event("MapLoad"):FireServer(key)
 		return
 	end
@@ -687,66 +690,13 @@ local function loadMap(key: string, assets: { string })
 			end
 		end
 	end
-	-- then the meshes, textures and decals of everything streamed in (one instance for each of their assets), so
-	-- nothing pops in mid-shot: the ring counts both
-	local this = { key = key, done = 0, total = #spots + 1 }
-	loading = this
-	for _, v in spots do -- (one after another: the server streams each before the next)
-		if loading ~= this then
+	local this = MapLoader.load(key, spots, assets)
+	while not this.finished do
+		if loadingKey ~= key then
 			return -- (a newer map asked for)
-		end
-		streamAround(v)
-		this.done += 1
-	end
-	local root = workspace:FindFirstChild(key)
-	local list: { Instance } = {}
-	local seen: { [string]: boolean } = {}
-	local function addAssets(d: Instance, ...: string)
-		local new = false
-		for _, id in { ... } do
-			if id ~= "" and not seen[id] then
-				seen[id], new = true, true
-			end
-		end
-		if new then
-			table.insert(list, d)
-		end
-	end
-	for _, id in assets do -- (the server's list: the parts not streamed in too)
-		if type(id) == "string" and not seen[id] then
-			seen[id] = true
-			table.insert(list, id :: any)
-		end
-	end
-	for _, d in (if root then root:GetDescendants() else {}) do
-		if d:IsA("MeshPart") then
-			addAssets(d, d.MeshId, d.TextureID)
-		elseif d:IsA("SpecialMesh") then
-			addAssets(d, d.MeshId, d.TextureId)
-		elseif d:IsA("Decal") then -- (Textures too)
-			addAssets(d, d.Texture)
-		elseif d:IsA("SurfaceAppearance") then
-			table.insert(list, d)
-		end
-	end
-	this.total = #spots + math.max(#list, 1)
-	local batch = Cfg.PreloadBatch
-	for k = 1, #list, batch do
-		if loading ~= this then
-			return
-		end
-		pcall(ContentProvider.PreloadAsync, ContentProvider, table.move(list, k, math.min(k + batch - 1, #list), 1, {}))
-		this.done += math.min(batch, #list - k + 1)
-	end
-	-- and nothing of it still downloading (the preloads queue it), at most PreloadDrain seconds
-	local drainFrom = os.clock()
-	while ContentProvider.RequestQueueSize > 0 and os.clock() - drainFrom < Cfg.PreloadDrain do
-		if loading ~= this then
-			return
 		end
 		task.wait(0.1)
 	end
-	this.done = this.total
 	Net.event("MapLoad"):FireServer(key)
 end
 
@@ -812,12 +762,22 @@ end
 
 -- A match's end: the next map not asked for yet.
 function MatchCutscene.forgetLoad()
-	loading = { key = "", done = 0, total = 0 }
+	loadingKey = ""
+	MapLoader.forget()
+end
+
+-- The next map the armory asked for is loaded here (or none was asked for: a joiner, a fresh server).
+function MatchCutscene.ready(): boolean
+	return loadingKey == "" or MapLoader.loaded(loadingKey)
 end
 
 -- How much of the next map is streamed in (0..1; 0 before the server asks).
 function MatchCutscene.loaded(): number
-	return if loading.total > 0 then loading.done / loading.total elseif loading.key ~= "" then 1 else 0
+	local st = MapLoader.state()
+	if loadingKey == "" or not st or st.key ~= loadingKey then
+		return 0
+	end
+	return MapLoader.progress()
 end
 
 local function caption(p: Play, shot: any)
@@ -1055,7 +1015,10 @@ function MatchCutscene.start()
 		while true do
 			local folder = workspace:FindFirstChild(FrontCfg.FolderName)
 			local phase = folder and folder:GetAttribute("Phase")
-			if phase ~= seen then
+			-- (a slow connection: the next map not loaded here yet, so the armory stays, src/client/EndScenes, and the
+			-- flight joins where it is once it's in)
+			local waiting = phase == "Countdown" and not MatchCutscene.ready()
+			if phase ~= seen and not waiting then
 				seen = phase :: string?
 				if folder and phase == "Countdown" then
 					MatchCutscene.clearFade()

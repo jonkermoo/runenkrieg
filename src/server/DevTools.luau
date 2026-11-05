@@ -270,6 +270,11 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		end
 	elseif action == "FrontStart" then
 		Frontline.begin()
+	elseif action == "SkipTo" then
+		-- the match's loop on to a stage now (the victory screen, the war room, the vote, the armory, the flight, play)
+		if type(value) == "string" then
+			Frontline.skipTo(value)
+		end
 	elseif action == "Map" then
 		Frontline.switchMap(value)
 	elseif action == "EndInto" then

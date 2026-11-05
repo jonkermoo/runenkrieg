@@ -54,6 +54,7 @@ require(script.Indoors).start() -- (pathfinding links through doorways and up st
 require(script.Sectors).start() -- (hides the sector dividers and point markers)
 require(script.Flagpoles).start() -- (a pole on each sector point while the frontline match runs)
 require(script.MapVote).start() -- (the next map, voted for between Normal matches)
+require(script.MapFocus).start() -- (the live map kept streamed in for every player: Config/JoinLoading)
 require(script.PoleWires).start() -- (the telegraph wires come down with their poles; before DevTools saves the map)
 require(script.DevTools).start()
 require(script.Firing).start()

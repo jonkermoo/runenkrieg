@@ -1,6 +1,6 @@
 {
 	"name": "JoinLoading",
-	"_doc": "The loading screen on joining a server (src/client/Menus, Config/JoinLoading; user 2026-11-04: the menu hidden until the map is loaded, the RUNENKRIEG words of the main menu on it, a skip button bottom right; not between matches). The title screen's name, trench line and font where they stand on the title screen, over black; under them how far the map is loaded; Skip on the bottom right opens the title screen at once. Colours: Config/Palette UI.Grimoire.",
+	"_doc": "The loading screen on joining a server (src/client/Menus, Config/JoinLoading; user 2026-11-04: every player goes through it, the RUNENKRIEG words of the main menu kept over the armory's cinematic, src/client/EndScenes, while the whole current map loads; no skip). The title screen's name, trench line and font where they stand on the title screen, over a shade on the left; under them how far the map is loaded. Once it is, the title screen's buttons appear under the same words. Colours: Config/Palette UI.Grimoire.",
 	"theme": {
 		"palette": "Grimoire",
 		"scale": { "referenceHeight": 800, "min": 0.65, "max": 1.25 },
@@ -20,7 +20,7 @@
 		"kind": "group",
 		"size": [1, 0, 1, 0],
 		"children": [
-			{ "id": "Black", "kind": "overlay", "from": 0, "to": 0, "size": [1, 0, 1, 0] },
+			{ "id": "Black", "kind": "overlay", "from": 0.25, "to": 0.95, "size": [1, 0, 1, 0] },
 			{
 				"id": "Name",
 				"kind": "label",
@@ -45,20 +45,6 @@
 				"align": "left",
 				"pos": [0, 68, 0, 372],
 				"size": [0, 520, 0, 36]
-			},
-			{
-				"id": "Skip",
-				"kind": "button",
-				"clear": true,
-				"text": "SKIP",
-				"textSize": 28,
-				"textColor": "text",
-				"fade": 0.3,
-				"shade": 0.55,
-				"align": "right",
-				"anchor": [1, 1],
-				"pos": [1, -48, 1, -36],
-				"size": [0, 160, 0, 62]
 			}
 		]
 	}

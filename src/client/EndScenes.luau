@@ -24,6 +24,7 @@
 -- The sets are built on each client at Config/Cutscenes.Stage (the armory a placeholder until its render is modelled).
 -- Widescreen bars throughout; the HUD and the rest are covered (MatchCutscene.cover).
 
+local ContentProvider = game:GetService("ContentProvider")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -44,8 +45,11 @@ local Settings = require(script.Parent.Settings)
 local SketchMap = require(script.Parent.SketchMap)
 local Speech = require(script.Parent.Speech)
 local CommandPost = require(script.Parent.CommandPost)
+local Menus = require(script.Parent.Menus) :: any
 
 local EndScenes = {}
+
+local OVER = { Fade = true, Table = true, Vote = true, Loading = true } -- (the end's phases)
 
 local GR = (Palette.UI :: any).Grimoire
 local function rgb(c: { number }): Color3
@@ -214,6 +218,33 @@ local function buildSets()
 		buildArmory(at)
 	end
 	f.Parent = workspace
+end
+
+-- The sets built and every mesh, texture and decal of them preloaded (once): the war room behind the victory screen
+-- (user 2026-11-04: "use that victory screen to load the summary war room scene"), the armory behind the join's
+-- loading screen.
+local setsReady = false
+local preloading = false
+local function readySets()
+	buildSets()
+	if setsReady then
+		return
+	end
+	if preloading then
+		while not setsReady do
+			task.wait(0.05)
+		end
+		return
+	end
+	preloading = true
+	local list: { Instance } = {}
+	for _, d in (set :: Folder):GetDescendants() do
+		if d:IsA("MeshPart") or d:IsA("Decal") or d:IsA("SurfaceAppearance") or d:IsA("ImageLabel") then
+			table.insert(list, d)
+		end
+	end
+	pcall(ContentProvider.PreloadAsync, ContentProvider, list)
+	setsReady = true
 end
 
 -- the screen: the bars, a modal button that frees the mouse while signing, the loading ring
@@ -570,7 +601,7 @@ end
 
 local function step()
 	local folder = workspace:FindFirstChild(FrontCfg.FolderName)
-	if not folder or not scene then
+	if not scene or (not folder and scene ~= "Join") then
 		return
 	end
 	local t = workspace:GetServerTimeNow() - sceneAt
@@ -625,11 +656,12 @@ local function step()
 		fov = W.table.fov + (W.fov - W.table.fov) * Rules.ease(math.clamp(t / W.turn, 0, 1))
 	else
 		cf, fov = armoryCam(t)
-		local phaseNow = folder:GetAttribute("Phase")
+		local phaseNow = folder and folder:GetAttribute("Phase")
 		local span = math.max(loadEnds - sceneAt, 0.1)
 		-- (loading: the narrator's first part and the next map streamed in, whichever is behind, full once both are
 		-- done; a fresh server's screen full at the whistle)
-		local k = if phaseNow == "Loading"
+		-- (still loading here once the flight has begun elsewhere: this client's own load)
+		local k = if phaseNow == "Loading" or (phaseNow == "Countdown" and scene == "Loading")
 			then Rules.loadRing(t / span, MatchCutscene.loaded(), Cfg.Armory.ring.most)
 			elseif phaseNow == "Countdown" then math.clamp(t / span, 0, 1)
 			else 1
@@ -638,7 +670,9 @@ local function step()
 	camera.CameraType = Enum.CameraType.Scriptable
 	camera.CFrame = cf
 	camera.FieldOfView = fov
-	UserInputService.MouseIconEnabled = scene == "Vote" and not signed
+	if scene ~= "Join" then -- (the title screen's mouse is the menus')
+		UserInputService.MouseIconEnabled = scene == "Vote" and not signed
+	end
 end
 
 local function begin(name: string, folder: Instance)
@@ -701,8 +735,40 @@ local function begin(name: string, folder: Instance)
 	RunService:BindToRenderStep("EndScenes", Enum.RenderPriority.Camera.Value + 3, step)
 end
 
+-- The join's cinematic (Menus.joinScene; user 2026-11-04: "require all players to go through the runenkrieg loading
+-- screen while the cinematic loading screen loads"): the armory's drift behind the loading screen, no narrator, no
+-- bars or ring (the screen shows the progress), the HUD left to the menus. On: yields until the set stands and is
+-- preloaded. Off: the scene the match's phase calls for takes over (an end scene), else the menus' camera.
+local joining = false
+local rescan = false
+function EndScenes.join(on: boolean)
+	if on then
+		if joining then
+			return
+		end
+		joining = true
+		finish()
+		readySets()
+		if not joining then
+			return
+		end
+		scene = "Join"
+		sceneAt = workspace:GetServerTimeNow()
+		gui.Enabled = false
+		RunService:UnbindFromRenderStep("EndScenes")
+		RunService:BindToRenderStep("EndScenes", Enum.RenderPriority.Camera.Value + 3, step)
+	elseif joining then
+		joining = false
+		if scene == "Join" then
+			finish()
+		end
+		rescan = true -- (the phase loop begins whatever end scene is on now)
+	end
+end
+
 function EndScenes.start()
 	buildGui()
+	Menus.joinScene = EndScenes.join
 	Net.event("MatchResults").OnClientEvent:Connect(function(r: any)
 		if type(r) == "table" and r.mode == "Normal" then
 			results = r
@@ -713,7 +779,30 @@ function EndScenes.start()
 		while true do
 			local folder = workspace:FindFirstChild(FrontCfg.FolderName)
 			local phase = folder and folder:GetAttribute("Phase")
-			if phase ~= seen then
+			if rescan then
+				rescan, seen = false, nil
+			end
+			-- the victory screen: the war room's set built and preloaded behind it, then the server told
+			if folder and phase == "Fade" and phase ~= seen then
+				task.spawn(function()
+					readySets()
+					Net.event("SceneReady"):FireServer("Table")
+				end)
+			end
+			if joining and not Menus.joinLoading() and folder and OVER[phase :: any] then
+				-- (only the title screen over the cinematic now: the match's end takes the screen)
+				EndScenes.join(false)
+			end
+			if rescan then
+				rescan, seen = false, nil
+			end
+			if joining then
+				-- (the join's cinematic first: the end scenes wait till it's off, then the one on now begins)
+				if phase == "Fade" and phase ~= seen then
+					speechStarted = false
+				end
+				seen = phase :: string?
+			elseif phase ~= seen then
 				seen = phase :: string?
 				if folder and (phase == "Table" or phase == "Vote" or phase == "Loading") then
 					begin(phase :: string, folder)
@@ -725,7 +814,18 @@ function EndScenes.start()
 				elseif scene then
 					-- the countdown takes over (the flight); waiting for players, the armory stays till the narrator ends
 					-- (and through the dip to black into the countdown, when it comes at once)
-					if phase == "Waiting" and scene == "Loading" then
+					if phase == "Countdown" and scene == "Loading" and not MatchCutscene.ready() then
+						-- a slow connection: the armory stays until the next map is in here (the flight then joins
+						-- where it is, src/client/MatchCutscene)
+						task.spawn(function()
+							while scene == "Loading" and not MatchCutscene.ready() do
+								task.wait(0.1)
+							end
+							if scene == "Loading" then
+								finish()
+							end
+						end)
+					elseif phase == "Waiting" and scene == "Loading" then
 						task.spawn(function()
 							local function dipping(): boolean
 								local at = folder and folder:GetAttribute(FrontCfg.DipAttribute)
