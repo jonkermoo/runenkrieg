@@ -797,6 +797,11 @@ local Build = {
 		teeGap = 1,
 		bridgeGap = 1,
 		same = 1,
+		-- ground to dig it into (user 2026-11-04: "make a dugout only buildable if it has terrain"; one on a downhill
+		-- trench poked out of the slope): the ground over its room and `around` past its sides and back (the dig's
+		-- `cut`) read on a `cols` x `rows` grid (Rules.dugoutCoverAt), the lowest at least `over` studs over the trench
+		-- floor (its dig's top lies at the floor, a 4-stud voxel past it rounds up to 2 more; level ground: Trench.depth)
+		cover = { over = 2, around = 4, cols = 5, rows = 4 },
 		openFront = 0.5,
 		-- its doorway (dugout_pieces v3; user 2026-11-02: "redesign the dugout door to be build over a wall", "the dug
 		-- out should be lined with the wall not sticking out"): cut in the wall's face under a lintel this high over the

@@ -563,6 +563,14 @@ function Survey.dugoutSpot(structures: Instance?, p: Vector3, skip: Instance?): 
 		return { x = f.Position.X, y = f.Position.Y, z = f.Position.Z, rx = f.RightVector.X, rz = f.RightVector.Z }
 	end
 	local mine = feet(frame)
+	-- the ground over and round its room (Rules.dugoutCoverAt), the lowest over the trench floor at its foot
+	local low = math.huge
+	for _, q in Rules.dugoutCoverAt(piece, D) do
+		local at = frame * Vector3.new(q.x, 0, q.z)
+		local h = Survey.groundAt(at.X, at.Z, frame.Position.Y)
+		low = math.min(low, if h then h - frame.Position.Y else -math.huge)
+	end
+	spot.cover = low
 	for _, o in structures:GetChildren() do
 		local f = o:GetAttribute("Frame")
 		local q = Rules.piece(o:GetAttribute("Piece"), C.Pieces)

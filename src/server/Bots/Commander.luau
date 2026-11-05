@@ -86,6 +86,8 @@ local Report = require(script.Parent.Report)
 local label = Report.label
 
 local commandTick = 0
+-- support-line squares a dugout was refused in (Build.dugoutFor: no ground round its room), until when (os.clock)
+local noDugout: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
 
 -- Normal: a stand point in sector `i`'s zone, on the ground (a ray on terrain)
 local function standPoint(i: number): Vector3
@@ -2115,8 +2117,16 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	local want = BotTrenches.dugoutsWanted(sbs.shelledOnce, holders, sbs.bays, DG) - #have
 	-- (a square long enough on the flat for one: its doorway and its spare less the slack, Config/Build)
 	local long = BuildCfg.Dugout.door + BuildCfg.Dugout.spare - BuildCfg.Dugout.lengthSlack
-	for _, i in BotTrenches.dugoutSquares(sites, have, want, DG, long) do
-		local w = sites[i].w
+	-- (squares a dugout can't go in are left out: no ground round its room, Build.dugoutFor; read again after a while)
+	local open = {}
+	for _, site in sites do
+		local no = noDugout[site.w.model]
+		if not (no and now < no) then
+			table.insert(open, site)
+		end
+	end
+	for _, i in BotTrenches.dugoutSquares(open, have, want, DG, long) do
+		local w = open[i].w
 		local a, c = w.model:GetAttribute("BlockA"), w.model:GetAttribute("BlockB")
 		if typeof(a) == "Vector3" and typeof(c) == "Vector3" then
 			-- its rear wall (away from the enemy), the dugout facing out of it into the trench
@@ -2126,9 +2136,14 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				out = -out
 			end
 			local at = w.at + out * (BuildCfg.Trench.floor + 0.5)
-			local job = { key = "Dugout", x = at.X, z = at.Z, fx = -out.X, fz = -out.Z }
-			table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
-			stats.dugouts += 1
+			if Build.dugoutFor(at) then
+				noDugout[w.model] = now + DG.recheck
+				stats.dugoutsRefused += 1
+			else
+				local job = { key = "Dugout", x = at.X, z = at.Z, fx = -out.X, fz = -out.Z }
+				table.insert(sbs.lay, { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = false })
+				stats.dugouts += 1
+			end
 		end
 	end
 	sbs.digging = 0
