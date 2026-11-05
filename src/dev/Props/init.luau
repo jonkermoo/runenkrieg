@@ -1,18 +1,21 @@
 --!strict
 -- Dev-only village prop generator (Config/Props, Palette.Props). Same chunky, slightly hand-made,
--- flat-color look as the houses. Every prop is a destructible section (Kind "Prop").
+-- flat-color look as the houses. Every prop is a destructible section (Kind "Prop"). Stones, hedges, hay, barrels,
+-- logs, posts, rails, pickets, signpost fingers, wheels and lanterns are low-poly faceted meshes from the PropKit
+-- (Config/Assets.Entries.PropKit, tools/blender/village_props.py), each fitted to the box a plain part filled before;
+-- boards and planks (cart bed, well roof) stay parts.
 --   Props.build(kind, deps)                     -> Model at the origin (library sample; linear kinds
 --                                                  are a straight SampleLength run along +X)
 --   Props.linear(kind, parent, a, b, ground, deps) -> a wall/fence/hedge run from a to b on the ground
 --   Props.wire(parent, p1, p2, deps)             -> a sagging telegraph wire
 --   Props.paint(model, palette)                  -> colors by Paint role (+ per-piece Tone)
--- deps = { P = Config/Props, D = Config/Destruction }
+-- deps = { P = Config/Props, D = Config/Destruction, Kit = the PropKit model (src/dev/Library.ensure("PropKit")) }
 
 local CollectionService = game:GetService("CollectionService")
 
 local Props = {}
 
-type Ctx = { n: number, D: any }
+type Ctx = { n: number, D: any, kit: Instance }
 
 local TONED = {
 	Stone = true,
@@ -30,6 +33,16 @@ local function jitter(ctx: Ctx, salt: number): number
 	return h / 1001.5 - 1
 end
 
+local function tag(p: BasePart, ctx: Ctx, name: string, paint: string, parent: Instance)
+	p.Name = name
+	p:SetAttribute("Paint", paint)
+	if TONED[paint] then
+		p:SetAttribute("Tone", jitter(ctx, 3))
+	end
+	p.Parent = parent
+	ctx.n += 1
+end
+
 local function part(
 	parent: Instance,
 	ctx: Ctx,
@@ -40,7 +53,6 @@ local function part(
 	shape: Enum.PartType?
 ): BasePart
 	local p = Instance.new("Part")
-	p.Name = name
 	p.Anchored = true
 	p.Material = Enum.Material.SmoothPlastic
 	p.TopSurface = Enum.SurfaceType.Smooth
@@ -50,14 +62,59 @@ local function part(
 	end
 	p.Size = size
 	p.CFrame = cf
-	p:SetAttribute("Paint", paint)
-	if TONED[paint] then
-		p:SetAttribute("Tone", jitter(ctx, 3))
-	end
-	p.Parent = parent
-	ctx.n += 1
+	tag(p, ctx, name, paint, parent)
 	return p
 end
+
+-- a PropKit mesh as a piece: `kitName`'s mesh fitted to the box (cf, size). Kit meshes run long along Z and stand
+-- along Y, so a mesh takes the same box a plain part would.
+local function mesh(
+	parent: Instance,
+	ctx: Ctx,
+	name: string,
+	kitName: string,
+	cf: CFrame,
+	size: Vector3,
+	paint: string
+): BasePart
+	local src = ctx.kit:FindFirstChild(kitName, true)
+	assert(src and src:IsA("MeshPart"), "PropKit has no mesh " .. kitName)
+	local p = src:Clone()
+	p.Anchored = true
+	p.Material = Enum.Material.SmoothPlastic
+	p.Size = size
+	p.CFrame = cf
+	tag(p, ctx, name, paint, parent)
+	return p
+end
+
+-- one of a few variants, by the piece count
+local function pick(ctx: Ctx, list: { string }): string
+	return list[(ctx.n % #list) + 1]
+end
+
+-- turned end for end by hash (a bay or a mound looks different from the other side)
+local function flip(ctx: Ctx, salt: number): CFrame
+	return if jitter(ctx, salt) > 0 then CFrame.Angles(0, math.pi, 0) else CFrame.identity
+end
+
+-- a hewn post `w` thick from `y0` up to `y0 + h`, at (x, z) in `frame`
+local function post(
+	sec: Instance,
+	ctx: Ctx,
+	frame: CFrame,
+	x: number,
+	y0: number,
+	z: number,
+	w: number,
+	h: number,
+	paint: string
+): BasePart
+	return mesh(sec, ctx, "Post", "Post", frame * CFrame.new(x, y0 + h / 2, z), Vector3.new(w, h, w), paint)
+end
+
+-- a hewn beam along `frame`'s X (kit beams run along Z)
+local ACROSS = CFrame.Angles(0, math.pi / 2, 0)
 
 local function section(parent: Instance, ctx: Ctx, name: string, class: string): Model
 	local m = Instance.new("Model")
@@ -106,66 +163,50 @@ local function bays(a: Vector3, b: Vector3, bay: number): { { CFrame | number } 
 end
 
 -- frame: bay center on the ground, -Z along the run (lookAt). len = bay length.
+-- A dry-stone bay: a kit wall body (three courses of chamfered stones, its ends cut flat so bays join, from just below
+-- the ground) under a row of coping slabs whose top is the wall's height, so the wall stays as hoppable as before.
+local WALLS, CAPS = { "WallA", "WallB", "WallC" }, { "CapA", "CapB", "CapC" }
+local COPING = 0.4 -- the coping's depth
+
 local function stoneWallBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: any)
 	local c = P.StoneWall
 	local t = c.thickness
-	local h1 = c.height * 0.55
-	local h2 = c.height - h1 - 0.35
-	-- two irregular courses of stones, then a rough coping
-	local stones = math.max(1, math.round(len / c.stone))
-	local sl = len / stones
-	for i = 0, stones - 1 do
-		local z = -len / 2 + (i + 0.5) * sl
-		part(
-			sec,
-			ctx,
-			"Stone",
-			frame * CFrame.new(jitter(ctx, 1) * 0.08, h1 / 2 - 0.3, z),
-			Vector3.new(t, h1 + 0.6, sl - 0.06),
-			if i % 2 == 0 then "Stone" else "StoneDark"
-		)
-		local z2 = z + sl * 0.5 * (if i % 2 == 0 then 1 else -1) * 0.4
-		part(
-			sec,
-			ctx,
-			"Stone",
-			frame
-				* CFrame.new(jitter(ctx, 2) * 0.1, h1 + h2 / 2, z2)
-				* CFrame.Angles(0, math.rad(jitter(ctx, 4) * 2), 0),
-			Vector3.new(t * 0.9, h2, sl * 0.9),
-			if i % 2 == 0 then "StoneDark" else "Stone"
-		)
-	end
-	part(
+	local bottom, top = -0.4, c.height - COPING + 0.1
+	local turn = flip(ctx, 1)
+	mesh(
+		sec,
+		ctx,
+		"Stones",
+		pick(ctx, WALLS),
+		frame * CFrame.new(0, (bottom + top) / 2, 0) * turn,
+		Vector3.new(t, top - bottom, len + 0.02),
+		if ctx.n % 2 == 0 then "Stone" else "StoneDark"
+	)
+	mesh(
 		sec,
 		ctx,
 		"Coping",
-		frame * CFrame.new(0, c.height - 0.18, 0) * CFrame.Angles(math.rad(jitter(ctx, 5) * 1.5), 0, 0),
-		Vector3.new(t + 0.25, 0.36, len + 0.05),
+		pick(ctx, CAPS),
+		frame * CFrame.new(0, c.height - COPING / 2, 0) * turn,
+		Vector3.new(t + 0.25, COPING, len + 0.05),
 		"StoneDark"
 	)
 end
 
 local function picketBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: any)
 	local c = P.PicketFence
-	part(
-		sec,
-		ctx,
-		"Post",
-		frame * CFrame.new(0, c.height / 2 - 0.4, -len / 2),
-		Vector3.new(0.5, c.height + 1.2, 0.5),
-		"Wood"
-	)
+	post(sec, ctx, frame, 0, -1, -len / 2, 0.5, c.height + 1.2, "Wood")
 	for _, y in { 0.6, c.height - 0.5 } do
-		part(sec, ctx, "Rail", frame * CFrame.new(0.3, y, 0), Vector3.new(0.18, 0.28, len), "WoodPale")
+		mesh(sec, ctx, "Rail", "Beam", frame * CFrame.new(0.3, y, 0), Vector3.new(0.18, 0.28, len), "WoodPale")
 	end
 	local n = math.max(1, math.floor(len / c.picketGap))
 	for i = 0, n - 1 do
 		local z = -len / 2 + (i + 0.5) * len / n
 		local h = c.height - 0.15 + jitter(ctx, 6) * 0.12
-		part(
+		mesh(
 			sec,
 			ctx,
+			"Picket",
 			"Picket",
 			frame * CFrame.new(0.45, (h - 0.6) / 2, z),
 			Vector3.new(0.16, h + 0.6, 0.5),
@@ -176,9 +217,10 @@ end
 
 local function railBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: any)
 	local c = P.RailFence
-	part(
+	mesh(
 		sec,
 		ctx,
+		"Post",
 		"Post",
 		frame
 			* CFrame.new(0, c.height / 2 - 0.2, -len / 2)
@@ -187,10 +229,11 @@ local function railBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: a
 		"WoodDark"
 	)
 	for _, y in { 0.75, c.height - 0.35 } do
-		part(
+		mesh(
 			sec,
 			ctx,
 			"Rail",
+			"Beam",
 			frame * CFrame.new(0, y + jitter(ctx, 9) * 0.08, 0) * CFrame.Angles(math.rad(jitter(ctx, 10) * 1.5), 0, 0),
 			Vector3.new(0.32, 0.32, len + 0.4),
 			"Wood"
@@ -198,26 +241,18 @@ local function railBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: a
 	end
 end
 
+-- a hedge bay: a kit mass of leaf clumps, its ends cut flat so the bays join into one hedge (it blocks)
 local function hedgeBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: any)
 	local c = P.Hedge
 	local h = c.height + jitter(ctx, 11) * 0.35
-	part(
+	mesh(
 		sec,
 		ctx,
 		"Hedge",
-		frame * CFrame.new(0, h / 2 - 0.3, 0),
+		pick(ctx, { "HedgeA", "HedgeB" }),
+		frame * CFrame.new(0, h / 2 - 0.3, 0) * flip(ctx, 12),
 		Vector3.new(c.thickness, h + 0.6, len + 0.15),
 		if ctx.n % 2 == 0 then "Hedge" else "HedgeDark"
-	)
-	part(
-		sec,
-		ctx,
-		"Hedge",
-		frame
-			* CFrame.new(jitter(ctx, 12) * 0.2, h + 0.15, jitter(ctx, 13) * len * 0.15)
-			* CFrame.Angles(0, math.rad(jitter(ctx, 14) * 8), 0),
-		Vector3.new(c.thickness * 0.8, 0.8, len * 0.6),
-		"HedgeDark"
 	)
 end
 
@@ -243,7 +278,7 @@ function Props.linear(
 ): Model
 	local spec = LINEAR[kind]
 	assert(spec, "not a linear prop: " .. kind)
-	local ctx: Ctx = { n = math.floor(a.X * 7 + a.Z * 13) % 1000, D = deps.D }
+	local ctx: Ctx = { n = math.floor(a.X * 7 + a.Z * 13) % 1000, D = deps.D, kit = deps.Kit }
 	local run = Instance.new("Model")
 	run.Name = kind
 	for _, bay in bays(a, b, spec.bay) do
@@ -272,20 +307,21 @@ POINT.Pole = function(m: Model, ctx: Ctx, P: any)
 	local sec = section(m, ctx, "Pole", "Wood")
 	local h = P.Pole.height
 	cyl(sec, ctx, "Post", CFrame.new(0, h / 2 - 1, 0) * UPRIGHT, h, 0.8, "WoodDark")
-	local arm = part(sec, ctx, "Crossarm", CFrame.new(0, h - 2, 0), Vector3.new(5, 0.4, 0.4), "Wood")
+	local arm = mesh(sec, ctx, "Crossarm", "Beam", CFrame.new(0, h - 2, 0) * ACROSS, Vector3.new(0.4, 0.4, 5), "Wood")
 	for i, x in { -2, 2 } do
 		cyl(sec, ctx, "Insulator", CFrame.new(x, h - 1.55, 0) * UPRIGHT, 0.5, 0.35, "WoodPale")
 		local att = Instance.new("Attachment")
 		att.Name = "Wire" .. i
-		att.Position = Vector3.new(x, 0.55, 0)
 		att.Parent = arm
+		att.WorldPosition = Vector3.new(x, h - 2 + 0.55, 0) -- the arm is turned a quarter: placed in the world
 	end
-	part(
+	mesh(
 		sec,
 		ctx,
 		"Brace",
-		CFrame.new(0.7, h - 2.7, 0) * CFrame.Angles(0, 0, math.rad(40)),
-		Vector3.new(1.6, 0.2, 0.2),
+		"Beam",
+		CFrame.new(0.7, h - 2.7, 0) * CFrame.Angles(0, 0, math.rad(40)) * ACROSS,
+		Vector3.new(0.2, 0.2, 1.6),
 		"Wood"
 	)
 end
@@ -294,25 +330,25 @@ end
 POINT.LanternPole = function(m: Model, ctx: Ctx, P: any)
 	local sec = section(m, ctx, "LanternPole", "Wood")
 	local h, arm = P.LanternPole.height, P.LanternPole.arm
-	part(sec, ctx, "Post", CFrame.new(0, h / 2 - 0.5, 0), Vector3.new(0.5, h + 1, 0.5), "WoodDark")
-	part(sec, ctx, "Crossbar", CFrame.new(0, h - 0.4, 0), Vector3.new(arm, 0.3, 0.3), "WoodDark")
+	post(sec, ctx, CFrame.identity, 0, -1, 0, 0.5, h + 1, "WoodDark")
+	mesh(sec, ctx, "Crossbar", "Beam", CFrame.new(0, h - 0.4, 0) * ACROSS, Vector3.new(0.3, 0.3, arm), "WoodDark")
 	part(sec, ctx, "Cap", CFrame.new(0, h + 0.1, 0), Vector3.new(0.7, 0.25, 0.7), "WoodDark")
 	for _, x in { -arm / 2 + 0.3, arm / 2 - 0.3 } do
 		part(sec, ctx, "Cord", CFrame.new(x, h - 0.9, 0), Vector3.new(0.1, 0.7, 0.1), "Metal")
-		part(sec, ctx, "Lantern", CFrame.new(x, h - 1.8, 0), Vector3.new(0.8, 1.1, 0.8), "Lantern")
+		mesh(sec, ctx, "Lantern", "Lantern", CFrame.new(x, h - 1.8, 0), Vector3.new(0.8, 1.1, 0.8), "Lantern")
 	end
 end
 
 POINT.Signpost = function(m: Model, ctx: Ctx, P: any)
 	local sec = section(m, ctx, "Signpost", "Wood")
 	local h = P.Signpost.height
-	part(sec, ctx, "Post", CFrame.new(0, h / 2 - 0.5, 0), Vector3.new(0.45, h + 1, 0.45), "WoodDark")
-	part(sec, ctx, "Cap", CFrame.new(0, h + 0.1, 0), Vector3.new(0.7, 0.25, 0.7), "WoodDark")
+	post(sec, ctx, CFrame.identity, 0, -1, 0, 0.45, h + 1.25, "WoodDark")
 	for i, ang in { 15, 115, -60 } do
 		local y = h - 0.9 - (i - 1) * 0.9
-		part(
+		mesh(
 			sec,
 			ctx,
+			"Finger",
 			"Finger",
 			CFrame.new(0, y, 0) * CFrame.Angles(0, math.rad(ang), 0) * CFrame.new(1.4, 0, 0),
 			Vector3.new(2.6, 0.55, 0.12),
@@ -323,21 +359,10 @@ end
 
 POINT.Well = function(m: Model, ctx: Ctx, _P: any)
 	local sec = section(m, ctx, "Well", "Stone")
-	local r = 2.4
-	for i = 0, 7 do
-		local a = i * math.pi / 4
-		part(
-			sec,
-			ctx,
-			"Stone",
-			CFrame.new(math.cos(a) * r, 1, math.sin(a) * r) * CFrame.Angles(0, -a, 0),
-			Vector3.new(0.9, 2.2 + jitter(ctx, 1) * 0.15, 2.1),
-			if i % 2 == 0 then "Stone" else "StoneDark"
-		)
-	end
+	mesh(sec, ctx, "Stones", "WellRing", CFrame.new(0, 1, 0), Vector3.new(5.9, 2.3, 5.9), "Stone")
 	part(sec, ctx, "Water", CFrame.new(0, 0.6, 0), Vector3.new(3.6, 0.2, 3.6), "Water")
 	for _, x in { -2.2, 2.2 } do
-		part(sec, ctx, "Post", CFrame.new(x, 3.4, 0), Vector3.new(0.4, 4.4, 0.4), "WoodDark")
+		post(sec, ctx, CFrame.identity, x, 1.0, 0, 0.4, 4.7, "WoodDark")
 	end
 	cyl(sec, ctx, "Winch", CFrame.new(0, 4.4, 0), 4.6, 0.4, "Wood")
 	for _, s in { -1, 1 } do
@@ -350,66 +375,63 @@ POINT.Well = function(m: Model, ctx: Ctx, _P: any)
 			"WoodDark"
 		)
 	end
-	cyl(sec, ctx, "Bucket", CFrame.new(0, 3.2, 0) * UPRIGHT, 0.8, 0.8, "Wood")
+	mesh(sec, ctx, "Bucket", "Barrel", CFrame.new(0, 3.2, 0), Vector3.new(0.85, 0.8, 0.8), "Wood")
 end
 
+-- a hewn stone trough (hollow), long along X, water standing in it
 POINT.Trough = function(m: Model, ctx: Ctx, _P: any)
 	local sec = section(m, ctx, "Trough", "Stone")
-	part(sec, ctx, "Base", CFrame.new(0, 0.55, 0), Vector3.new(5, 1.5, 2), "StoneDark")
-	part(sec, ctx, "Rim", CFrame.new(0, 1.4, 0), Vector3.new(5.2, 0.3, 2.2), "Stone")
+	mesh(sec, ctx, "Trough", "Trough", CFrame.new(0, 0.7, 0) * ACROSS, Vector3.new(2.2, 1.8, 5.2), "Stone")
 	part(sec, ctx, "Water", CFrame.new(0, 1.3, 0), Vector3.new(4.4, 0.2, 1.4), "Water")
 end
 
+-- three bulged stave barrels, each with its two iron hoops, each turned its own way
 POINT.Barrels = function(m: Model, ctx: Ctx, _P: any)
 	local sec = section(m, ctx, "Barrels", "Wood")
 	for i, p in { { 0, 0 }, { 1.9, 0.4 }, { 0.8, 1.7 } } do
 		local h = 2.2
-		cyl(sec, ctx, "Barrel", CFrame.new(p[1], h / 2, p[2]) * UPRIGHT, h, 1.7, if i == 2 then "WoodDark" else "Wood")
-		for _, y in { 0.45, h - 0.45 } do
-			cyl(sec, ctx, "Hoop", CFrame.new(p[1], y, p[2]) * UPRIGHT, 0.18, 1.78, "Metal")
-		end
+		local cf = CFrame.new(p[1], h / 2, p[2]) * CFrame.Angles(0, (jitter(ctx, 2) + 1) * math.pi, 0)
+		local size = Vector3.new(1.9, h, 1.81)
+		mesh(sec, ctx, "Barrel", "Barrel", cf, size, if i == 2 then "WoodDark" else "Wood")
+		mesh(sec, ctx, "Hoops", "Hoops", cf, size, "Metal")
 	end
 end
 
+-- a stack of split logs (3 rows), pinned by two stakes
 POINT.Woodpile = function(m: Model, ctx: Ctx, _P: any)
 	local sec = section(m, ctx, "Woodpile", "Wood")
 	for row = 0, 2 do
 		local count = 4 - row
 		for i = 0, count - 1 do
 			local x = (i - (count - 1) / 2) * 0.62
-			cyl(
+			mesh(
 				sec,
 				ctx,
 				"Log",
-				CFrame.new(x, 0.3 + row * 0.55, 0) * CFrame.Angles(0, math.pi / 2, 0),
-				3 + jitter(ctx, 2) * 0.3,
-				0.6,
+				pick(ctx, { "LogA", "LogB" }),
+				CFrame.new(x, 0.3 + row * 0.55, jitter(ctx, 4) * 0.15)
+					* flip(ctx, 5)
+					* CFrame.Angles(0, 0, jitter(ctx, 6) * math.pi),
+				Vector3.new(0.62, 0.6, 3 + jitter(ctx, 2) * 0.3),
 				if (i + row) % 2 == 0 then "Wood" else "WoodDark"
 			)
 		end
 	end
 	for _, x in { -1.6, 1.6 } do
-		part(sec, ctx, "Stake", CFrame.new(x, 0.9, 0), Vector3.new(0.2, 1.9, 0.2), "WoodDark")
+		post(sec, ctx, CFrame.identity, x, -0.05, 0, 0.22, 1.9, "WoodDark")
 	end
 end
 
+-- a faceted hay mound
 POINT.Haystack = function(m: Model, ctx: Ctx, _P: any)
 	local sec = section(m, ctx, "Haystack", "Wood")
-	part(sec, ctx, "Hay", CFrame.new(0, 1.3, 0), Vector3.new(5, 2.6, 4.2), "Hay")
-	part(
+	mesh(
 		sec,
 		ctx,
 		"Hay",
-		CFrame.new(0.2, 3.0, 0) * CFrame.Angles(0, math.rad(12), 0),
-		Vector3.new(3.8, 1.2, 3.2),
-		"Hay"
-	)
-	part(
-		sec,
-		ctx,
-		"Hay",
-		CFrame.new(-0.1, 3.9, 0.1) * CFrame.Angles(0, math.rad(-8), 0),
-		Vector3.new(2.2, 0.8, 2),
+		"Haystack",
+		CFrame.new(0, 2.1, 0) * CFrame.Angles(0, math.rad(jitter(ctx, 1) * 20), 0),
+		Vector3.new(5.2, 4.4, 4.4),
 		"Hay"
 	)
 end
@@ -419,11 +441,12 @@ POINT.Cart = function(m: Model, ctx: Ctx, _P: any)
 	part(sec, ctx, "Bed", CFrame.new(0, 1.9, 0), Vector3.new(3.6, 0.3, 5.6), "Wood")
 	for _, s in { -1, 1 } do
 		part(sec, ctx, "Side", CFrame.new(s * 1.75, 2.45, 0), Vector3.new(0.2, 0.8, 5.6), "WoodDark")
-		cyl(sec, ctx, "Wheel", CFrame.new(s * 2.05, 1.35, 0.6), 0.3, 2.7, "WoodDark")
-		part(
+		mesh(sec, ctx, "Wheel", "Wheel", CFrame.new(s * 2.05, 1.35, 0.6), Vector3.new(0.45, 2.7, 2.7), "WoodDark")
+		mesh(
 			sec,
 			ctx,
 			"Shaft",
+			"Beam",
 			CFrame.new(s * 1.1, 1.6, -4.3) * CFrame.Angles(math.rad(-8), 0, 0),
 			Vector3.new(0.25, 0.25, 3.6),
 			"Wood"
@@ -455,7 +478,7 @@ end
 function Props.build(kind: string, deps: any): Model
 	local m = Instance.new("Model")
 	m.Name = kind
-	local ctx: Ctx = { n = #kind * 37, D = deps.D }
+	local ctx: Ctx = { n = #kind * 37, D = deps.D, kit = deps.Kit }
 	if LINEAR[kind] then
 		local L = deps.P.SampleLength
 		Props.linear(kind, m, Vector3.new(-L / 2, 0, 0), Vector3.new(L / 2, 0, 0), function()
