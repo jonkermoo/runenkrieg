@@ -663,7 +663,7 @@ local Bots = {
 		--   (`seenEvery`th) the enemy's next sector sees from `eye` studs over its ground to `head` over the run's over
 		--   the terrain (a reverse slope hides it; a tree line hides only where the planner refuses it), within
 		--   Zigzag.range. Of the layouts within `slack` of the clearest ground (Trenches.Site: what the planner refuses
-		--   counted first), the one with the least of these.
+		--   counted first), the one with the least of these; none with a run within `flag` studs of the zone's flagpole.
 		-- - Hot: no new square dug within `radius` studs of a shell in the last `seconds` (its diggers go to a cooler
 		--   job; the run is still planned: a front line is shelled most of the time, and a measured match with runs held
 		--   off for 120 s never planned its fire trench); a critical square (a dugout's, the base) is still repaired
@@ -682,7 +682,7 @@ local Bots = {
 		--   looked at every `every` s, `touch`: two squares this near are joined already.
 		Care = {
 			Map = { cell = 20, half = 180, shell = 1, death = 0.6 },
-			Site = { heat = 1, sample = 8, seen = 1, seenEvery = 2, eye = 6, head = 3, slack = 1 },
+			Site = { heat = 1, sample = 8, seen = 1, seenEvery = 2, eye = 6, head = 3, slack = 0, flag = 8 },
 			Hot = { radius = 20, seconds = 120, lull = 15 },
 			Rear = { back = 32 },
 			Score = {

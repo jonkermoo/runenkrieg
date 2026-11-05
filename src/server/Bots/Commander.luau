@@ -1540,14 +1540,25 @@ end
 -- a system sited on the clearest, safest ground (Config/Bots.Trenches.Site, Care.Site): of `make(edge, shift)`'s
 -- layouts, each fire line `edge` of the zone's radius out and `shift` studs across, the one with the fewest trees on
 -- its runs and the least shelled and seen ground (`side`; `eye`: where the enemy looks from)
-local function sited(make: (number, number) -> { BotTrenches.Run }, side: string, eye: Vector3?): { BotTrenches.Run }
+local function sited(
+	make: (number, number) -> { BotTrenches.Run },
+	side: string,
+	eye: Vector3?,
+	flag: { x: number, z: number }?
+): { BotTrenches.Run }
 	-- (the clearest ground first, what the planner refuses; of the layouts within Care.Site.slack of the clearest,
-	-- the least shelled and seen: a measured match sited for cover first ran its fire bays into walls)
+	-- the least shelled and seen: a measured match sited for cover first ran its fire bays into walls; none of its
+	-- runs within Care.Site.flag studs of the zone's flagpole, which another measured match's fire bay ran into)
 	local all, fewest = {}, math.huge
 	for _, edge in TR.Site.edges do
 		for _, shift in TR.Site.shifts do
 			local runs = make(edge, shift)
 			local n = treesOn(runs)
+			for _, r in runs do
+				if flag and BotTrenches.offRun(flag.x, flag.z, r.ax, r.az, r.bx, r.bz) < CA.Site.flag then
+					n += math.huge
+				end
+			end
 			table.insert(all, { runs = runs, n = n })
 			fewest = math.min(fewest, n)
 		end
@@ -1935,7 +1946,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				cfg.Fire.edge = edge
 				local at = { x = zone.x - tz * shift, z = zone.z + tx * shift, radius = zone.radius }
 				return BotTrenches.layout(at, tx, tz, cfg)
-			end, side, eyeAt(nextS))
+			end, side, eyeAt(nextS), zone)
 			local made = systemJobs(sbs, runs, threatsOf(side, front :: number, now), tx, tz, key)
 			sbs.systems[key] = {
 				sector = front :: number,
