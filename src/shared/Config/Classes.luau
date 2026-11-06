@@ -180,9 +180,10 @@ local Classes = {
 		},
 	} :: { [string]: { [string]: string } },
 	-- every award below paid this many times over, in every mode (user 2026-11-02 set 1.5; the marks rebalance,
-	-- 2026-11-05, folded it into the numbers below, which are what gets paid); the points may hold fractions, shown
-	-- rounded down (src/client/Menus)
-	Pay = 1,
+	-- 2026-11-05, folded it into the numbers below; 2026-11-06 a quarter, user: "i played for about 10 minutes and i
+	-- have 300 points already": a 20 v 20 bot match measured a player at ~27 a minute, the target ~6, so the Auto rifler
+	-- comes at ~15 minutes and the Mage at ~28); the points may hold fractions, shown rounded down (src/client/Menus)
+	Pay = 0.25,
 	-- points earned (the marks rebalance, user 2026-11-05: kills, objectives, building, support and gun crews all rated
 	-- the same, so each style earns about 6 a minute; no Win award, "drop")
 	Earn = {
