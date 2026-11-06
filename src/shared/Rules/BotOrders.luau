@@ -123,6 +123,8 @@ export type OffFacts = {
 	ours: number, -- its heads in the target's zone
 	theirs: number, -- the enemy's there
 	waveEvery: number, -- seconds between respawn waves (Config/Frontline.Waves.every)
+	-- seconds until `ready` of its attack squads are at their jump-off at the gathering pace (nil: none on the way)
+	due: number?,
 }
 
 -- The side that took a sector between two looks at the owners (a sector turning "West" or "East" from anything
@@ -180,7 +182,11 @@ function BotOrders.offensive(o: Offensive, f: OffFacts, cfg: any): boolean
 		local most = if o.counter then cfg.counterGather else cfg.gatherSeconds
 		-- (a counter-attack waits its whole gather: the side that just took the sector digs in meanwhile)
 		local least = if o.counter then most else math.min(cfg.gatherWaves * f.waveEvery, most)
-		if t >= most or (t >= least and f.ready >= cfg.ready) then
+		-- (still on their way at the end of it: it waits for them, up to `gatherMax` s, so they go in together; user
+		-- 2026-11-06 play test, Lantern Meadows 50 v 50: "everyone breaks at sector 4": every offensive went at 60 s
+		-- with none at the jump-off, squads 150-400 studs back, and bled out piecemeal)
+		local late = f.due ~= nil and f.due > cfg.dueSlack and t < cfg.gatherMax
+		if (t >= most and not late) or (t >= least and f.ready >= cfg.ready) then
 			enter(o, "Barrage", f.now)
 		end
 		return false
@@ -198,6 +204,18 @@ function BotOrders.offensive(o: Offensive, f: OffFacts, cfg: any): boolean
 	local since = f.now - (o.goAt or f.now)
 	local limit = cfg.maxSeconds + (if o.phase == "Exploit" then cfg.exploitMore else 0)
 	return since >= limit or (o.went > 0 and o.lost >= cfg.spentShare * o.went)
+end
+
+-- Seconds until `share` of an offensive's attackers are at their jump-offs: `dists` each one's studs from it (its
+-- squad's), at `pace` studs a second; nil when none is on its way.
+function BotOrders.due(dists: { number }, share: number, pace: number): number?
+	if #dists == 0 then
+		return nil
+	end
+	local list = table.clone(dists)
+	table.sort(list)
+	local k = math.clamp(math.ceil(share * #list), 1, #list)
+	return list[k] / pace
 end
 
 -- Whether a side's offensive holds its squads back (gathering or under its barrage): no push into the zone yet.

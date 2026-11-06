@@ -214,6 +214,12 @@ local Bots = {
 		holdRings = { 0.35, 0.7 },
 		holdPerRing = 8,
 		holdViews = { -50, 0, 50 },
+		-- an approach spot whose way back to the side's own sector crosses the river (its water within `pad` studs,
+		-- looked at every `step`) slides back to the side's own bank, `bank` studs past the water (user 2026-11-06 play
+		-- test, Lantern Meadows 50 v 50: "everyone breaks at sector 4": each offensive over the Aurel gathered on the
+		-- far bank, under the defenders' guns; none got there, every one went in piecemeal and failed); a jump-off trench
+		-- across the river from the squad is passed over for the next best on its side (up to `tries`)
+		wet = { step = 6, pad = 4, bank = 12, tries = 4 },
 		view = 40,
 		eye = 5,
 		chest = 3,
@@ -471,7 +477,11 @@ local Bots = {
 	-- - Gather: the attack squads go to their jump-off (a dug trench by the zone, else their approach spot) and wait,
 	--   no push; at least `gatherWaves` respawn waves (Config/Frontline.Waves.every) and until `ready` of them are
 	--   there, at most `gatherSeconds` (a counter-attack into a sector lost under `counterWithin` s ago: all of
-	--   `counterGather`, while the side that took it digs in, `dig`).
+	--   `counterGather`, while the side that took it digs in, `dig`); then on while `ready` of them are still more than
+	--   `dueSlack` s from their jump-off at `pace` studs a second (bounding under fire), up to `gatherMax` s, so they go
+	--   in together (user 2026-11-06 play test, Lantern Meadows 50 v 50: "everyone breaks at sector 4"); only attackers
+	--   within `gatherNear` studs of their squad's jump-off count (one walking up from the spawn after a respawn kept
+	--   every gather under 20% for its whole time).
 	-- - Barrage: `barrageSeconds` of every crewed gun on the target: known MG nests and guns first, then
 	--   `barragePoints` spots within `barrageSpread` studs of the zone's middle, then its dug squares.
 	-- - Go: every attack squad goes in together (Assault, no ready check).
@@ -489,6 +499,10 @@ local Bots = {
 		screen = 1,
 		hold = 0.2,
 		gatherSeconds = 60,
+		gatherMax = 180,
+		gatherNear = 250,
+		pace = 6,
+		dueSlack = 5,
 		gatherWaves = 2,
 		ready = 0.6,
 		counterWithin = 60,

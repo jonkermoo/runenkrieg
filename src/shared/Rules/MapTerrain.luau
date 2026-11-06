@@ -121,6 +121,38 @@ function MapTerrain.riverDistance(map: any, x: number, z: number): number
 	return (MapTerrain.riverNearest(map, x, z))
 end
 
+-- Where the straight line from (ax, az) to (bx, bz) runs through the river's water (its middle line within half its
+-- `width` plus `pad` studs), looked at every `step` studs: the first and last share of the way (0..1) in the water,
+-- nil when it stays dry or the map has no river. A bot squad's gathering place across the water from its own side is
+-- no gathering place (user 2026-11-06 play test, Lantern Meadows 50 v 50: "everyone breaks at sector 4"; each
+-- offensive over the Aurel gathered on the far bank, under the defenders' guns, and none got there).
+function MapTerrain.wetSpan(
+	map: any,
+	ax: number,
+	az: number,
+	bx: number,
+	bz: number,
+	step: number,
+	pad: number
+): (number?, number?)
+	local r = map.river
+	if not r then
+		return nil, nil
+	end
+	local half = r.width / 2 + pad
+	local len = math.sqrt((bx - ax) ^ 2 + (bz - az) ^ 2)
+	local n = math.max(1, math.ceil(len / step))
+	local first, last = nil, nil
+	for k = 0, n do
+		local t = k / n
+		if MapTerrain.riverDistance(map, ax + (bx - ax) * t, az + (bz - az) * t) <= half then
+			first = first or t
+			last = t
+		end
+	end
+	return first, last
+end
+
 -- A bridge over the river (a map's `river.bridges`): its west (or south) end and the unit way across, square to the
 -- river where its centre (b.x, b.z) stands on the river's line.
 export type BridgeFrame = { ax: number, az: number, ux: number, uz: number, length: number }

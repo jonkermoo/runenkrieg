@@ -101,6 +101,21 @@ return {
 		R.offensive(counter, { now = O.counterGather, ready = 0, ours = 0, theirs = 0, waveEvery = 15 }, O)
 		assert(counter.phase == "Barrage", "then goes")
 	end,
+	["offensive: past gatherSeconds it waits for squads still walking up, at most gatherMax"] = function()
+		local O = Cfg.Offensive
+		-- (Lantern Meadows: squads 150-400 studs back at 60 s went in piecemeal)
+		local o = R.newOffensive(3, 0, false)
+		local due = R.due({ 400, 300, 150, 150, 20 }, O.ready, O.pace) :: number
+		assert(math.abs(due - 150 / O.pace) < 1e-9, "the ready share's walk: the 3rd nearest of 5 (60%)")
+		R.offensive(o, { now = O.gatherSeconds, ready = 0, ours = 0, theirs = 0, waveEvery = 15, due = due }, O)
+		assert(o.phase == "Gather", "still on their way: it waits")
+		R.offensive(o, { now = O.gatherSeconds + 20, ready = 0.2, ours = 0, theirs = 0, waveEvery = 15, due = 4 }, O)
+		assert(o.phase == "Barrage", "near enough (within dueSlack): it goes")
+		local slow = R.newOffensive(3, 0, false)
+		R.offensive(slow, { now = O.gatherMax, ready = 0, ours = 0, theirs = 0, waveEvery = 15, due = 999 }, O)
+		assert(slow.phase == "Barrage", "never waits past gatherMax")
+		assert(R.due({}, O.ready, O.pace) == nil, "nobody on the way")
+	end,
 	["offensive: barrage, go, exploit and back, spent by losses or time"] = function()
 		local O = Cfg.Offensive
 		local o = R.newOffensive(4, 0, false)
