@@ -248,7 +248,7 @@ return {
 			assert(n > 0 and n <= R.price(C.Defs.Grenadier), `{reason}: {n}`)
 		end
 		assert(C.Earn.Win == nil, "no Win award (user 2026-11-05: drop)")
-		assert(C.Pay == 1, "the numbers are what gets paid")
+		assert(C.Pay == 0.25, "a quarter of the numbers (user 2026-11-06: earnings far too fast)")
 		assert(R.earn(5, C.Earn.Kill) == 5 + C.Earn.Kill)
 		assert(R.earn(5, -10) == 0)
 	end,

@@ -83,8 +83,8 @@ local state: Rules.State
 local pair: { West: string, East: string }
 local folder: Folder
 local zoneY: { number } = {} -- each sector's ground at its point
-local awardWatchers: { (Player, string) -> () } = {}
-local botAwardWatchers: { (Model, string) -> () } = {}
+local awardWatchers: { (Player, string, number?) -> () } = {}
+local botAwardWatchers: { (Model, string, number?) -> () } = {}
 local matchWatchers: { () -> () } = {}
 -- while running: the match loop, the player hooks; set by the admin to end the match now
 local thread: thread? = nil
@@ -121,16 +121,16 @@ local frozen: { BasePart } = {} -- the roots anchored at a match's end, until th
 local playedAt = 0 -- os.clock() when play began (the capture log's times)
 local log: { { t: number, index: number, side: string } } = {} -- the match's captures, in order (the results' replay)
 
--- `fn(player, reason)` for each award (a Config/Classes.Earn key: Capture, Neutralise, Defend); `fn()` at each
--- match's start
-function Frontline.onAward(fn: (Player, string) -> ())
+-- `fn(player, reason, times)` for each award (a Config/Classes.Earn key: Capture, Neutralise, Defend; `times`: the
+-- share paid, a bot's death Config/Bots.KillShare); `fn()` at each match's start
+function Frontline.onAward(fn: (Player, string, number?) -> ())
 	table.insert(awardWatchers, fn)
 end
 function Frontline.onMatchStart(fn: () -> ())
 	table.insert(matchWatchers, fn)
 end
--- `fn(bot, reason)` for each award to a bot soldier (src/server/Bots pays it)
-function Frontline.onBotAward(fn: (Model, string) -> ())
+-- `fn(bot, reason, times)` for each award to a bot soldier (src/server/Bots pays it)
+function Frontline.onBotAward(fn: (Model, string, number?) -> ())
 	table.insert(botAwardWatchers, fn)
 end
 
@@ -138,14 +138,14 @@ local function isPlayer(who: Player | Model): boolean
 	return (who :: Instance):IsA("Player")
 end
 
-local function award(who: Player | Model, reason: string)
+local function award(who: Player | Model, reason: string, times: number?)
 	if isPlayer(who) then
 		for _, fn in awardWatchers do
-			task.spawn(fn, who :: Player, reason)
+			task.spawn(fn, who :: Player, reason, times)
 		end
 	else
 		for _, fn in botAwardWatchers do
-			task.spawn(fn, who :: Model, reason)
+			task.spawn(fn, who :: Model, reason, times)
 		end
 	end
 end
@@ -1044,7 +1044,9 @@ function Frontline.killed(killer: Player, victim: Model)
 		end
 	end
 	if Rules.defends(state, sectors, side, spots, Cfg.DefendReach) then
-		award(killer, "Defend")
+		-- a bot's death pays the kill's share of the Defend too (user 2026-11-06: earnings far too fast)
+		local bot = type(victim:GetAttribute(BotsCfg.IdAttribute)) == "number"
+		award(killer, "Defend", if bot then BotsCfg.KillShare else 1)
 	end
 end
 

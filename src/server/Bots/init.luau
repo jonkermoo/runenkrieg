@@ -1621,10 +1621,10 @@ function Bots.start()
 			end
 		end
 	end)
-	Frontline.onBotAward(function(m: Model, reason: string)
+	Frontline.onBotAward(function(m: Model, reason: string, times: number?)
 		local id = m:GetAttribute(Cfg.IdAttribute)
 		if type(id) == "number" then
-			Loadouts.awardBot(id, reason)
+			Loadouts.awardBot(id, reason, times)
 		end
 	end)
 	-- each match starts with everyone respawned: the bots too (in Normal, on the new match's teams)
