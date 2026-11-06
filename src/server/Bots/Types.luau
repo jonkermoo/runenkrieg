@@ -213,6 +213,7 @@ export type Bot = {
 	-- there, until when (stalled: then a fresh path); when it may look for one again; its progress toward its goal
 	wait: { kind: string, why: string, key: Vector3?, at: Vector3, face: Vector3?, untilAt: number? }?,
 	waitAt: number?,
+	senseFrom: number?, -- the first of the nearest enemies its sight rays go to (Move.sense: on round when all hid)
 	prog: { key: { x: number, z: number }?, best: number, at: number }?,
 	-- Normal: a downed or hurt teammate it guards, gun out, until it may drag or heal them (Config/Bots.Actions.Guard)
 	guard: { who: Model, since: number }?,

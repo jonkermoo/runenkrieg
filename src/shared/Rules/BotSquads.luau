@@ -35,7 +35,8 @@ export type Facts = {
 	wait: boolean?, -- its side's offensive gathers or shells the zone: no push yet (Config/Bots.Offensive)
 	go: boolean?, -- its side's offensive has gone: in now, with no ready check
 }
-export type Spot = { hidden: boolean, near: number, distance: number, lane: number }
+-- `sees`: a hold spot's count of the far side's view points it sees (nil: not looked, an approach spot)
+export type Spot = { hidden: boolean, near: number, distance: number, lane: number, sees: number? }
 
 -- `ids` (in a steady order) in squads of `size`; a last squad under `least` joins the one before it.
 function BotSquads.form(ids: { any }, size: number, least: number): { { any } }
@@ -112,9 +113,12 @@ function BotSquads.role(sq: Squad, index: number): Role
 end
 
 -- A spot's worth: cover, things close by (capped), nearer better, its lane's squads already there worse, a little
--- chance (`roll` 0..1). `w`: Config/Bots.Routes.weights.
+-- chance (`roll` 0..1); a hold spot seeing the far side's way in better, one seeing none of it worse (a defender there
+-- can't fire). `w`: Config/Bots.Routes.weights.
 function BotSquads.scoreSpot(s: Spot, crowd: number, roll: number, w: any, nearCap: number): number
-	return (if s.hidden then w.hidden else 0)
+	local sight = if s.sees == nil then 0 elseif s.sees > 0 then s.sees * w.sees else w.blind
+	return sight
+		+ (if s.hidden then w.hidden else 0)
 		+ math.min(s.near, nearCap) * w.near
 		- s.distance * w.distance
 		- crowd * w.crowd
