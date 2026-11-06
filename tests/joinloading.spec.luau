@@ -64,4 +64,10 @@ return {
 		assert(Cut.loadOver(Front.Victory.least, Front.Victory.least, Front.Victory.max, 0), "everyone ready: on")
 		assert(Cut.loadOver(Front.Victory.max, Front.Victory.least, Front.Victory.max, 3), "the cap")
 	end,
+	["ground hold: only over the live map and its margin"] = function()
+		local b = { minX = -150, maxX = 2550, minZ = -280, maxZ = 280 }
+		assert(R.within(b, 0, 0, 0) and R.within(b, 420, -500, 600), "inside, and inside the margin")
+		assert(not R.within(b, 420, -600, 0) and not R.within(b, 0, 0, 300), "outside")
+		assert(Cfg.Ground.depth >= 100 and Cfg.Ground.maxHold > 0, "a deep look down and a cap")
+	end,
 }

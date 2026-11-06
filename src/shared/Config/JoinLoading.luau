@@ -28,4 +28,9 @@ return table.freeze({
 	-- LocalPlayer attribute; never replicated)
 	SlowAttribute = "DevSlowLoad",
 	SlowSteps = { 0, 0.5, 2 },
+	-- this client's soldier held still where the live map's ground under it isn't loaded here yet (src/client/
+	-- GroundHold; user 2026-11-05: "i fell out of the map after the map cutscene"): nothing within `depth` studs under
+	-- the root, checked every `check` seconds; held until something is, `maxHold` seconds at the most; `HeldAttribute`
+	-- on the LocalPlayer counts the holds (the admin's readout)
+	Ground = { depth = 200, check = 0.1, maxHold = 15, HeldAttribute = "GroundHolds" },
 })
