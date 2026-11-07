@@ -46,6 +46,7 @@ local LiveMap = require(Shared.LiveMap)
 local Net = require(Shared.Net)
 local Map = LiveMap.map
 local Rules = require(Shared.Rules.Frontline)
+local MapTerrain = require(Shared.Rules.MapTerrain)
 local Build = require(script.Parent.Build)
 local Damage = require(script.Parent.Damage)
 local DevWorld = require(script.Parent.DevWorld)
@@ -108,7 +109,9 @@ local starting = false -- set by the admin to skip the wait for players
 -- each sector's first push off its holder's end (os.clock) while a capture is under way (the admin's capture time)
 local pushedAt: { [number]: number } = {}
 local captured = false -- any capture this match (spawns leave the HQs)
-local latest: { { West: number, East: number } } = {} -- the last tick's soldiers in each zone
+-- each sector's time (os.clock) until which it counts as attacked against each side (Config/Frontline.Fallback: the
+-- side's enemy pressing it, held on `hold` seconds), for the spawn choice (Rules/Frontline.spawnSector)
+local pressedUntil: { [number]: { [string]: number } } = {}
 -- each side's lastStand guns open for the match (Rules/Frontline.latched) and the sectors it held at the last publish
 local latch: { [string]: boolean } = { West = false, East = false }
 local heldBefore: { [string]: number } = { West = 0, East = 0 }
@@ -278,20 +281,35 @@ end
 -- each side's spawn sector now (published as "<Side>Spawn": the loadout map's deploy ring)
 -- (fixed for a wave by its first soldier in, so one wave's soldiers all stand in one line)
 local waveSector: { [string]: number } = {}
+local function attackedFor(side: Rules.Side): { [number]: boolean }
+	local now, out = os.clock(), {}
+	for i, t in pressedUntil do
+		out[i] = (t[side] or 0) > now
+	end
+	return out
+end
 local function spawnSector(side: Rules.Side): number
 	if waveAt and waveSector[side] then
 		return waveSector[side]
 	end
-	return Rules.spawnSector(state, side, captured, latest)
+	return Rules.spawnSector(state, side, captured, attackedFor(side))
 end
 
--- the wave line's centre and facing for `side`: at its own HQ in its spawn zone, else by the sector's flag, its zone's
--- point and the one behind it (Rules/Frontline.lineCentre, Line.back of the way back); facing the sector it attacks
+-- the wave line's centre and facing for `side`: at its own HQ in its spawn zone; on a map with the leg pattern
+-- (Map.legs) at its front sector's rally behind that sector's forward crest (Rules/MapTerrain.rally; the HQ's too once
+-- the match has a capture and nobody attacks the HQ); else by the sector's flag, its zone's point and the one behind it
+-- (Rules/Frontline.lineCentre, Line.back of the way back); facing the sector it attacks
 local function lineOf(side: Rules.Side): (Vector3, Vector3)
 	local i = spawnSector(side)
 	local home = if side == "West" then 1 else #sectors
 	local centre: Vector3
-	if i == home then
+	local rx, rz = nil, nil
+	if Map.legs and not (i == home and (not captured or attackedFor(side)[home])) then
+		rx, rz = MapTerrain.rally(Map, i, side)
+	end
+	if rx and rz then
+		centre = Vector3.new(rx, 0, rz)
+	elseif i == home then
 		local r = Map.spawnZones[side]
 		centre = Vector3.new((r.minX + r.maxX) / 2, 0, (r.minZ + r.maxZ) / 2)
 	else
@@ -650,15 +668,28 @@ end
 local function occupancy(): (
 	{ { West: number, East: number } },
 	{ { Player | Model } },
+	{ { West: number, East: number } },
+	{ { West: number, East: number } },
 	{ { West: number, East: number } }
 )
-	local counts, inside, byHead = empty(), {}, empty()
+	local counts, inside, byHead, near, close = empty(), {}, empty(), empty(), empty()
+	local F = Cfg.Fallback
 	for i in sectors do
 		inside[i] = {}
 	end
 	local function count(who: Player | Model, character: Model?, root: BasePart?, side: Rules.Side?)
 		if root and side and character and not Ragdoll.active(character) and not Damage.protected(character) then
 			local feet = root.Position - Vector3.new(0, Cfg.FeetBelowRoot, 0)
+			-- (by head: an attack building on a point, Config/Frontline.Fallback)
+			for i, s in sectors do
+				local d2 = (feet.X - s.x) ^ 2 + (feet.Z - s.z) ^ 2
+				if d2 < F.ring * F.ring then
+					near[i][side] += 1
+					if d2 < F.inner * F.inner then
+						close[i][side] += 1
+					end
+				end
+			end
 			for i, s in sectors do
 				if Rules.inZone(feet.X - s.x, feet.Z - s.z, feet.Y - zoneY[i], s.radius, Cfg.Height) then
 					counts[i][side] += Rules.weight(Cfg, not isPlayer(who))
@@ -678,7 +709,7 @@ local function occupancy(): (
 			count(m, m, m:FindFirstChild("HumanoidRootPart") :: BasePart?, sideOfModel(m))
 		end
 	end
-	return counts, inside, byHead
+	return counts, inside, byHead, near, close
 end
 
 -- how many players each side has (by their next life's team); `withBots`: and its bot soldiers (a match's start counts
@@ -772,7 +803,7 @@ local function newMatch(reset: boolean?)
 	ending = false
 	forced = nil
 	captured = false
-	latest = empty()
+	table.clear(pressedUntil)
 	table.clear(log)
 	for _, side in { "West", "East" } do
 		latch[side], heldBefore[side] = false, Rules.held(state, side)
@@ -864,8 +895,17 @@ local function run()
 			end
 			local w, e = heads()
 			folder:SetAttribute(Cfg.ReinforcedAttribute, Rules.reinforced(Cfg.Reinforcements, w, e))
-			local counts, inside, inZone = occupancy()
-			latest = inZone -- (the spawn choice by head, as before; the weights are the capture's)
+			local counts, inside, inZone, near, close = occupancy()
+			local F = Cfg.Fallback
+			for i in sectors do
+				pressedUntil[i] = pressedUntil[i] or {}
+				for _, side in { "West", "East" } do
+					local enemy = Rules.enemy(side)
+					if Rules.pressing(F, near[i][enemy], close[i][enemy]) then
+						pressedUntil[i][side] = last + F.hold
+					end
+				end
+			end
 			local unit = Rules.unit(Cfg, strength())
 			folder:SetAttribute(Cfg.UnitAttribute, unit)
 			for _, ev in Rules.step(state, Cfg, counts, dt, unit) do

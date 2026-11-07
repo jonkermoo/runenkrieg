@@ -247,15 +247,19 @@ return {
 		assert(R.parsePair("uniform2,uniform2") == nil and R.parsePair("x") == nil and R.parsePair(nil) == nil)
 		assert(R.sideOf(back, "uniform3") == "East" and R.sideOf(back, "uniform1") == nil and R.sideOf(nil, "x") == nil)
 	end,
-	["spawns: frontmost held sector, one back while the enemy leads there (user 2026-10-27)"] = function()
+	["spawns: frontmost held sector, back past every attacked one (user 2026-11-06)"] = function()
 		local s = R.new(Map1.sectors)
-		assert(R.spawnSector(s, "West", false, at(2, 0, 3)) == 1, "no capture yet: the HQ")
-		assert(R.spawnSector(s, "West", true, at(2, 0, 0)) == 2, "frontmost held")
-		assert(R.spawnSector(s, "West", true, at(2, 1, 2)) == 1, "the enemy leads at S2: one back")
-		assert(R.spawnSector(s, "West", true, at(2, 2, 2)) == 2, "even: stays")
-		assert(R.spawnSector(s, "East", true, at(4, 3, 0)) == N, "East steps back toward its own end")
+		assert(R.spawnSector(s, "West", false, { [2] = false }) == 1, "no capture yet: the HQ")
+		assert(R.spawnSector(s, "West", true, {}) == 2, "frontmost held")
+		assert(R.spawnSector(s, "West", true, { [2] = true }) == 1, "an attack on S2: one back")
+		assert(R.spawnSector(s, "East", true, { [4] = true }) == N, "East steps back toward its own end")
 		s.owner[2] = "East"
-		assert(R.spawnSector(s, "West", true, at(1, 0, 5)) == 1, "never behind its own HQ")
+		assert(R.spawnSector(s, "West", true, { [1] = true }) == 1, "never behind its own HQ")
+		local F = Cfg.Fallback
+		assert(not R.pressing(F, F.count - 1, 0), "a scout or two out in the open is no attack")
+		assert(R.pressing(F, F.count, 0), "a squad in the attackers' lane is")
+		assert(R.pressing(F, 1, 1), "one enemy inside the crests is")
+		assert(F.ring > F.inner and F.hold > 0)
 	end,
 	["waves: one clock every 20 s from the countdown's end (user 2026-10-27; 20 s since 2026-11-06)"] = function()
 		local W = Cfg.Waves

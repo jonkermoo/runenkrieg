@@ -20,7 +20,7 @@ return function(map: any): any
 		return cache[map]
 	end
 	local layout = V.layout(map, B, M, MT, P)
-	local lines = Frontline.lineQuads(map.sectors, Line, Line.treeClear)
+	local lines = Frontline.lineQuads(map.sectors, Line, Line.treeClear, MT.rallyOf(map))
 	local trees = V.naturalTrees(map, MT, layout.lots, map.village.trees.buildingClear, lines)
 	for _, t in layout.trees do
 		table.insert(trees, t)

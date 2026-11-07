@@ -1,9 +1,13 @@
 --!strict
 -- Lantern Meadows: the campaign's opening against Selvara (CAMPAIGN.md, "Opening (Selvara)"): wide, open festival
 -- meadows on the Aurel's north bank, where mages of all three nations held the summer lantern festival. Katzmark (West)
--- holds the hills, Selvara (East) the riverside. S1 the Katzmark camp, S2 the hedgerow fields, S3 the festival ground,
--- S4 the ford, S5 the Selvaran riverside camp. Laid out by the map rules (docs/maps/MAP_RULES.md): points ~420 apart
--- on a long, narrow map, each on a same-height rise with its wave line behind it. Rationale: docs/maps/LANTERNMEADOWS.md.
+-- holds the hills, Selvara (East) the riverside. S1 the Katzmark camp, S2 the brickfield farm, S3 the festival ground,
+-- S4 the river town, S5 the Selvaran cascina.
+-- Rebuilt on the leg pattern (map rework, user approved 2026-11-06, "Yes, start LM"; docs/maps/MAP_RULES.md): points
+-- 520 apart on an arch that bends north to the festival ground and back, every leg between two points built the same
+-- way (Rules/MapTerrain.legPieces: a crest on each approach, the attackers' sunken lanes, open dig ground, MG knolls, gun
+-- pads; `legs` below), spawns at the front sector's rally and a sector back once it's attacked (Config/Frontline
+-- .Fallback). Rationale: docs/maps/LANTERNMEADOWS.md.
 -- Built off Map 1, 6,000 studs south of it (user 2026-11-01: "own region, DEV place"), by the same Greybox:
 --   require(game.ServerStorage.Dev.Greybox:Clone()).build("LanternMeadows")
 -- Pieces are written in local studs (x along the front, West = -x; z north) and moved by CZ.
@@ -24,33 +28,79 @@ local function points(list: { { number } }): { { number } }
 	return out
 end
 
--- The festival ground's lantern poles: a ring round S3's point (open to the north, where the stage stands), a pair
--- flanking the stage, and a row down the road to the ford.
-local S3 = { 1240, 20 }
-local lanterns = {}
+-- The points (local): an arch, each leg turning 8-23° (user 2026-11-06: "variety in direction (not too much that the
+-- map gets complicated)"), mirrored about S3's x so each side's legs are alike.
+local PTS = { { 420, -170 }, { 900, 30 }, { 1420, 100 }, { 1940, 30 }, { 2420, -170 } }
+local S3 = PTS[3]
+
+-- The leg pattern (Rules/MapTerrain: legPieces, rally, tactics; the numbers explained there and in MAP_RULES.md)
+local LEGS = {
+	crest = { u = 100, half = 110, height = 8, width = 40, taper = 30 },
+	fold = { u = 170, half = 120, depth = 4.5, floor = 4, wall = 6, ends = 20 },
+	knoll = { u = 90, n = 175, height = 7, top = 6, radius = 30 },
+	guns = { u = 140, n = 110, howitzer = 210, pad = 9, fade = 12 },
+	rally = 60,
+	calm = { width = 230, fade = 80, keep = 0.3 },
+	-- (no hill at the HQs: one lifted the HQ's own rally into the next sector's view; the HQ spawn zones sit 420
+	-- back, past the fog from the enemy's crest)
+	flagClear = 25, -- no marked spot this close to a flag (the point gets shelled)
+	-- the bots' marked spots (Rules/MapTerrain.tactics), studs: the zone's 4 at `zone.angle` + 90s, `zone.clear` past
+	-- flagClear or `zone.inset` in from its edge; on each crest cover `back` behind its top at `across`, support the
+	-- same; an MG `zoneMg` past flagClear behind the point; the knolls' MGs rake `rake` out and `rake` in; trench runs
+	-- `back` behind the crest top; gather `out` past the lane's middle at `across`; support at the lane's ends `out`
+	-- past it and `past` beyond its end
+	spots = {
+		zone = { angle = 45, clear = 10, inset = 8 },
+		crestCover = { back = 4, across = { -80, 0, 80 } },
+		crestSupport = { back = 6, across = { -55, 55 } },
+		zoneMg = 25,
+		rake = 0.7,
+		trench = { back = 3, runs = { { -100, -40 }, { 40, 100 } } },
+		gather = { out = 2, across = { -80, 0, 80 } },
+		laneEnds = { out = 10, past = 40 },
+	},
+}
+
+-- each lane's hedge bank on the side of the point it attacks (dead ground to gather in), with a gap in the middle;
+-- one per approach of every point (local studs)
+local laneHedges = {}
+for i, s in PTS do
+	for _, j in { i - 1, i + 1 } do
+		local o = PTS[j]
+		if o then
+			local dx, dz = o[1] - s[1], o[2] - s[2]
+			local l = math.sqrt(dx * dx + dz * dz)
+			dx, dz = dx / l, dz / l
+			local u = LEGS.fold.u - LEGS.fold.floor / 2 - LEGS.fold.wall - 3
+			for _, run in { { -110, -14 }, { 14, 110 } } do
+				table.insert(laneHedges, {
+					a = p(s[1] + dx * u - dz * run[1], s[2] + dz * u + dx * run[1]),
+					b = p(s[1] + dx * u - dz * run[2], s[2] + dz * u + dx * run[2]),
+				})
+			end
+		end
+	end
+end
+
+-- The festival ground's lantern poles: a ring round S3's point (open to the north, where the stage stands, and along
+-- the two legs, where each side's spawn stands while S3 is its front sector) and a pair flanking the stage.
+local features = {}
 for deg = 0, 330, 30 do
-	if deg < 60 or deg > 120 then
+	local legs = math.abs(deg - 352) < 30 or deg < 22 or math.abs(deg - 188) < 30
+	if (deg < 60 or deg > 120) and not legs then
 		local a = math.rad(deg)
 		table.insert(
-			lanterns,
+			features,
 			{ kind = "LanternPole", x = S3[1] + 54 * math.cos(a), z = CZ + S3[2] + 54 * math.sin(a) }
 		)
 	end
 end
-for _, q in { { 1220, 74 }, { 1260, 74 }, { 1307, -45 }, { 1335, -34 }, { 1362, -23 }, { 1390, -11 } } do
-	table.insert(lanterns, { kind = "LanternPole", x = q[1], z = CZ + q[2] })
+for _, q in { { 1400, 174 }, { 1440, 174 } } do
+	table.insert(features, { kind = "LanternPole", x = q[1], z = CZ + q[2] })
 end
--- cover by the two new crossings, the same on each bank: a cart by each end of the footbridge (turned about its middle)
--- and barrels by the rock ford (mirrored over the river)
-for _, q in { { 1410, 103, 80 }, { 1488, 127, 260 } } do
-	table.insert(lanterns, { kind = "Cart", x = q[1], z = CZ + q[2], yaw = q[3] })
-end
-for _, x in { 1422, 1496 } do
-	table.insert(lanterns, { kind = "Barrels", x = x, z = CZ - 133, yaw = 0 })
-end
--- and the field barn's haystacks, one either side (S2's cover stays the same both ways)
-for _, x in { 794, 846 } do
-	table.insert(lanterns, { kind = "Haystack", x = x, z = CZ - 136, yaw = 15 })
+-- haystacks on the brickfield farm's north side, one either side of its kiln
+for _, x in { 868, 932 } do
+	table.insert(features, { kind = "Haystack", x = x, z = CZ + 132, yaw = 15 })
 end
 
 local LanternMeadows = {
@@ -59,93 +109,119 @@ local LanternMeadows = {
 	-- the two nations that fight here (user 2026-11-04: Rules/Frontline.mapPair)
 	pair = { West = "uniform1", East = "uniform2" },
 	offMap = true, -- built beside Map 1: Greybox clears only its own terrain and adds no test spawn
-	bounds = rect(-150, 2550, -280, 280),
+	bounds = rect(-90, 2930, -430, 360),
 	terrainMargin = 420,
 	skirt = {
 		width = 1000,
 		hills = {
-			{ -1243, CZ - 680, 300, 110 },
-			{ 429, CZ - 1130, 360, 130 },
-			{ 1714, CZ - 1080, 320, 100 },
-			{ 3579, CZ - 580, 340, 120 },
-			{ 3707, CZ + 480, 300, 95 },
+			{ -1243, CZ - 700, 300, 110 },
+			{ 429, CZ - 1150, 360, 130 },
+			{ 1714, CZ - 1100, 320, 100 },
+			{ 3700, CZ - 600, 340, 120 },
+			{ 3800, CZ + 480, 300, 95 },
 			{ 1971, CZ + 1130, 380, 140 },
 			{ 300, CZ + 1080, 320, 105 },
 			{ -1307, CZ + 380, 340, 125 },
 		}, -- {x, z, radius, peak height}
 	},
 	fogEnd = 600,
+	legs = LEGS,
 
-	-- Capture points, 420 apart, each fair to its two neighbours (tests/sectors.spec.luau) and on its own rise.
+	-- Capture points 520 apart, each fair to its two neighbours (tests/sectors.spec.luau). The strongpoint and the town
+	-- have bigger zones (user 2026-11-06: "the building should take up a good portion of the sector").
 	sectors = {
-		{ id = "S1", name = "S1", x = 400, z = CZ + 0, radius = 45, startOwner = "West", isHQ = true },
-		{ id = "S2", name = "S2", x = 820, z = CZ - 20, radius = 45, startOwner = "West" },
-		{ id = "S3", name = "S3", x = S3[1], z = CZ + S3[2], radius = 45, startOwner = "Neutral" },
-		{ id = "S4", name = "S4", x = 1660, z = CZ - 30, radius = 45, startOwner = "East" },
-		{ id = "S5", name = "S5", x = 2080, z = CZ - 60, radius = 45, startOwner = "East", isHQ = true },
+		{ id = "S1", name = "S1", x = PTS[1][1], z = CZ + PTS[1][2], radius = 45, startOwner = "West", isHQ = true },
+		-- (S2's spawns stand a little further out, clear of the farm's sties and sheds)
+		{ id = "S2", name = "S2", x = PTS[2][1], z = CZ + PTS[2][2], radius = 55, startOwner = "West", rally = 72 },
+		{ id = "S3", name = "S3", x = PTS[3][1], z = CZ + PTS[3][2], radius = 45, startOwner = "Neutral" },
+		-- (S4 is Borgo Aurel: no earth crests, its outer houses are the line; Studio's audit checks its spawns' cover
+		-- with the buildings)
+		{ id = "S4", name = "S4", x = PTS[4][1], z = CZ + PTS[4][2], radius = 60, startOwner = "East", crest = false },
+		{ id = "S5", name = "S5", x = PTS[5][1], z = CZ + PTS[5][2], radius = 55, startOwner = "East", isHQ = true },
 	},
-	-- Where the sprint times to the two points are equal (solved over the real ground, on average within 0.5 s).
-	-- points: { x, z } from the south edge to the north edge.
+	-- Where the sprint times to the two points are equal (solved over the real ground by tests/solvedividers.luau, on
+	-- average within 0.5 s). points: { x, z } from the south edge to the north edge.
 	dividers = {
 		{
 			between = { "S1", "S2" },
 			points = points({
-				{ 579, -280 },
-				{ 603, -210 },
-				{ 603, -70 },
-				{ 615, 0 },
-				{ 615, 140 },
-				{ 627, 210 },
-				{ 639, 280 },
+				{ 809, -430 },
+				{ 780, -360 },
+				{ 754, -290 },
+				{ 725, -220 },
+				{ 692, -150 },
+				{ 663, -80 },
+				{ 634, -10 },
+				{ 605, 60 },
+				{ 576, 130 },
+				{ 547, 200 },
+				{ 517, 270 },
+				{ 488, 340 },
+				{ 481, 360 },
 			}),
 		},
 		{
 			between = { "S2", "S3" },
 			points = points({
-				{ 1077, -280 },
-				{ 1047, -210 },
-				{ 1035, -140 },
-				{ 1035, -70 },
-				{ 1029, 0 },
-				{ 1023, 70 },
-				{ 1023, 140 },
-				{ 1005, 210 },
-				{ 981, 280 },
+				{ 1241, -430 },
+				{ 1240, -360 },
+				{ 1234, -290 },
+				{ 1203, -220 },
+				{ 1179, -150 },
+				{ 1179, -80 },
+				{ 1175, -10 },
+				{ 1163, 60 },
+				{ 1147, 130 },
+				{ 1144, 200 },
+				{ 1143, 270 },
+				{ 1122, 340 },
+				{ 1120, 360 },
 			}),
 		},
 		{
 			between = { "S3", "S4" },
 			points = points({
-				{ 1446, -280 },
-				{ 1446, -140 },
-				{ 1428, -70 },
-				{ 1452, 0 },
-				{ 1464, 70 },
-				{ 1470, 140 },
-				{ 1476, 210 },
-				{ 1482, 280 },
+				{ 1768, -430 },
+				{ 1781, -360 },
+				{ 1769, -290 },
+				{ 1710, -220 },
+				{ 1683, -150 },
+				{ 1665, -80 },
+				{ 1663, -10 },
+				{ 1678, 60 },
+				{ 1703, 130 },
+				{ 1709, 200 },
+				{ 1707, 270 },
+				{ 1704, 340 },
+				{ 1720, 360 },
 			}),
 		},
 		{
 			between = { "S4", "S5" },
 			points = points({
-				{ 1824, -280 },
-				{ 1872, -210 },
-				{ 1872, -70 },
-				{ 1884, 0 },
-				{ 1884, 140 },
-				{ 1908, 210 },
-				{ 1914, 280 },
+				{ 2122, -430 },
+				{ 2070, -360 },
+				{ 2096, -290 },
+				{ 2126, -220 },
+				{ 2158, -150 },
+				{ 2187, -80 },
+				{ 2216, -10 },
+				{ 2245, 60 },
+				{ 2274, 130 },
+				{ 2310, 200 },
+				{ 2333, 270 },
+				{ 2362, 340 },
+				{ 2371, 360 },
 			}),
 		},
 	},
-	-- each side's spawn ~400 behind its HQ, as far back as its sector goes (MAP_RULES, user 2026-11-02; was ~225)
+	-- each side's spawn 420 behind its HQ, straight back along x (MAP_RULES; the HQ's rise hides it)
 	spawnZones = {
-		West = rect(-40, 30, -60, 60),
-		East = rect(2420, 2490, -120, 0),
+		West = rect(-35, 35, -230, -110),
+		East = rect(2805, 2875, -230, -110),
 	},
 
-	-- open meadows: gentler rolling ground than Map 1's valley
+	-- open meadows: gentle rolling ground (kept calmer still along the chain: legs.calm)
 	terrain = {
 		minY = -28,
 		maxY = 96,
@@ -165,157 +241,125 @@ local LanternMeadows = {
 	},
 	-- rougher hills outside the bounds (the Katzmark hills behind the West, the valley side behind the river)
 	wild = { start = 30, ramp = 150, fall = 80, amp = 46, scale = 170, roughAmp = 6, roughScale = 40 },
-	rise = { radius = 110, height = 20, flat = 25 },
-	-- The Aurel: from the north edge south between S3 and S4, through the festival ford, then bending east along the
-	-- south edge past the Selvaran camp (user 2026-11-01: "approve, bent river"). Fords are points on it.
+	-- The Aurel: from the north edge south through the open ground between S3 and S4, then bending east along the
+	-- south edge past the cascina. Fords are points on it.
 	river = {
 		path = points({
-			{ 1420, 1760 },
-			{ 1432, 700 },
-			{ 1440, 280 },
-			{ 1452, 150 },
-			{ 1444, 40 },
-			{ 1446, -60 },
-			{ 1462, -130 },
-			{ 1500, -192 },
-			{ 1570, -232 },
-			{ 1680, -248 },
-			{ 1900, -252 },
-			{ 2200, -246 },
-			{ 2550, -250 },
-			{ 3000, -246 },
-			{ 4000, -250 },
+			{ 1660, 1760 },
+			{ 1666, 700 },
+			{ 1672, 360 },
+			{ 1688, 200 },
+			{ 1680, 60 },
+			{ 1690, -80 },
+			{ 1722, -200 },
+			{ 1800, -300 },
+			{ 1960, -372 },
+			{ 2200, -398 },
+			{ 2600, -402 },
+			{ 3000, -402 },
+			{ 4000, -405 },
 		}),
 		width = 30,
 		bankWidth = 14,
 		bedY = -7,
 		waterY = -2.5,
 		fords = {
-			{ x = 1444, z = CZ + 0, width = 30, bedY = -3.6 }, -- the festival ford: wide and shallow, by the landing
-			{ x = 1447, z = CZ + 200, width = 9, bedY = -3.8 }, -- a narrow ford upstream
-			{ x = 1470, z = CZ - 145, width = 8, bedY = -3.8 }, -- stepping stones at the bend
-			-- the rock ford: a wide stretch of shallow water, a path of flat rocks across it (user 2026-11-04: "replace the
-			-- broken bridge with just more shallow water ... a pathway of rocks on it"; src/dev/Greybox/Bridges). Its
-			-- voxels sunk `sink` so its water shows (Rules/MapTerrain.fordSink), ~1.9 deep: still wadeable
-			{ x = 1455, z = CZ - 100, width = 32, bedY = -4.4, rocks = true, sink = 2 },
+			{ x = 1680, z = CZ + 55, width = 30, bedY = -3.6 }, -- the festival ford, on the road
+			{ x = 1683, z = CZ + 250, width = 9, bedY = -3.8 }, -- a narrow ford upstream, on the north flank
+			-- the rock ford on the south lane: shallow water you can see, flat rocks across (src/dev/Greybox/Bridges)
+			{ x = 1689, z = CZ - 65, width = 32, bedY = -4.4, rocks = true, sink = 2 },
 		},
-		-- Crossings built over the river (src/dev/Greybox/Bridges; user 2026-11-04 approved the spots), ~115 either side
-		-- of the festival ford so each bot lane (Config/Bots.Routes) has its own way over. (x, z) on the river's line;
-		-- `length` across it, `width` along it. `deck`: walkable over deep water (the walk grid opens it,
-		-- Rules/MapCheck), a straight run from bank to bank raised `hump` in the middle; else stone stumps either end
-		-- over a ford (the cover stays, the span is gone). The footbridge widened (user 2026-11-04: "make the wood
-		-- bridge wider"); the south crossing is now the rock ford above.
+		-- the footbridge between the festival ford and the narrow one (src/dev/Greybox/Bridges)
 		bridges = {
-			{ id = "Footbridge", x = 1449, z = CZ + 115, length = 64, width = 14, deck = true, hump = 2 },
+			{ id = "Footbridge", x = 1687, z = CZ + 190, length = 64, width = 14, deck = true, hump = 2 },
 		},
 	},
-	-- tree-free ground: the festival ground behind S3 (its stage, later its lantern-makers' hall)
+	-- tree-free ground: the festival ground's stage and hall; the crossings' banks; the farm and the town to come
 	reserved = {
-		{ id = "Festival", minX = 1180, maxX = 1300, minZ = CZ + 60, maxZ = CZ + 170 },
-		-- the two crossings' banks (no trees on the bridges or their approaches)
-		{ id = "Footbridge", minX = 1395, maxX = 1505, minZ = CZ + 85, maxZ = CZ + 145 },
-		{ id = "RockFord", minX = 1400, maxX = 1515, minZ = CZ - 140, maxZ = CZ - 78 },
+		{ id = "Festival", minX = 1360, maxX = 1480, minZ = CZ + 165, maxZ = CZ + 300 },
+		{ id = "Footbridge", minX = 1632, maxX = 1742, minZ = CZ + 160, maxZ = CZ + 220 },
+		{ id = "RockFord", minX = 1636, maxX = 1742, minZ = CZ - 95, maxZ = CZ - 35 },
+		{ id = "Farm", minX = 830, maxX = 970, minZ = CZ - 40, maxZ = CZ + 140 },
+		{ id = "Town", minX = 1770, maxX = 2110, minZ = CZ - 150, maxZ = CZ + 210 },
 	},
 
-	-- The festival road through the meadows and over the ford, its landmarks and the fields' hedgerows
-	-- (Rules/Village), and the Selvaran hamlet (Config/Buildings.Kits.Selvara) along the road east of S4 and up a lane.
+	-- The festival road along the arch and over the ford, the landmarks, and the lanes' hedge banks (Rules/Village).
+	-- The brickfield farm (S2) and the river town (S4) wait for their design sheet (MAP_RULES §3: design first).
 	village = {
-		area = rect(1700, 2550, -200, 250),
+		-- (houses only in the town round S4: Borgo Aurel, user approved 2026-11-06)
+		-- (inside the two sunken lanes' hedges, which stand ~157 out from the point)
+		area = rect(1800, 2095, -165, 205),
 		kit = "Selvara",
 		roads = {
 			{
 				id = "Main",
 				width = 10,
-				maxLots = 6,
-				lotsFrom = 0.74, -- houses only past S4
+				maxLots = 22,
+				rows = true, -- the main street's houses in order, a terrace
 				points = points({
-					{ -150, 60 },
-					{ 160, 72 },
-					{ 400, 68 },
-					{ 620, 48 },
-					{ 820, 50 },
-					{ 1040, 30 },
-					{ 1160, -50 },
-					{ 1300, -55 },
-					{ 1400, -15 },
-					{ 1445, 0 },
-					{ 1560, 10 },
-					{ 1760, 30 },
-					{ 1900, 40 },
-					{ 2080, 30 },
-					{ 2240, 40 },
-					{ 2550, 40 },
+					{ -90, -170 },
+					{ 420, -170 },
+					{ 660, -60 },
+					{ 900, 30 },
+					{ 1160, 75 },
+					{ 1420, 100 },
+					{ 1600, 70 },
+					{ 1680, 55 },
+					{ 1940, 30 },
+					{ 2180, -60 },
+					{ 2420, -170 },
+					{ 2930, -170 },
 				}),
 			},
+			-- the two back streets, ~70 either side of the main one, two outer ones past them, and the two cross lanes ~90
+			-- either side of the piazza
+			{ id = "Nord", width = 8, maxLots = 18, points = points({ { 1815, 115 }, { 1940, 100 }, { 2085, 46 } }) },
+			{ id = "Sud", width = 8, maxLots = 16, points = points({ { 1815, -25 }, { 1940, -40 }, { 2030, -74 } }) },
+			{ id = "Alto", width = 7, maxLots = 14, points = points({ { 1820, 172 }, { 1940, 160 }, { 2060, 112 } }) },
 			{
-				id = "Borgo",
-				width = 8,
-				maxLots = 5,
-				lotsFrom = 0.25,
-				points = points({ { 1960, 35 }, { 1985, 110 }, { 2030, 170 }, { 2100, 215 } }),
+				id = "Basso",
+				width = 7,
+				maxLots = 8,
+				points = points({ { 1830, -88 }, { 1940, -104 }, { 2000, -128 } }),
 			},
+			{ id = "VicoOvest", width = 7, maxLots = 6, points = points({ { 1857, -62 }, { 1843, 128 } }) },
+			{ id = "VicoEst", width = 7, maxLots = 6, points = points({ { 2000, -78 }, { 2050, 70 } }) },
 		},
-		lotSpacing = 26,
-		setback = 5,
-		buildingGap = 6,
+		lotSpacing = 16,
+		setback = 3,
+		buildingGap = 4,
 		keepClear = {
-			{ x = 400, z = CZ + 0, r = 50 },
-			{ x = 820, z = CZ - 20, r = 50 },
-			{ x = 1240, z = CZ + 20, r = 50 },
-			{ x = 1660, z = CZ - 30, r = 50 },
-			{ x = 2080, z = CZ - 60, r = 50 },
-			{ x = 2455, z = CZ - 60, r = 80 }, -- the East spawn
-			{ x = 1880, z = CZ + 40, r = 30 }, -- clear of the S4|S5 divider
+			{ x = PTS[1][1], z = CZ + PTS[1][2], r = 50 },
+			{ x = PTS[3][1], z = CZ + PTS[3][2], r = 50 },
+			{ x = PTS[4][1], z = CZ + PTS[4][2], r = 38 }, -- Borgo Aurel's piazza
+			-- the two little squares where each side's wave stands while S4 is its front sector (MapTerrain.rally)
+			{ x = 1986, z = CZ + 11, r = 30 },
+			{ x = 1891, z = CZ + 37, r = 30 },
+			{ x = PTS[5][1], z = CZ + PTS[5][2], r = 20 },
+			{ x = 2840, z = CZ - 170, r = 80 }, -- the East spawn
 		},
-		-- the map's own landmarks (Config/Buildings, one at a time; user 2026-11-01). The festival stage north of S3, on
-		-- its x, facing the point.
 		specials = {
-			{ id = "Stage", style = "FestivalStage", x = S3[1], z = CZ + 86, front = { 0, -1 } },
-			-- the lantern-makers' hall behind it, on the same x, its arcade facing the festival ground
-			{ id = "LanternHall", style = "LanternHall", x = S3[1], z = CZ + 146, front = { 0, -1 } },
-			-- the old watchtower on S1's hill, north of the point on its x, Katzmark's camp round it
-			{ id = "Watchtower", style = "Watchtower", x = 400, z = CZ + 100, front = { 0, -1 } },
-			-- the field barn among the hedgerows, south of S2 on its x, facing it
-			{ id = "FieldBarn", style = "FieldBarn", x = 820, z = CZ - 110, front = { 0, 1 } },
-			-- the cascina south of S5 on its x, between the point and the river, facing the point; Selvara's camp
-			{ id = "Cascina", style = "Cascina", x = 2080, z = CZ - 170, front = { 0, 1 } },
-			-- the ferry house on the east bank just north of the festival ford, its landing and boat on the river (west)
-			{ id = "Ferry", style = "FerryHouse", x = 1483, z = CZ + 55, front = { -1, 0 } },
+			-- the festival stage and the lantern-makers' hall on S3's north flank, on its x, facing the point: a support
+			-- position looking down both legs
+			{ id = "Stage", style = "FestivalStage", x = S3[1], z = CZ + 200, front = { 0, -1 } },
+			{ id = "LanternHall", style = "LanternHall", x = S3[1], z = CZ + 262, front = { 0, -1 } },
+			-- the old watchtower behind S1's point on its north side, Katzmark's camp round it
+			{ id = "Watchtower", style = "Watchtower", x = 340, z = CZ - 84, front = { 1, 0 } },
+			-- the brickfield farm on S2's point, the flag in its yard (user approved 2026-11-06)
+			{ id = "BrickfieldFarm", style = "BrickfieldFarm", x = PTS[2][1], z = CZ + PTS[2][2], front = { 0, -1 } },
+			-- the cascina on S5's point, its south side, facing the flag; Selvara's camp
+			{ id = "Cascina", style = "Cascina", x = PTS[5][1], z = CZ - 228, front = { 0, 1 } },
+			-- Borgo Aurel's campanile and loggia on the piazza, north and south of the flag
+			{ id = "Campanile", style = "Campanile", x = 1944, z = CZ + 78, front = { 0, -1 } },
+			{ id = "Loggia", style = "Loggia", x = 1934, z = CZ - 20, front = { 0, 1 } },
+			-- the ferry house on the east bank above the festival ford, facing the river
+			{ id = "Ferry", style = "FerryHouse", x = 1716, z = CZ + 100, front = { -1, 0 } },
 		},
-		-- hand-placed ordinary houses (Rules/Village: gardens and yards like the road's, not landmarks; `road` if it fronts one). The riverside
-		-- houses between S4 and the river (user 2026-11-04: "add a few more houses here"): one each side of the road
-		-- facing it, two behind them above the rock ford; clear of S4's square and of East's wave line at S3 (x ~1500-1530
-		-- just south of the road)
-		houses = {
-			{ id = "River_1", style = "SelvaCasetta", x = 1545, z = CZ + 26, front = { 0, -1 }, road = "Main" },
-			{ id = "River_2", style = "SelvaStairHouse", x = 1572, z = CZ - 9, front = { 0, 1 }, road = "Main" },
-			{ id = "River_3", style = "SelvaLongHouse", x = 1530, z = CZ - 62, front = { 0, 1 } },
-			{ id = "River_4", style = "SelvaCasetta", x = 1590, z = CZ - 60, front = { 0, 1 } },
-		},
-		-- the hedgerow fields round S2, the same either side of its x (the point stays fair), with gaps to pass
-		hedgerows = (function()
-			local out = {}
-			for _, x in { 640, 1000 } do
-				for _, run in { { -262, -130 }, { -90, 25 }, { 65, 190 } } do
-					table.insert(out, { a = p(x, run[1]), b = p(x, run[2]) })
-				end
-			end
-			for _, z in { -175, 150 } do
-				for _, run in { { 660, 780 }, { 860, 980 } } do
-					table.insert(out, { a = p(run[1], z), b = p(run[2], z) })
-				end
-			end
-			-- by the crossings: a hedge on each bank of the footbridge (turned about its middle) and a low rubble wall on
-			-- each bank of the rock ford (mirrored), all along the river to face across it
-			table.insert(out, { a = p(1404, 122), b = p(1404, 142) })
-			table.insert(out, { a = p(1494, 88), b = p(1494, 108) })
-			table.insert(out, { kind = "StoneWall", a = p(1418, -128), b = p(1418, -114) })
-			table.insert(out, { kind = "StoneWall", a = p(1500, -128), b = p(1500, -114) })
-			return out
-		end)(),
+		hedgerows = laneHedges,
+		-- garden trees only in the town (the village area)
 		trees = { cell = 18, density = 0.05, roadClear = 5, buildingClear = 6 },
 		cars = 0,
-		features = lanterns,
+		features = features,
 	},
 
 	-- few trees: lone trees in the meadows, rare small groves, the forest past the bounds

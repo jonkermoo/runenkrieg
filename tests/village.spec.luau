@@ -66,10 +66,20 @@ return Maps.each(function(map: any, name: string)
 			local FR = require("../src/shared/Rules/Frontline")
 			local Line = require("../src/shared/Config/Frontline").Line
 			local S = map.sectors
-			for i = 2, #S - 1 do
+			-- (a map with the leg pattern: every sector's rallies, Rules/MapTerrain.rally; the landmark compounds' own
+			-- buildings, not their whole footprint: a strongpoint's yard is open)
+			for i = if map.legs then 1 else 2, if map.legs then #S else #S - 1 do
 				for _, side in { "West", "East" } do
-					local cx, cz = FR.lineCentre(S, i, side, Line)
+					local cx, cz
+					if map.legs then
+						cx, cz = MT.rally(map, i, side)
+					else
+						cx, cz = FR.lineCentre(S, i, side, Line)
+					end
 					local aim = S[if side == "West" then i + 1 else i - 1]
+					if not (cx and cz and aim) then
+						continue
+					end
 					local fx, fz = aim.x - cx, aim.z - cz
 					local l = math.sqrt(fx * fx + fz * fz)
 					fx, fz = fx / l, fz / l
@@ -80,10 +90,9 @@ return Maps.each(function(map: any, name: string)
 						local q = { { x - h, z - h }, { x + h, z - h }, { x + h, z + h }, { x - h, z + h } }
 						for _, lot in lots do
 							-- (the lot with its eaves and a garden wall's width round it)
-							assert(
-								not V.quadsOverlap(V.corners(lot, pad + 3), q),
-								`{lot.id} on {S[i].id} {side}'s wave line`
-							)
+							for _, f in V.footprints(lot, B, pad + 3) do
+								assert(not V.quadsOverlap(f.corners, q), `{lot.id} on {S[i].id} {side}'s wave line`)
+							end
 						end
 					end
 				end
@@ -136,7 +145,7 @@ return Maps.each(function(map: any, name: string)
 			if name == "Map1" then
 				assert(#layout.poles >= 10 and #layout.signs >= 3 and #layout.cars >= 2 and #layout.fences > 10)
 			else
-				assert(#layout.fences >= 10 and #layout.yard >= 10, "Lantern Meadows: its hedgerows and lantern poles")
+				assert(#layout.fences >= 10 and #layout.yard >= 8, "Lantern Meadows: its hedgerows and lantern poles")
 			end
 		end,
 		["boundaries use real prop kinds, never sit on roads, and leave every door's gate open"] = function()

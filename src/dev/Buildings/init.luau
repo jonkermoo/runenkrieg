@@ -235,7 +235,9 @@ function Buildings.build(name: string, deps: Deps): Model
 			elseif f.kind == "HayBarn" then
 				Geometry.hayBarn(model, ctx, at, f.length, f.span, f.height)
 			elseif f.kind == "Wall" then
-				Geometry.yardWall(model, ctx, f.a, f.b)
+				Geometry.yardWall(model, ctx, f.a, f.b, f.height, f.thick, f.swatch)
+			elseif f.kind == "BottleKiln" then
+				Geometry.bottleKiln(model, ctx, at, f.radius, f.height)
 			elseif f.kind == "Canopy" then
 				Geometry.canopy(model, ctx, at, f.length, f.depth, f.height)
 			elseif f.kind == "Platform" then

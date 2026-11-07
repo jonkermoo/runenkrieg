@@ -725,8 +725,17 @@ end
 
 -- A dry-stone yard wall from `a` to `b` ({x, z} in the template's footprint), in pieces no longer than `piece`, each
 -- standing on the real ground where it is (a wall over a slope steps down it).
-function Geometry.yardWall(parent: Instance, ctx: Ctx, a: { number }, b: { number })
-	local Y = ctx.B.YardWall
+function Geometry.yardWall(
+	parent: Instance,
+	ctx: Ctx,
+	a: { number },
+	b: { number },
+	height: number?,
+	thick: number?,
+	swatch: string?
+)
+	local Y = table.clone(ctx.B.YardWall)
+	Y.height, Y.thick = height or Y.height, thick or Y.thick
 	local dx, dz = b[1] - a[1], b[2] - a[2]
 	local len = math.sqrt(dx * dx + dz * dz)
 	local n = math.max(1, math.ceil(len / Y.piece))
@@ -735,15 +744,83 @@ function Geometry.yardWall(parent: Instance, ctx: Ctx, a: { number }, b: { numbe
 		local t = (i + 0.5) / n
 		local sec = Geometry.section(parent, ctx, "YardWall", "Stone", 0)
 		sec:SetAttribute("OnGround", true)
-		Geometry.part(
+		local p = Geometry.part(
 			sec,
 			ctx,
 			"Wall",
 			CFrame.new(a[1] + dx * t, Y.height / 2 - Y.sink, a[2] + dz * t) * CFrame.Angles(0, yaw, 0),
 			Vector3.new(len / n + 0.1, Y.height + Y.sink, Y.thick),
-			"Quoin"
+			if swatch then "Wall" else "Quoin"
 		)
+		if swatch then
+			p:SetAttribute("Swatch", swatch)
+		end
 	end
+end
+
+-- A brickworks' bottle kiln: an eight-sided brick drum `height` high, `r` across at its foot, narrowing through
+-- `ctx.B.BottleKiln.tiers` shoulders to a chimney neck on top; an arched opening (a dark panel) at its foot on -Z.
+-- Its own colours (Swatch). Solid: nobody climbs it.
+function Geometry.bottleKiln(parent: Instance, ctx: Ctx, at: CFrame, r: number, height: number)
+	local K = ctx.B.BottleKiln
+	local T = ctx.T
+	local base = ctx.B.Foundation
+	local depth = ctx.B.FoundationDepth
+	Geometry.part(
+		parent,
+		ctx,
+		"Foundation",
+		at * CFrame.new(0, (base - 1 - depth) / 2, 0),
+		Vector3.new(2 * r, base - 1 + depth, 2 * r),
+		"Foundation"
+	)
+	-- the drum, then each shoulder a step in and up, then the neck
+	local rings = { { r, 0, height * K.drum } }
+	local y = height * K.drum
+	local per = height * (1 - K.drum - K.neck) / K.tiers
+	for k = 1, K.tiers do
+		local rk = r * (1 - (1 - K.neckRadius) * k / K.tiers)
+		table.insert(rings, { rk, y, y + per })
+		y += per
+	end
+	table.insert(rings, { r * K.neckRadius, y, height })
+	for _, ring in rings do
+		local rr, y0, y1 = ring[1], ring[2], ring[3]
+		local side = 2 * rr * math.tan(math.pi / 8)
+		for i = 0, 7 do
+			local sec = Geometry.section(parent, ctx, "Kiln", "Brick", 0)
+			local face = at * CFrame.Angles(0, i * math.pi / 4, 0)
+			local p = Geometry.part(
+				sec,
+				ctx,
+				"Drum",
+				face * CFrame.new(0, (y0 + y1) / 2, -(rr - T / 2)),
+				Vector3.new(side + T * 0.85, y1 - y0, T),
+				"Wall"
+			)
+			p:SetAttribute("Swatch", K.wall)
+		end
+		-- a solid core so the shell reads closed from above and blocks shots through its middle
+		local core = Geometry.section(parent, ctx, "Kiln", "Brick", 0)
+		local c = Geometry.part(
+			core,
+			ctx,
+			"Core",
+			at * CFrame.new(0, (y0 + y1) / 2, 0),
+			Vector3.new(2 * (rr - T), y1 - y0, 2 * (rr - T)),
+			"Wall"
+		)
+		c:SetAttribute("Swatch", K.wall)
+	end
+	local mouth = Geometry.part(
+		parent,
+		ctx,
+		"Mouth",
+		at * CFrame.new(0, K.mouth[2] / 2, -r - 0.05),
+		Vector3.new(K.mouth[1], K.mouth[2], 0.2),
+		"Wall"
+	)
+	mouth:SetAttribute("Swatch", K.dark)
 end
 
 -- A wooden waterwheel in `at`'s XY plane (its axle along local Z, into the wall behind it): a rim of `n` straight

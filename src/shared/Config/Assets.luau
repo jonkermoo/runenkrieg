@@ -1363,6 +1363,27 @@ local Assets = {
 			generator = "src/dev/Buildings/init.luau",
 			description = "Lantern Meadows' brick field barn among S2's hedgerows (a landmark)",
 		},
+		Campanile = {
+			category = "Buildings",
+			folder = "Landmarks",
+			template = "Campanile",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Lantern Meadows' bell tower on Borgo Aurel's piazza at S4 (a landmark)",
+		},
+		Loggia = {
+			category = "Buildings",
+			folder = "Landmarks",
+			template = "Loggia",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Lantern Meadows' market loggia on Borgo Aurel's piazza at S4 (a landmark)",
+		},
+		BrickfieldFarm = {
+			category = "Buildings",
+			folder = "Landmarks",
+			template = "BrickfieldFarm",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Lantern Meadows' walled brickfield farm on S2's point, its bottle kiln behind (a landmark)",
+		},
 		Cascina = {
 			category = "Buildings",
 			folder = "Landmarks",

@@ -195,20 +195,271 @@ end
 
 -- A map with `rise` (Config/Maps/Map1.rise): each sector's point on a round hill. Returns how much of the ground is the
 -- hill (1 out to `flat` from a point, 0 from `radius` out; the most where two meet) and the hill's top: the rolling ground blends into
--- it, so every point's crest is the same height whatever the noise does there.
+-- it, so every point's crest is the same height whatever the noise does there. A map with the leg pattern (`legs`)
+-- keeps a rise at its two HQs only, if it gives one (`legs.hqRise`: radius, height, flat).
 local function riseAt(map: any, x: number, z: number): (number, number)
-	local r = map.rise
+	local r = map.rise or (map.legs and map.legs.hqRise)
 	if not r then
 		return 0, 0
 	end
+	local hqOnly = map.legs ~= nil
 	local w = 0
 	for _, s in map.sectors do
 		local d = math.sqrt((x - s.x) ^ 2 + (z - s.z) ^ 2)
-		if d < r.radius then
+		if d < r.radius and (s.isHQ or not hqOnly) then
 			w = math.max(w, 1 - smooth((d - r.flat) / (r.radius - r.flat)))
 		end
 	end
 	return w, r.height
+end
+
+--------------------------------------------------------------------------------------------------------------------
+-- The leg pattern (map rework, user approved 2026-11-06; docs/maps/MAP_RULES.md): a map with `legs` builds every
+-- stretch between two neighbouring points the same way, from its sectors alone. `u` is studs along a leg out from a
+-- point, `n` studs across it (to the left of the way out). See the map's `legs` table for each piece's numbers.
+--------------------------------------------------------------------------------------------------------------------
+
+export type Crest = { sector: number, side: string, cx: number, cz: number, dx: number, dz: number }
+export type Knoll = { sector: number, side: string, x: number, z: number }
+export type Pad = { sector: number, side: string, x: number, z: number, kind: string }
+export type Legs = {
+	crests: { Crest },
+	folds: { Crest }, -- side: who attacks from it
+	knolls: { Knoll },
+	pads: { Pad },
+	chain: { { number } },
+}
+
+local function unitTo(ax: number, az: number, bx: number, bz: number): (number, number)
+	local dx, dz = bx - ax, bz - az
+	local l = math.sqrt(dx * dx + dz * dz)
+	return dx / l, dz / l
+end
+
+-- the way from sector `i` toward its neighbour on `side`'s enemy end (West's enemy is east: i + 1), or nil at that end
+function MapTerrain.legWay(map: any, i: number, side: string): (number?, number?)
+	local s = map.sectors[i]
+	local o = map.sectors[if side == "West" then i + 1 else i - 1]
+	if not o then
+		return nil, nil
+	end
+	return unitTo(s.x, s.z, o.x, o.z)
+end
+
+-- a spot `u` out along (dx, dz) from (x, z) and `n` to its left
+local function outAlong(x: number, z: number, dx: number, dz: number, u: number, n: number): (number, number)
+	return x + dx * u - dz * n, z + dz * u + dx * n
+end
+MapTerrain.along = outAlong
+
+local legPieces: { [any]: Legs } = {}
+function MapTerrain.legPieces(map: any): Legs
+	local L = legPieces[map]
+	if L then
+		return L
+	end
+	local C = map.legs
+	L = { crests = {}, folds = {}, knolls = {}, pads = {}, chain = {} }
+	local spawnW, spawnE = map.spawnZones.West, map.spawnZones.East
+	table.insert(L.chain, { (spawnW.minX + spawnW.maxX) / 2, (spawnW.minZ + spawnW.maxZ) / 2 })
+	for i, s in map.sectors do
+		table.insert(L.chain, { s.x, s.z })
+		-- each approach: the crest and the knolls of the side whose defence faces it, its gun pads behind the point, and
+		-- the fold the enemy attacks this point from
+		for _, side in { "West", "East" } do
+			local dx, dz = MapTerrain.legWay(map, i, side)
+			if dx and dz then
+				local enemy = if side == "West" then "East" else "West"
+				-- (a town sector, `crest = false`, has none: its outer houses are its defence line, and a house can't stand
+				-- on a crest's slope)
+				if s.crest ~= false then
+					local cx, cz = outAlong(s.x, s.z, dx, dz, C.crest.u, 0)
+					table.insert(L.crests, { sector = i, side = side, cx = cx, cz = cz, dx = dx, dz = dz })
+				end
+				local fx, fz = outAlong(s.x, s.z, dx, dz, C.fold.u, 0)
+				table.insert(L.folds, { sector = i, side = enemy, cx = fx, cz = fz, dx = dx, dz = dz })
+				for _, sgn in { -1, 1 } do
+					local kx, kz = outAlong(s.x, s.z, dx, dz, C.knoll.u, sgn * C.knoll.n)
+					table.insert(L.knolls, { sector = i, side = side, x = kx, z = kz })
+					local gx, gz = outAlong(s.x, s.z, dx, dz, -C.guns.u, sgn * C.guns.n)
+					table.insert(L.pads, { sector = i, side = side, x = gx, z = gz, kind = "FieldGun" })
+				end
+				local hx, hz = outAlong(s.x, s.z, dx, dz, -C.guns.howitzer, 0)
+				table.insert(L.pads, { sector = i, side = side, x = hx, z = hz, kind = "Howitzer" })
+			end
+		end
+	end
+	table.insert(L.chain, { (spawnE.minX + spawnE.maxX) / 2, (spawnE.minZ + spawnE.maxZ) / 2 })
+	legPieces[map] = L
+	return L
+end
+
+-- Where `side` spawns while sector `i` is its front sector and no attack is building there: `legs.rally` out from the
+-- point toward the enemy (the sector's own `rally` where it has one: a strongpoint's buildings fill the ground nearer
+-- in), behind that approach's crest; and the way it faces. Nil at the enemy's end of the chain.
+function MapTerrain.rally(map: any, i: number, side: string): (number?, number?, number?, number?)
+	local dx, dz = MapTerrain.legWay(map, i, side)
+	if not dx or not dz then
+		return nil, nil, nil, nil
+	end
+	local s = map.sectors[i]
+	local x, z = outAlong(s.x, s.z, dx, dz, s.rally or map.legs.rally, 0)
+	return x, z, dx, dz
+end
+
+-- a bearing in degrees (0 = +z, 90 = +x) of the way (dx, dz)
+local function bearing(dx: number, dz: number): number
+	return math.round(math.deg(math.atan2(dx, dz)) % 360)
+end
+
+-- The bots' marked spots per sector (the bot-tactics session's format, its BOT_TACTICS.md): from the leg pattern, by
+-- sector index: `cover` (n soldiers), `support`, `mg`, `guns` (kind FieldGun / Howitzer), `gather` and `trench` runs
+-- (ax, az, bx, bz, kind "Fire"). `side` on a spot is the side it serves (none: either); `face` a bearing. A map's own
+-- `tactics[i]` lists are added to these. Nothing within `legs.flagClear` of a flag.
+function MapTerrain.tactics(map: any): { [number]: any }
+	local C = map.legs
+	local out = {}
+	for i, s in map.sectors do
+		local t = { cover = {}, support = {}, mg = {}, guns = {}, gather = {}, trench = {} }
+		local P = C.spots
+		-- the zone's own few spots: one squad keeps it held from its edge
+		for k = 0, 3 do
+			local a = math.rad(P.zone.angle + 90 * k)
+			local r = math.max(C.flagClear + P.zone.clear, s.radius - P.zone.inset)
+			table.insert(t.cover, { x = s.x + r * math.cos(a), z = s.z + r * math.sin(a), n = 2 })
+		end
+		for _, side in { "West", "East" } do
+			local dx, dz = MapTerrain.legWay(map, i, side)
+			if dx and dz then
+				local face = bearing(dx, dz)
+				local enemy = if side == "West" then "East" else "West"
+				local u = C.crest.u
+				-- (a town, `crest = false`, has no crest spots or trench runs: its houses are the line, for the bots to
+				-- score themselves or the map to list in its own `tactics`)
+				local crest = s.crest ~= false
+				for _, n in if crest then P.crestCover.across else {} do
+					local x, z = outAlong(s.x, s.z, dx, dz, u - P.crestCover.back, n)
+					table.insert(t.cover, { x = x, z = z, face = face, n = 4, side = side })
+				end
+				for _, n in if crest then P.crestSupport.across else {} do
+					local x, z = outAlong(s.x, s.z, dx, dz, u - P.crestSupport.back, n)
+					table.insert(t.support, { x = x, z = z, face = face, side = side })
+				end
+				for _, sgn in { -1, 1 } do
+					local kx, kz = outAlong(s.x, s.z, dx, dz, C.knoll.u, sgn * C.knoll.n)
+					-- raking across the crest's front: out and in toward the leg's line
+					local k = P.rake
+					local rx, rz = dx * k + dz * sgn * k, dz * k - dx * sgn * k
+					table.insert(t.mg, { x = kx, z = kz, face = bearing(rx, rz), side = side })
+					local gx, gz = outAlong(s.x, s.z, dx, dz, -C.guns.u, sgn * C.guns.n)
+					table.insert(t.guns, { x = gx, z = gz, side = side, kind = "FieldGun" })
+				end
+				local mx, mz = outAlong(s.x, s.z, dx, dz, -math.max(C.flagClear + P.zoneMg, s.radius), 0)
+				table.insert(t.mg, { x = mx, z = mz, face = face, side = side })
+				local hx, hz = outAlong(s.x, s.z, dx, dz, -C.guns.howitzer, 0)
+				table.insert(t.guns, { x = hx, z = hz, side = side, kind = "Howitzer" })
+				for _, run in if crest then P.trench.runs else {} do
+					local ax, az = outAlong(s.x, s.z, dx, dz, u - P.trench.back, run[1])
+					local bx, bz = outAlong(s.x, s.z, dx, dz, u - P.trench.back, run[2])
+					table.insert(t.trench, { ax = ax, az = az, bx = bx, bz = bz, kind = "Fire", side = side })
+				end
+				-- the enemy's attack on this point forms up in the fold on this approach, facing the point
+				local f = C.fold
+				for _, n in P.gather.across do
+					local x, z = outAlong(s.x, s.z, dx, dz, f.u + P.gather.out, n)
+					table.insert(t.gather, { x = x, z = z, face = bearing(-dx, -dz), side = enemy })
+				end
+				for _, sgn in { -1, 1 } do
+					local x, z = outAlong(s.x, s.z, dx, dz, f.u + P.laneEnds.out, sgn * (f.half + P.laneEnds.past))
+					table.insert(t.support, { x = x, z = z, face = bearing(-dx, -dz), side = enemy })
+				end
+			end
+		end
+		local own = map.tactics and map.tactics[i]
+		if own then
+			for kind, list in own do
+				for _, spot in list do
+					table.insert(t[kind], spot)
+				end
+			end
+		end
+		out[i] = t
+	end
+	return out
+end
+
+-- The wave lines' places for Rules/Frontline.lineQuads on a map with the leg pattern (its rallies), else nil
+function MapTerrain.rallyOf(map: any): ((number, string) -> (number?, number?, number?, number?))?
+	if not map.legs then
+		return nil
+	end
+	return function(i: number, side: string)
+		return MapTerrain.rally(map, i, side)
+	end
+end
+
+-- (a, b): (x, z) in a piece's frame: studs out along its way and across it
+local function frame(p: Crest, x: number, z: number): (number, number)
+	local rx, rz = x - p.cx, z - p.cz
+	return rx * p.dx + rz * p.dz, rz * p.dx - rx * p.dz
+end
+
+-- 1 inside `half`, falling to 0 over `taper` past it
+local function ends(b: number, half: number, taper: number): number
+	return 1 - smooth((math.abs(b) - half) / taper)
+end
+
+-- How far (x, z) is from the chain of points (spawn to spawn through every point) on a map with the leg pattern
+function MapTerrain.chainDistance(map: any, x: number, z: number): number
+	local L = MapTerrain.legPieces(map)
+	local near = math.huge
+	for i = 1, #L.chain - 1 do
+		near = math.min(near, distToSegment(x, z, L.chain[i], L.chain[i + 1]))
+	end
+	return near
+end
+
+-- How the leg pattern lifts (crests, knolls) and cuts (sunken lanes) the ground at (x, z), and how much of the rolling
+-- ground's relief stays there (the open ground is kept calm, the gun pads level).
+local function legsAt(map: any, x: number, z: number): (number, number)
+	local C = map.legs
+	local L = MapTerrain.legPieces(map)
+	local up, down = 0, 0
+	local cr, kn, fo = C.crest, C.knoll, C.fold
+	for _, c in L.crests do
+		local a, b = frame(c, x, z)
+		if math.abs(a) < cr.width / 2 and math.abs(b) < cr.half + cr.taper then
+			local bell = 0.5 + 0.5 * math.cos(math.pi * a / (cr.width / 2))
+			up = math.max(up, cr.height * bell * ends(b, cr.half, cr.taper))
+		end
+	end
+	for _, k in L.knolls do
+		local d = math.sqrt((x - k.x) ^ 2 + (z - k.z) ^ 2)
+		if d < kn.radius then
+			up = math.max(up, kn.height * (1 - smooth((d - kn.top / 2) / (kn.radius - kn.top / 2))))
+		end
+	end
+	for _, f in L.folds do
+		local a, b = frame(f, x, z)
+		local reach = fo.floor / 2 + fo.wall
+		if math.abs(a) < reach and math.abs(b) < fo.half then
+			local across = 1 - smooth((math.abs(a) - fo.floor / 2) / fo.wall)
+			local lengthwise = math.clamp((fo.half - math.abs(b)) / fo.ends, 0, 1)
+			down = math.min(down, -fo.depth * across * smooth(lengthwise))
+		end
+	end
+	-- the relief kept: `calm.keep` near the chain, all of it from `calm.width + calm.fade` out; none on a gun pad
+	local cm = C.calm
+	local near = MapTerrain.chainDistance(map, x, z)
+	local keep = cm.keep + (1 - cm.keep) * smooth((near - cm.width) / cm.fade)
+	local g = C.guns
+	for _, p in L.pads do
+		local d = math.sqrt((x - p.x) ^ 2 + (z - p.z) ^ 2)
+		if d < g.pad / 2 + g.fade then
+			keep = math.min(keep, keep * smooth((d - g.pad / 2) / g.fade))
+		end
+	end
+	return up + down, keep
 end
 
 -- 0 = fully flattened (inside a reserved area), 1 = natural terrain.
@@ -273,7 +524,11 @@ local function landRaw(map: any, x: number, z: number): number
 	local m = map.terrainMargin
 	local edge = 1 - smooth((outside(map.bounds, x, z) - m * 0.6) / (m * 0.38))
 	local hill, top = riseAt(map, x, z)
-	local h = (relief(map.terrain, s, x, z) * (1 - hill) + top * hill + ridgeHeight(map, x)) * edge
+	local shape, keep = 0, 1
+	if map.legs then
+		shape, keep = legsAt(map, x, z)
+	end
+	local h = (relief(map.terrain, s, x, z) * keep * (1 - hill) + top * hill + ridgeHeight(map, x) + shape) * edge
 		+ wildHeight(map, s, x, z)
 	local w, baseY = MapTerrain.flattenWeight(map, x, z)
 	return baseY + (h - baseY) * w
@@ -458,6 +713,11 @@ function MapTerrain.treeDensity(map: any, x: number, z: number): number
 		end
 	end
 	if MapTerrain.slopeAt(map, x, z) > T.maxSlope then
+		return 0
+	end
+	-- the leg pattern's open ground: no trees along the chain (user 2026-11-06: "just being able to see an enemy is
+	-- considered not safe"); the copses stand out on the flanks
+	if map.legs and MapTerrain.chainDistance(map, x, z) < map.legs.calm.width then
 		return 0
 	end
 	local out = outside(b, x, z)

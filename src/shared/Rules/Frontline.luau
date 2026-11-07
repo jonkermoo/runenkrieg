@@ -67,21 +67,24 @@ function Frontline.spawn(state: State, side: Side, anyCaptured: boolean): number
 	return if side == "West" then k else n + 1 - k
 end
 
--- The sector `side` spawns at this wave (user 2026-10-27): Frontline.spawn, but one sector back toward its own end
--- while the enemy leads in that sector's zone (more of them in it than of `side`). `counts` as in Frontline.step.
-function Frontline.spawnSector(
-	state: State,
-	side: Side,
-	anyCaptured: boolean,
-	counts: { { West: number, East: number } }
-): number
+-- The sector `side` spawns at this wave: Frontline.spawn, but stepped back toward its own end past every sector an
+-- attack is building on (`attacked[i]`: Frontline.pressing by `side`'s enemy, held on for Config/Frontline.Fallback
+-- .hold; user 2026-11-06: an attacked point's defenders respawn a sector back, out of sight of it, so they can't
+-- fire from the spawn onto it and the attack gets a window; was: one back while the enemy led in its zone).
+function Frontline.spawnSector(state: State, side: Side, anyCaptured: boolean, attacked: { [number]: boolean }): number
 	local i = Frontline.spawn(state, side, anyCaptured)
 	local home = if side == "West" then 1 else #state.owner
-	local c: any = counts[i] or {}
-	if i ~= home and (c[Frontline.enemy(side)] or 0) > (c[side] or 0) then
-		i += if side == "West" then -1 else 1
+	local back = if side == "West" then -1 else 1
+	while i ~= home and attacked[i] do
+		i += back
 	end
 	return i
+end
+
+-- Whether an attack is building on a point (Config/Frontline.Fallback): `near` enemies within its `ring`, `inner` of
+-- them within its `inner` (by head).
+function Frontline.pressing(cfg: any, near: number, inner: number): boolean
+	return near >= cfg.count or inner >= 1
 end
 
 -- When the next wave goes: waves go every `every` seconds from `start`; the first at or after `now`.
@@ -140,21 +143,35 @@ end
 -- The ground each wave line at a fought-over sector stands on (Frontline.lineCentre, as src/server/Frontline's lineOf;
 -- every slot up to `line.tries`), as quads of { x, z } corners
 -- grown by `pad`: kept clear of trees so a whole line stands (user 2026-11-02, the lines moved back into the groves).
-function Frontline.lineQuads(sectors: { any }, line: any, pad: number): { { { number } } }
+-- `centreOf(i, side)`, when given, places the lines instead (a map with the leg pattern: Rules/MapTerrain.rally, every
+-- sector's, the HQs' included; nil where a side has none).
+function Frontline.lineQuads(
+	sectors: { any },
+	line: any,
+	pad: number,
+	centreOf: ((number, Side) -> (number?, number?, number?, number?))?
+): { { { number } } }
 	local out = {}
 	local n = #sectors
 	local rows = math.ceil(line.tries / line.perRow)
 	local half = (line.perRow - 1) / 2 * line.gap + pad
-	for i = 2, n - 1 do
+	for i = if centreOf then 1 else 2, if centreOf then n else n - 1 do
 		for _, side: Side in { "West", "East" } :: { Side } do
-			local cx, cz, fx, fz = Frontline.lineCentre(sectors, i, side, line)
-			local rx, rz = -fz, fx
-			local front, rear = pad, (rows - 1) * line.rowGap + pad
-			local q = {}
-			for _, c in { { -half, front }, { half, front }, { half, -rear }, { -half, -rear } } do
-				table.insert(q, { cx + rx * c[1] + fx * c[2], cz + rz * c[1] + fz * c[2] })
+			local cx, cz, fx, fz
+			if centreOf then
+				cx, cz, fx, fz = centreOf(i, side)
+			else
+				cx, cz, fx, fz = Frontline.lineCentre(sectors, i, side, line)
 			end
-			table.insert(out, q)
+			if cx and cz and fx and fz then
+				local rx, rz = -fz, fx
+				local front, rear = pad, (rows - 1) * line.rowGap + pad
+				local q = {}
+				for _, c in { { -half, front }, { half, front }, { half, -rear }, { -half, -rear } } do
+					table.insert(q, { cx + rx * c[1] + fx * c[2], cz + rz * c[1] + fz * c[2] })
+				end
+				table.insert(out, q)
+			end
 		end
 	end
 	return out
