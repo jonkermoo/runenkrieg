@@ -144,6 +144,7 @@ local Settings = {
 		-- leaves build mode (user 2026-10-24: "make it Q to exit plan mode"; right mouse turns the shovel's camera; moved
 		-- to X for Q / E picking the piece, user 2026-10-27)
 		Key_BuildExit = { kind = "key", label = "Exit build mode", default = "X" },
+		Key_Squad = { kind = "key", label = "Squad panel", default = "J" }, -- (src/client/SquadPanel, Config/Squads)
 		Key_Settings = { kind = "key", label = "Settings menu", default = "P" }, -- opens this menu (frees the mouse)
 		-- opens / closes the dev admin panel (user 2026-10-26); `devOnly`: the row shows only to dev players
 		Key_AdminPanel = { kind = "key", label = "Admin panel", default = "F2", devOnly = true },
@@ -197,6 +198,7 @@ local Settings = {
 				"Key_BuildPrev",
 				"Key_BuildNext",
 				"Key_BuildExit",
+				"Key_Squad",
 				"Key_Settings",
 				"Key_AdminPanel",
 			},

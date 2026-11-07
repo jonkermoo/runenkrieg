@@ -1,0 +1,132 @@
+{
+	"name": "SquadPanel",
+	"_doc": "The squad panel (src/client/SquadPanel; user 2026-11-06: \"add an extra panel that let's players join a squad ... make squads max 6 ... the status of the squad\"), Field Grimoire's notebook like the settings menu: one sheet of map paper folded in two. Left page: the title, your squad (its rune and name, how many of Config/Squads.Max) and each member under it, their name over their status (Config/Squads.Status: a small diamond and the words in the status's ink), an open slot as a dim line; Leave below. Not in a squad: a line saying so in place of the members, no Leave. Right page: your army's squads, one row each (`Row1` is the template, cloned per squad down a scrolling list): rune, name, count, one diamond per member in its status ink, and Join (an ink block) or the words Yours / Full; New squad at the foot. Opened from the loadout menu's Squad button (src/client/Menus) or the Squad key (Config/Settings Key_Squad, J) in the field; Esc, the key, X or a click outside close it. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale, never taller than the GUI area less theme.fitMargin. Colours: Config/Palette UI.Grimoire.Notebook. Desktop only.",
+	"theme": {
+		"palette": "Notebook",
+		"scale": { "referenceHeight": 800, "min": 0.65, "max": 1.25 },
+		"fitMargin": 16,
+		"minTap": 32,
+		"minText": 12,
+		"textStroke": 0,
+		"outline": 0,
+		"corner": 0,
+		"scrollBar": 4,
+		"fonts": { "body": { "family": "SourceSansPro", "weight": "Bold", "file": "SourceSansPro-Bold.ttf" } },
+		"fitNode": "Panel"
+	},
+	"modal": true,
+	"preview": {
+		"squadName": "Thurisaz squad",
+		"squadCount": "6 of 6 soldiers",
+		"name1": "WilhelmVonStrassburg",
+		"status1": "Awaiting deployment",
+		"army": "Katzmark squads",
+		"rowName": "Thurisaz",
+		"rowCount": "6 / 6"
+	},
+	"root": {
+		"id": "Screen",
+		"kind": "group",
+		"size": [1, 0, 1, 0],
+		"children": [
+			{
+				"id": "Panel",
+				"kind": "panel",
+				"paper": true,
+				"overlay": true,
+				"center": true,
+				"anchor": [0.5, 0.5],
+				"pos": [0.5, 0, 0.5, 0],
+				"size": [0, 960, 0, 600],
+				"color": "panel",
+				"children": [
+					{ "id": "Fold", "kind": "panel", "color": "fold", "pos": [0.4, -1, 0, 26], "size": [0, 2, 1, -52] },
+					{ "id": "Title", "kind": "label", "text": "Squads", "textSize": 44, "textColor": "title", "align": "left", "pos": [0, 44, 0, 34], "size": [0, 300, 0, 54] },
+					{ "id": "Rule", "kind": "panel", "color": "lineStrong", "pos": [0, 44, 0, 92], "size": [0, 230, 0, 2] },
+					{ "id": "Close", "kind": "button", "clear": true, "text": "X", "textSize": 26, "textColor": "text", "anchor": [1, 0], "pos": [1, -28, 0, 24], "size": [0, 40, 0, 40] },
+					{
+						"id": "Mine",
+						"kind": "group",
+						"pos": [0, 44, 0, 112],
+						"size": [0.4, -80, 0, 362],
+						"children": [
+							{ "id": "MineRune", "kind": "glyph", "pos": [0, 4, 0, 4], "size": [0, 18, 0, 28] },
+							{ "id": "SquadName", "kind": "label", "bind": "squadName", "textSize": 26, "textColor": "text", "align": "left", "pos": [0, 32, 0, 0], "size": [1, -32, 0, 34] },
+							{ "id": "SquadCount", "kind": "label", "bind": "squadCount", "textSize": 17, "textColor": "textDim", "align": "left", "pos": [0, 32, 0, 34], "size": [1, -32, 0, 22] },
+							{
+								"id": "Members",
+								"kind": "group",
+								"rowHeight": 46,
+								"gap": 4,
+								"pos": [0, 0, 0, 64],
+								"size": [1, 0, 0, 296],
+								"children": [
+									{
+										"id": "Member1",
+										"kind": "group",
+										"pos": [0, 0, 0, 0],
+										"size": [1, 0, 0, 46],
+										"children": [
+											{ "id": "Pip1", "kind": "panel", "shape": "diamond", "color": "text", "pos": [0, 6, 0, 29], "size": [0, 10, 0, 10] },
+											{ "id": "Name1", "kind": "label", "bind": "name1", "textSize": 20, "textColor": "text", "align": "left", "pos": [0, 22, 0, 0], "size": [1, -22, 0, 24] },
+											{ "id": "Status1", "kind": "label", "bind": "status1", "textSize": 16, "textColor": "textDim", "align": "left", "pos": [0, 22, 0, 24], "size": [1, -22, 0, 20] }
+										]
+									}
+								]
+							},
+							{ "id": "NoSquad", "kind": "label", "text": "Not in a squad yet. Join one on the right, or start your own.", "wrap": true, "overlay": true, "textSize": 18, "textColor": "textDim", "align": "left", "pos": [0, 0, 0, 64], "size": [1, 0, 0, 52] }
+						]
+					},
+					{ "id": "Leave", "kind": "button", "text": "Leave squad", "textSize": 19, "color": "field", "line": "line", "textColor": "text", "anchor": [0, 1], "pos": [0, 44, 1, -68], "size": [0, 170, 0, 40] },
+					{ "id": "Footer", "kind": "label", "text": "J or Esc closes", "textSize": 17, "textColor": "textDim", "align": "left", "pos": [0, 44, 1, -62], "size": [0, 280, 0, 24] },
+					{
+						"id": "Page",
+						"kind": "group",
+						"pos": [0.4, 40, 0, 40],
+						"size": [0.6, -112, 1, -80],
+						"children": [
+							{ "id": "Army", "kind": "label", "bind": "army", "textSize": 24, "textColor": "text", "align": "left", "pos": [0, 0, 0, 0], "size": [1, 0, 0, 34] },
+							{ "id": "ArmyRule", "kind": "panel", "color": "line", "pos": [0, 0, 0, 38], "size": [1, 0, 0, 1] },
+							{
+								"id": "List",
+								"kind": "group",
+								"gap": 8,
+								"pos": [0, 0, 0, 48],
+								"size": [1, 0, 1, -112],
+								"children": [
+									{
+										"id": "Row1",
+										"kind": "group",
+										"pos": [0, 0, 0, 0],
+										"size": [1, -10, 0, 64],
+										"children": [
+											{ "id": "RowLine", "kind": "panel", "color": "line", "overlay": true, "anchor": [0, 1], "pos": [0, 0, 1, 0], "size": [1, 0, 0, 1] },
+											{ "id": "RowRune", "kind": "glyph", "pos": [0, 6, 0, 12], "size": [0, 22, 0, 34] },
+											{ "id": "RowName", "kind": "label", "bind": "rowName", "textSize": 22, "textColor": "text", "align": "left", "pos": [0, 42, 0, 6], "size": [0, 170, 0, 28] },
+											{ "id": "RowCount", "kind": "label", "bind": "rowCount", "textSize": 17, "textColor": "textDim", "align": "left", "pos": [0, 42, 0, 36], "size": [0, 56, 0, 22] },
+											{
+												"id": "RowPips",
+												"kind": "group",
+												"pitch": 16,
+												"pos": [0, 104, 0, 41],
+												"size": [0, 96, 0, 12],
+												"children": [
+													{ "id": "RowPip1", "kind": "panel", "shape": "diamond", "color": "text", "pos": [0, 1, 0, 1], "size": [0, 10, 0, 10] },
+													{ "id": "RowPip2", "kind": "panel", "shape": "diamond", "color": "wave", "pos": [0, 17, 0, 1], "size": [0, 10, 0, 10] },
+													{ "id": "RowPip3", "kind": "panel", "shape": "diamond", "color": "pencil", "pos": [0, 33, 0, 1], "size": [0, 10, 0, 10] },
+													{ "id": "RowPip4", "kind": "panel", "shape": "diamond", "color": "textDim", "pos": [0, 49, 0, 1], "size": [0, 10, 0, 10] }
+												]
+											},
+											{ "id": "RowJoin", "kind": "button", "text": "Join", "textSize": 19, "color": "selFill", "line": "selLine", "textColor": "selText", "anchor": [1, 0.5], "pos": [1, -4, 0.5, 0], "size": [0, 110, 0, 40] }
+										]
+									}
+								]
+							},
+							{ "id": "NewSquad", "kind": "button", "text": "New squad", "textSize": 19, "color": "field", "line": "line", "textColor": "text", "anchor": [0, 1], "pos": [0, 0, 1, -4], "size": [0, 170, 0, 40] }
+						]
+					}
+				]
+			}
+		]
+	}
+}

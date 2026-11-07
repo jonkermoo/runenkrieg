@@ -38,6 +38,7 @@ local Modes = require(script.Parent.Modes)
 local ZoneMatch = require(script.Parent.ZoneMatch)
 local SectorCfg = require(Shared.Config.Sectors)
 local Ragdoll = require(script.Parent.Ragdoll)
+local Squads = require(script.Parent.Squads)
 local Cfg = require(Shared.Config.DevTools)
 local BotsCfg = require(Shared.Config.Bots)
 local ClassCfg = require(Shared.Config.Classes)
@@ -155,6 +156,71 @@ function DevTools.teleport(player: Player, id: string): boolean
 end
 
 -- Does one checked test action for `player` (aim: the aim point, for the aimed actions).
+-- An admin MG burst at `character` (Config/DevTools.Admin.MGBurst, `b` one of its Bursts): a hidden machine gun in front
+-- of them firing real "MGShot"s (seen and heard by everyone, src/client/Artillery) that miss the head by `b.miss` studs
+-- and fly on to what they strike. Harmless: no damage is dealt. For src/client/Suppression's hand test.
+local bursting: { [Player]: boolean } = {}
+local function mgBurst(player: Player, character: Model, root: BasePart, b: any)
+	if bursting[player] then
+		return
+	end
+	local B = Cfg.Admin.MGBurst
+	local mg = (require(Shared.Config.Artillery).Guns :: any)[B.gun].mg
+	local look = root.CFrame.LookVector * Vector3.new(1, 0, 1)
+	look = if look.Magnitude > 0 then look.Unit else Vector3.zAxis
+	local origin = root.Position + look * B.distance + Vector3.new(0, b.height or B.height, 0)
+	local emitter = Instance.new("Model")
+	emitter.Name = "DevMGBurst"
+	emitter:SetAttribute("Gun", B.gun)
+	local spot = Instance.new("Part")
+	spot.Anchored, spot.CanCollide, spot.CanQuery, spot.CanTouch = true, false, false, false
+	spot.Transparency, spot.Size, spot.Position = 1, Vector3.one, origin
+	spot.Parent = emitter
+	emitter.PrimaryPart = spot
+	emitter.Parent = workspace
+	bursting[player] = true
+	local random = Random.new()
+	local params = RaycastParams.new()
+	params.FilterType = Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = { character, emitter }
+	task.spawn(function()
+		local every = 60 / mg.rate
+		for _ = 1, math.max(1, math.floor(b.seconds / every)) do
+			local head = character:FindFirstChild("Head") :: BasePart?
+			if not head or not character.Parent then
+				break
+			end
+			local line = (head.Position - origin).Unit
+			local side = line:Cross(Vector3.yAxis)
+			side = if side.Magnitude > 1e-3 then side.Unit else Vector3.xAxis
+			local up = side:Cross(line).Unit
+			local target
+			if b.ground then
+				-- the ground `b.miss` studs round the feet (in front, beside, behind)
+				local a = random:NextNumber() * math.pi * 2
+				local r = random:NextNumber(b.miss[1], b.miss[2])
+				local over = root.Position + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
+				local down = workspace:Raycast(over + Vector3.new(0, 10, 0), Vector3.new(0, -40, 0), params)
+				target = if down then down.Position else over - Vector3.new(0, 3, 0)
+			else
+				-- a miss `b.miss` studs off the head, square to the line, never down through the body
+				local a = math.rad(random:NextNumber(-40, 220))
+				local off = (side * math.cos(a) + up * math.sin(a)) * random:NextNumber(b.miss[1], b.miss[2])
+				target = head.Position + off
+			end
+			local dir = (target - origin).Unit
+			local result = workspace:Raycast(origin, dir * mg.range, params)
+			local hit = if result then result.Position else origin + dir * mg.range
+			Net.event("MGShot")
+				:FireAllClients(emitter, origin, hit, result and result.Normal, result and result.Instance)
+			task.wait(every)
+		end
+		task.wait(2) -- (the last rounds' sound still travelling)
+		emitter:Destroy()
+		bursting[player] = nil
+	end)
+end
+
 local function act(player: Player, action: string, value: any, aim: Vector3?)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -384,6 +450,12 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		player:LoadCharacter()
 	elseif action == "BuildAll" then
 		player:SetAttribute(Cfg.Admin.BuildAllAttribute, if value then true else nil)
+	elseif action == "SquadFill" then
+		-- your team's nearest bots or dummies shown as squadmates (src/server/Squads.fill; the result on its button)
+		local n, why = Squads.fill(player)
+		Net.event("DevAction"):FireClient(player, if why then "Refused" else "Done", action, why or `{n} joined`)
+	elseif action == "SquadClear" then
+		Squads.clearTestMates()
 	elseif action == "Ammo" then
 		player:SetAttribute(Cfg.Admin.AmmoAttribute, if value then true else nil)
 	elseif action == "GunExact" then
@@ -430,6 +502,8 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 			humanoid.Health = 0
 		elseif action == "KnockMe" then
 			Ragdoll.knock(character, Cfg.Admin.SelfKnock, -root.CFrame.LookVector)
+		elseif action == "KnockMeLong" then
+			Ragdoll.knock(character, Cfg.Admin.SelfKnock, -root.CFrame.LookVector, nil, Cfg.Admin.LongKnockDamage)
 		elseif action == "HelmetOff" then
 			Helmets.knockOff(character, -root.CFrame.LookVector)
 		elseif action == "HelmetShot" then
@@ -439,6 +513,8 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 				Helmets.knockOff(character, along)
 				Damage.helmetShot(character, Cfg.Admin.Shock.HelmetWeapon, along)
 			end
+		elseif action == "MGBurst" then
+			mgBurst(player, character, root, Cfg.Admin.MGBurst.Bursts[value])
 		elseif action == "ShockAt" then
 			-- a grenade or shell on the ground `distance` studs in front (Config/DevTools.Admin.Shock)
 			local look = root.CFrame.LookVector * Vector3.new(1, 0, 1)

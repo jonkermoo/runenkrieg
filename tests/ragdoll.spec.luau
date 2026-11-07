@@ -90,6 +90,28 @@ return {
 		local S = C.StayDown
 		assert(S.key == "Space" and S.max > 5 and S.rate >= 2, "key, cap, rate")
 	end,
+	["the down prompt: dragged, settling, rising, held and draining"] = function()
+		local S = C.StayDown
+		assert(R.downView(10, 12, true, true, S).state == "dragged", "a drag wins")
+		local v = R.downView(10, nil, false, false, S)
+		assert(v.state == "settling" and v.left == nil and v.fill == 0, "no wait yet")
+		v = R.downView(10, 12, false, false, S)
+		assert(v.state == "rising" and near(v.left :: number, 2) and v.fill == 0, "up in 2 s")
+		v = R.downView(13, 12, false, false, S)
+		assert(v.state == "rising" and v.left == 0, "never negative")
+		v = R.downView(10, nil, true, false, S)
+		assert(v.state == "held" and v.left == nil and v.fill == 1, "held before the wait: full")
+		v = R.downView(12, 12, true, false, S)
+		assert(v.state == "held" and near(v.left :: number, S.max) and near(v.fill, 1), "full at the wait's end")
+		v = R.downView(12 + S.max / 2, 12, true, false, S)
+		assert(near(v.fill, 0.5), "half drained")
+		v = R.downView(12 + S.max * 2, 12, true, false, S)
+		assert(v.left == 0 and v.fill == 0, "empty past the cap")
+	end,
+	["down hud settings are sane"] = function()
+		local H = C.DownHud
+		assert(H.upAtAttribute ~= "" and H.range > 20 and H.maxMarks >= 1 and H.rate > 0, "settings")
+	end,
 	["by-damage settings are sane"] = function()
 		assert(B.floor > 0 and B.ceiling > B.floor and B.ceiling < C.maxDown + 2, "floor and ceiling")
 		assert(B.full > 0 and B.full <= 100, "full damage")
