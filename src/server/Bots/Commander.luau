@@ -2536,6 +2536,24 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	-- plan")
 	local others, squaresOnly, baseOnly, plansOnly = {}, {}, {}, {}
 	local plansWaiting = 0
+	local seen = sbs.planSeen or {}
+	sbs.planSeen = seen
+	for _, w in works do
+		local theirs = w.key == "Trench" and w.owner ~= nil and (w.owner :: number) > 0
+		if theirs and not w.built and not seen[w.model] then
+			seen[w.model] = now
+		elseif theirs and w.built and seen[w.model] then
+			local times = ByTrench.planTimes[side] or {}
+			ByTrench.planTimes[side] = times
+			table.insert(times, now - seen[w.model])
+			seen[w.model] = nil
+		end
+	end
+	for model in seen do
+		if not model.Parent then
+			seen[model] = nil
+		end
+	end
 	for i, p in pieces do
 		local square = p.key == "Trench"
 		local none = { key = p.key, x = p.x, z = p.z, left = 0 }

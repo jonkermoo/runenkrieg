@@ -295,12 +295,16 @@ return {
 		assert(not R.shelled(100, { { x = D.near + 1, z = 0, at = 100, kg = 5 } }, squares, D), "too far")
 		assert(not R.shelled(100, { shell }, {}, D), "no trench")
 	end,
-	["dugoutsWanted: none before shelling, then room for all but the sentries"] = function()
-		local D = Cfg.Dugouts
+	["dugoutsWanted: one for every few bays before shelling, then room for all but the sentries"] = function()
+		local D = table.clone(Cfg.Dugouts)
+		D.perBays = nil
 		assert(R.dugoutsWanted(false, 12, 2, D) == 0, "never shelled")
 		assert(R.dugoutsWanted(true, 2, 2, D) == 0, "only sentries")
 		assert(R.dugoutsWanted(true, 2 + D.room, 2, D) == 1)
 		assert(R.dugoutsWanted(true, 3 + D.room, 2, D) == 2, "one more over")
+		local E = Cfg.Dugouts
+		assert(R.dugoutsWanted(false, 0, 5, E) == math.ceil(5 / E.perBays), "5 bays, never shelled")
+		assert(R.dugoutsWanted(true, 2, 5, E) == math.ceil(5 / E.perBays), "shelled, few holders: still those")
 	end,
 	["a trench's heat: shells and its own dead close by, fading; enemies known near, capped (user 2026-11-03)"] = function()
 		-- user 2026-11-03: "make bots utilize dug outs more often, especially in trenches highly contested or often shelled"

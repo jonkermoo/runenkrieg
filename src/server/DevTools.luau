@@ -200,6 +200,34 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		else
 			Net.event("DevAction"):FireClient(player, "Refused", key, "no gun near")
 		end
+	elseif action == "PlayerPlan" and aim then
+		-- a player's plan through the aim point for the nearest soldier's side (Config/DevTools.Admin.PlayerPlan)
+		local PP = Cfg.Admin.PlayerPlan
+		local kit, best = nil, PP.near
+		for _, m in workspace:GetDescendants() do
+			local k = m:IsA("Model") and m:GetAttribute("Kit")
+			local r = type(k) == "string" and (m :: Model):FindFirstChild("HumanoidRootPart")
+			if r and r:IsA("BasePart") and (r.Position - aim).Magnitude < best then
+				kit, best = k, (r.Position - aim).Magnitude
+			end
+		end
+		local face, fd = nil, math.huge
+		for _, sec in LiveMap.map.sectors do
+			local d = Vector3.new(sec.x - aim.X, 0, sec.z - aim.Z)
+			if d.Magnitude > 1 and d.Magnitude < fd then
+				face, fd = d.Unit, d.Magnitude
+			end
+		end
+		local across = if face then Vector3.new(-face.Z, 0, face.X) else Vector3.xAxis
+		local a, b = aim - across * PP.length / 2, aim + across * PP.length / 2
+		local why: string? = if kit then nil else "no soldier near"
+		if kit then
+			local stand = Instance.new("Part")
+			stand.Position = a
+			why = Trenches.plan(math.max(player.UserId, 1), kit, stand, a, b)
+			stand:Destroy()
+		end
+		Net.event("DevAction"):FireClient(player, if why then "Refused" else "Done", action, why or `planned for {kit}`)
 	elseif action == "TrenchExtra" and aim then
 		-- the dug square nearest the aim point to 100 + `value` (Trenches.reinforce; shown on the button)
 		local best, bestD = nil, Cfg.Blasts.TrenchReach

@@ -292,6 +292,8 @@ export type SquadState = {
 -- may take now
 export type TrenchPost = { pos: Vector3, floor: Vector3?, face: Vector3? }
 export type SideBuild = {
+	-- players' planned squares and when it first listed each (Config/Bots.Trenches.Plans; the trench stats' plans line)
+	planSeen: { [Model]: number }?,
 	front: number?,
 	held: number, -- its sectors held from its end when planned (Rules/Frontline.held)
 	holds: boolean,

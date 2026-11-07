@@ -67,6 +67,8 @@ local ByTrench = {
 	runs = {} :: { [string]: number },
 	-- how long each side's lost trench squares stood, seconds (dug to buried under Trenches.standHp or gone; Care)
 	lives = {} :: { [string]: { number } },
+	-- each side's players' planned squares dug this match: seconds from first listed to dug (Config/Bots.Trenches.Plans)
+	planTimes = {} :: { [string]: { number } },
 }
 for _, name in TM.materials do
 	ByTrench.costs[name] = TM.open
