@@ -79,4 +79,36 @@ return {
 		assert(C.viewmodel.pitch >= 4 and C.viewmodel.yaw >= 4)
 		assert(C.cameraFirst.pitch > C.camera.pitch)
 	end,
+	["a machine gun pins: weightier rounds past 1, about five close ones; rifle fire never pins"] = function()
+		local M = C.MG
+		assert(M.weight > 1 and M.cap > C.Cap and M.hold > C.Hold)
+		local level, rounds = 0, 0
+		while S.pinned(level, C.Cap, M.cap) < 1 and rounds < 20 do
+			level = S.add(level, S.pass(1, C.Pass) * M.weight, M.cap) -- (~1 stud off: its stray at 100 studs)
+			rounds += 1
+		end
+		assert(rounds >= 4 and rounds <= 7, `pinned after {rounds} rounds`)
+		local rifle = 0
+		for _ = 1, 10 do
+			rifle = S.add(rifle, S.pass(0, C.Pass), C.Cap)
+		end
+		assert(S.pinned(rifle, C.Cap, M.cap) == 0, "rifle fire never pins")
+		-- a rifle crack while pinned doesn't pull the level back down to its own cap
+		assert(S.add(M.cap, S.pass(0, C.Pass), C.Cap) == M.cap)
+	end,
+	["pinned is gone a few seconds after the burst stops"] = function()
+		local M = C.MG
+		assert(S.decay(M.cap, 0, M.hold * 0.9, M.hold, C.Fall) == M.cap, "held")
+		local gone = M.hold + M.cap * C.Fall
+		assert(gone >= 2.5 and gone <= 4.5, `gone after {gone} s`)
+		assert(S.decay(M.cap, 0, gone + 0.01, M.hold, C.Fall) == 0)
+	end,
+	["the screen and ears grow from level 1 to pinned, nothing at 0"] = function()
+		local Sc, Mu = C.Screen, C.Muffle
+		assert(S.blend(0, 0, Sc.dark, Sc.pinnedDark) == 0)
+		assert(S.blend(1, 0, Sc.dark, Sc.pinnedDark) == Sc.dark)
+		assert(S.blend(1, 1, Sc.dark, Sc.pinnedDark) == Sc.pinnedDark)
+		assert(Sc.pinnedDark > Sc.dark and Sc.pinnedDepth > Sc.depth and Sc.pinnedDark + Sc.pulse <= 0.8)
+		assert(Mu.pinnedHigh < Mu.high and Mu.high <= 0)
+	end,
 }

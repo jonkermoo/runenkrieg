@@ -5,7 +5,7 @@
 -- Engineer / Grenadier for free, dig speed, shelling a side's trenches), then Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
 -- test rows the server does (Net "DevAction", src/server/DevTools): You (health steps, kill, respawn, knock, helmet off,
 -- god mode, unlimited ammo and no staff cooldown), Weapon (the visible gun's sight lines, client only: src/client/DevSights), Shell shock (a grenade / shell at a chosen distance in front, a helmet
--- shot: src/client/Concussion), Loadout (match points, a class every life), Team (respawn now as grey / olive / brown, kept until changed, or random again), Grenades (give yourself
+-- shot: src/client/Concussion), Suppression (MG bursts that just miss you, the level now), Loadout (match points, a class every life), Team (respawn now as grey / olive / brown, kept until changed, or random again), Grenades (give yourself
 -- a full count of one), Shovel (the dig step, build anything, the slope readout), World (the range's test shooters, undo destruction, the
 -- hitch log and print: src/shared/Hitches) and Time
 -- (jump the clock to dawn / noon / dusk / midnight, pause the day cycle) and Weather (clear / fog / rain now, the random
@@ -48,6 +48,7 @@ local Settings = require(script.Parent.Settings)
 local ShotSpread = require(script.Parent.ShotSpread)
 local Menus = require(script.Parent.Menus) :: any
 local MapLoader = require(script.Parent.MapLoader)
+local Suppression = require(script.Parent.Suppression)
 local LoadCfg = require(Shared.Config.JoinLoading)
 
 local DevAdminMenu = {}
@@ -848,6 +849,27 @@ local function build(player: Player): DevPanel.Panel
 		for _, d in A.Shock.Distances do
 			row(`Shock_{src.key}_{d}`, `{src.label} at {d} studs`, "ShockAt", { source = src.key, distance = d })
 		end
+	end
+
+	-- Suppression (src/client/Suppression, src/client/SuppressionScreen; Config/DevTools.Admin.MGBurst): a hidden machine
+	-- gun in front of you firing bursts that just miss (harmless), and the level now (pinned past 1: machine guns only)
+	heading("Suppression")
+	local level = DevPanel.button(p.panel, "SuppressionLevel", "Suppression: 0.00", order + 1)
+	order += 1
+	task.spawn(function()
+		while p.panel.Parent do
+			if p.panel.Visible then
+				local l, pinned = Suppression.level()
+				level.Text = if pinned > 0
+					then string.format("Suppression: %.2f (pinned %d%%)", l, math.floor(pinned * 100 + 0.5))
+					else string.format("Suppression: %.2f", l)
+				paint(level, l > 0)
+			end
+			task.wait(0.1)
+		end
+	end)
+	for i, b in A.MGBurst.Bursts do
+		row(`MGBurst{i}`, b.label, "MGBurst", i)
 	end
 
 	-- Loadout (src/server/Loadouts): match points, a class every life (free, locked or not) or your own picks again

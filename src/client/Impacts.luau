@@ -1,10 +1,13 @@
 --!strict
 -- What a bullet throws up where it lands (Config/Firing.Effects.Impacts; user 2026-10-17), local to each client: a dirt
 -- puff on the ground, chips off stone, brick and anything else that stays put, splinters off a trunk, a splash on
--- water, and leaves falling where the line passes through a canopy (canopies let bullets through). Bits are anchored
+-- water, and leaves falling where the line passes through a canopy (canopies let bullets through). A bullet landing
+-- close by the own soldier's head throws more, bigger dirt and a dust puff, and right by it spatters the screen
+-- (Config/Suppression.Dirt, src/client/SuppressionScreen). Bits are anchored
 -- parts moved here each frame: no physics, nothing replicated, never touched.
 
 local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
@@ -16,12 +19,23 @@ local Trees = require(Shared.Rules.Trees)
 local Net = require(Shared.Net)
 local TreeSway = require(script.Parent.TreeSway)
 local Flagpoles = require(script.Parent.Flagpoles)
+local SuppressionScreen = require(script.Parent.SuppressionScreen)
+local Dirt = require(Shared.Config.Suppression).Dirt
 
 local Impacts = {}
 
 local I = Cfg.Effects.Impacts
 
-type Bit = { part: BasePart, v: Vector3, spin: CFrame, gravity: number, drag: number, born: number, life: number }
+type Bit = {
+	part: BasePart,
+	v: Vector3,
+	spin: CFrame,
+	gravity: number,
+	drag: number,
+	born: number,
+	life: number,
+	see: number?, -- (see-through bits fade out over their life)
+}
 local bits: { Bit } = {}
 local folder: Folder? = nil
 -- each canopy's leaf shapes (Rules/Trees.canopyShapes), found on its first shot
@@ -54,15 +68,16 @@ local function spread(): Vector3
 	return Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 2
 end
 
--- `kind`'s bits at `at`, thrown out along `normal`, in `color`
-local function burst(kind: any, at: Vector3, normal: Vector3, color: Color3)
+-- `kind`'s bits at `at`, thrown out along `normal`, in `color`; `more`: x the count and the size (dirt by the head)
+local function burst(kind: any, at: Vector3, normal: Vector3, color: Color3, more: { count: number, size: number }?)
 	local now = os.clock()
-	for _ = 1, kind.count do
+	for _ = 1, math.round(kind.count * (if more then more.count else 1)) do
 		local p = Instance.new("Part")
 		p.Anchored, p.CanCollide, p.CanQuery, p.CanTouch, p.CastShadow = true, false, false, false, false
 		p.Material = Enum.Material.SmoothPlastic
 		p.Color = color
-		local s = kind.size * (0.7 + math.random() * 0.6)
+		p.Transparency = if kind.see then 1 - kind.see else 0
+		local s = kind.size * (0.7 + math.random() * 0.6) * (if more then more.size else 1)
 		p.Size = if kind.long then Vector3.new(s, s, s * kind.long) else Vector3.new(s, s * 0.6, s)
 		p.CFrame = CFrame.new(at + normal * 0.1)
 			* CFrame.Angles(math.random() * 6, math.random() * 6, math.random() * 6)
@@ -76,6 +91,7 @@ local function burst(kind: any, at: Vector3, normal: Vector3, color: Color3)
 			drag = kind.drag,
 			born = now,
 			life = kind.life * (0.7 + math.random() * 0.6),
+			see = kind.see,
 		})
 	end
 end
@@ -135,6 +151,20 @@ function Impacts.leaves(at: Vector3, color: Color3, count: number)
 end
 
 -- one bullet's line from `from` to where it landed (`hit`, the surface's `normal`, the `part` it hit)
+-- how far `hit` landed from the own soldier's head, when within Dirt.near (not from a gun at the head: your own)
+local function nearHead(from: Vector3?, hit: Vector3): number?
+	local character = Players.LocalPlayer.Character
+	local head = character and character:FindFirstChild("Head") :: BasePart?
+	if not head then
+		return nil
+	end
+	local d = (hit - head.Position).Magnitude
+	if d > Dirt.near or (from and (from - head.Position).Magnitude < Dirt.own) then
+		return nil
+	end
+	return d
+end
+
 function Impacts.shot(from: Vector3?, hit: Vector3, normal: Vector3?, part: Instance?)
 	if from then
 		leaves(from, hit)
@@ -151,7 +181,15 @@ function Impacts.shot(from: Vector3?, hit: Vector3, normal: Vector3?, part: Inst
 			-- (GetMaterialColor doesn't take Water: its colour is Terrain.WaterColor)
 			burst(I.Splash, hit, Vector3.yAxis, workspace.Terrain.WaterColor)
 		elseif DIRT[m] then
-			burst(I.Dirt, hit, normal, workspace.Terrain:GetMaterialColor(m))
+			local color = workspace.Terrain:GetMaterialColor(m)
+			local near = nearHead(from, hit)
+			burst(I.Dirt, hit, normal, color, if near then Dirt else nil)
+			if near then
+				burst(Dirt.Dust, hit, normal, color)
+				if near <= Dirt.face then
+					SuppressionScreen.specks(color)
+				end
+			end
 		else
 			burst(I.Chip, hit, normal, workspace.Terrain:GetMaterialColor(m))
 		end
@@ -195,6 +233,10 @@ function Impacts.start()
 				table.remove(bits, i)
 			else
 				b.v = b.v * math.max(1 - b.drag * dt, 0) - Vector3.yAxis * b.gravity * dt
+				local see = b.see
+				if see then
+					b.part.Transparency = 1 - see * (1 - (now - b.born) / b.life)
+				end
 				table.insert(parts, b.part)
 				table.insert(cframes, (b.part.CFrame + b.v * dt) * b.spin)
 			end
