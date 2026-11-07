@@ -273,6 +273,16 @@ function Build.pitShare(stood: boolean, hp: number, max: number, stages: number)
 	return Build.stageOf(hp, max, stages) / math.max(stages, 1)
 end
 
+-- How much of a full swing (`full` seconds, the dig) a shovel strike at `now` is paid for (Config/Classes.Earn.Work):
+-- the time since the swinger's last strike `last`, at most `full`; a first strike (or one after a pause) a full one.
+-- So building pays by the time spent at it, quick chips and slow digs alike.
+function Build.swingSpent(now: number, last: number?, full: number): number
+	if last == nil or full <= 0 then
+		return 1
+	end
+	return math.clamp((now - last) / full, 0, 1)
+end
+
 -- The shortest time between two strikes of the shovel (Config/Shovel): one swing let go of at its rest and the next
 -- started at once, of either mode: the rest of the first, less its strike, and the strike of the next.
 function Build.strikeGap(swings: { { strike: number, rest: number, length: number } }): number

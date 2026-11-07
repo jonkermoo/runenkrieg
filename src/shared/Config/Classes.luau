@@ -71,7 +71,7 @@ local Classes = {
 	},
 	-- points at the start of every match: enough to unlock and play the Grenadier or the Engineer (user 2026-11-05:
 	-- "give all soldiers a starting fee enough to pay for engineer or to pay for grenadier")
-	Start = 30,
+	Start = 75,
 	Default = "Rifleman", -- free: anyone can always play it
 	-- the classes in the menu's order
 	List = { "Rifleman", "Grenadier", "AutoRifler", "Shotgunner", "Engineer", "Mage" },
@@ -89,8 +89,8 @@ local Classes = {
 		Grenadier = {
 			name = "Grenadier",
 			blurb = "Rifle and five grenades",
-			unlock = 25,
-			fee = 5,
+			unlock = 75,
+			fee = 10,
 			primary = "weapon",
 			grenades = true,
 			builds = SMALL,
@@ -99,7 +99,7 @@ local Classes = {
 		AutoRifler = {
 			name = "Auto rifler",
 			blurb = "Semi-automatic rifle, plate helmet",
-			unlock = 100,
+			unlock = 150,
 			fee = 20,
 			primary = "semi",
 			grenades = false,
@@ -111,7 +111,7 @@ local Classes = {
 		Shotgunner = {
 			name = "Shotgunner",
 			blurb = "Pump shotgun, shell-band helmet",
-			unlock = 100,
+			unlock = 150,
 			fee = 20,
 			primary = "shotgun",
 			grenades = false,
@@ -123,8 +123,8 @@ local Classes = {
 		Engineer = {
 			name = "Engineer",
 			blurb = "Builds artillery",
-			unlock = 25,
-			fee = 5,
+			unlock = 75,
+			fee = 10,
 			-- the kit's pistol (user 2026-10-28: the Engineer's own sidearm; the C96, the Nagant, the Webley)
 			primary = "pistol",
 			grenades = false,
@@ -137,8 +137,8 @@ local Classes = {
 		Mage = {
 			name = "Mage",
 			blurb = "Rune staff",
-			unlock = 150,
-			fee = 50,
+			unlock = 200,
+			fee = 30,
 			primary = "staff",
 			grenades = false,
 			helmet = "goggles",
@@ -196,7 +196,11 @@ local Classes = {
 		Neutralise = 15,
 		Defend = 10,
 		Piece = 4, -- a sandbag wall, wire or gun built to full (the finishing swing)
-		Trench = 2, -- a trench square dug to full (the finishing swing)
+		-- building by the time at it (user 2026-11-06: "player's who play engineer should benefit just as much as
+		-- aggressive players who play strictly for gun pvp"): per full dig's worth of Build swings (Config/Shovel.Dig
+		-- .length, 2.6 s) that raise something, a trench square, a piece, a dugout, a repair (src/server/Build,
+		-- Rules/Build.swingSpent): 23 a minute, ~5.8 Marks after Pay, a fighter's rate; it replaces the Trench award
+		Work = 1,
 		Repair = 4, -- a wrecked gun made usable again (the swing that does it; src/server/Artillery)
 		Drag = 5, -- a downed teammate dragged at least `DragPay.least` studs (once per knock-down; src/server/Dragging)
 		Heal = 8, -- per `HealPer` health healed on a teammate (src/server/Healing)

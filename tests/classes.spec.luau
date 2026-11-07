@@ -6,6 +6,7 @@ local U = require("../src/shared/Config/Uniforms")
 local W = require("../src/shared/Config/Weapons")
 local A = require("../src/shared/Config/Assets")
 local BuildCfg = require("../src/shared/Config/Build")
+local ShovelCfg = require("../src/shared/Config/Shovel")
 
 -- the classes with the Engineer locked again (a class shown but not picked yet)
 local LOCKED = table.clone(C.Defs)
@@ -16,14 +17,14 @@ LOCKED.Engineer.locked = true
 local ENGINEER = { Gun = true, Nest = true, Dugout = true }
 
 return {
-	["the user's prices (2026-11-05): unlocks 25 / 100 / 100 / 25 / 150, fees growing with them"] = function()
+	["the user's prices (2026-11-06): unlocks 75 / 150 / 150 / 75 / 200, fees 10 / 20 / 20 / 10 / 30"] = function()
 		local want = {
 			Rifleman = { 0, 0 },
-			Grenadier = { 25, 5 },
-			AutoRifler = { 100, 20 },
-			Shotgunner = { 100, 20 },
-			Engineer = { 25, 5 },
-			Mage = { 150, 50 },
+			Grenadier = { 75, 10 },
+			AutoRifler = { 150, 20 },
+			Shotgunner = { 150, 20 },
+			Engineer = { 75, 10 },
+			Mage = { 200, 30 },
 		}
 		for key, p in want do
 			local d = C.Defs[key]
@@ -32,7 +33,7 @@ return {
 		assert(not C.Defs.Engineer.locked, "the engineer is open to players (user 2026-11-01)")
 		assert(R.price(C.Defs[C.Default]) == 0 and not C.Defs[C.Default].locked, "the default is free and pickable")
 		for _, key in { "Grenadier", "Engineer" } do
-			assert(R.price(C.Defs[key]) <= C.Start, `the start pays for the {key}`)
+			assert(C.Defs[key].unlock <= C.Start, `the start pays the {key}'s unlock`)
 		end
 		assert(R.price(C.Defs.Grenadier) + R.price(C.Defs.Engineer) > C.Start, "but not both")
 		for _, key in C.List do
@@ -48,12 +49,12 @@ return {
 		end
 	end,
 	["a pick is paid only when it can be"] = function()
-		local key, cost = R.resolve("Mage", 200, C.Defs, C.Default)
-		assert(key == "Mage" and cost == 200, "exactly enough: the unlock and the first fee")
-		key, cost = R.resolve("Mage", 199, C.Defs, C.Default)
+		local key, cost = R.resolve("Mage", 230, C.Defs, C.Default)
+		assert(key == "Mage" and cost == 230, "exactly enough: the unlock and the first fee")
+		key, cost = R.resolve("Mage", 229, C.Defs, C.Default)
 		assert(key == C.Default and cost == 0, "short: the free default")
 		key, cost = R.resolve("Engineer", 1000, C.Defs, C.Default)
-		assert(key == "Engineer" and cost == 30, "the engineer, unlocked and paid")
+		assert(key == "Engineer" and cost == 85, "the engineer, unlocked and paid")
 		key, cost = R.resolve("Engineer", 1000, LOCKED, C.Default)
 		assert(key == C.Default and cost == 0, "locked: the default")
 		key, cost = R.resolve("Nope", 1000, C.Defs, C.Default)
@@ -150,10 +151,10 @@ return {
 		for kind in ENGINEER do
 			assert(not R.mayBuild("Shotgunner", kind, C.Defs, C.Default), kind .. ": the engineer's")
 		end
-		local key, cost = R.resolve("Shotgunner", 119, C.Defs, C.Default)
+		local key, cost = R.resolve("Shotgunner", 169, C.Defs, C.Default)
 		assert(key == C.Default and cost == 0, "short: the free default")
-		key, cost = R.resolve("Shotgunner", 120, C.Defs, C.Default)
-		assert(key == "Shotgunner" and cost == 120, "paid")
+		key, cost = R.resolve("Shotgunner", 170, C.Defs, C.Default)
+		assert(key == "Shotgunner" and cost == 170, "paid")
 	end,
 	["katzlings and fenneks wear every class helmet with ear holes (user 2026-10-27)"] = function()
 		local Looks = require("../src/shared/Rules/Looks")
@@ -266,18 +267,18 @@ return {
 		local after = R.state(50, "Mage", nil, C.List, C.Defs, { Mage = true })
 		for _, card in after.classes do
 			if card.key == "Mage" then
-				assert(card.unlocked and card.cost == 50 and card.affordable, "unlocked: only the fee")
+				assert(card.unlocked and card.cost == 30 and card.affordable, "unlocked: only the fee")
 			end
 		end
 	end,
 	["an unlocked class costs only its fee for the rest of the match"] = function()
 		local unlocked = {}
-		local key, cost = R.resolve("Mage", 200, C.Defs, C.Default, nil, unlocked)
-		assert(key == "Mage" and cost == 200, "the first life: unlock + fee")
+		local key, cost = R.resolve("Mage", 230, C.Defs, C.Default, nil, unlocked)
+		assert(key == "Mage" and cost == 230, "the first life: unlock + fee")
 		unlocked[key] = true
-		key, cost = R.resolve("Mage", 50, C.Defs, C.Default, nil, unlocked)
-		assert(key == "Mage" and cost == 50, "later lives: the fee")
-		key, cost = R.resolve("Mage", 49, C.Defs, C.Default, nil, unlocked)
+		key, cost = R.resolve("Mage", 30, C.Defs, C.Default, nil, unlocked)
+		assert(key == "Mage" and cost == 30, "later lives: the fee")
+		key, cost = R.resolve("Mage", 29, C.Defs, C.Default, nil, unlocked)
 		assert(key == C.Default and cost == 0, "short of the fee: the free default")
 		key, cost = R.resolve("AutoRifler", 50, C.Defs, C.Default, nil, unlocked)
 		assert(key == C.Default and cost == 0, "another class still needs its unlock")
@@ -290,12 +291,21 @@ return {
 		assert(not R.dragPays(100, C.DragPay.least, true), "already paid this knock-down")
 		assert(C.Earn.Drag and C.Earn.Repair and C.Earn.Heal)
 	end,
+	["building pays by the time spent at it, a fighter's rate (user 2026-11-06)"] = function()
+		local full = ShovelCfg.Dig.length
+		assert(B.swingSpent(10, nil, full) == 1, "a first swing: a full one")
+		assert(math.abs(B.swingSpent(10, 10 - full / 2, full) - 0.5) < 1e-9, "a quick chip: half")
+		assert(B.swingSpent(100, 10, full) == 1, "after a pause: one full swing, no more")
+		assert(C.Earn.Trench == nil, "the per-square award is folded into Work")
+		local perMinute = 60 / full * C.Earn.Work * C.Pay
+		assert(perMinute > 5 and perMinute < 7, `nonstop building pays {perMinute} a minute, a fighter's ~6`)
+	end,
 	["an admin's pinned class wins, locked or not, and is free"] = function()
-		local key, cost = R.resolve("Mage", 200, C.Defs, C.Default, "Engineer")
+		local key, cost = R.resolve("Mage", 230, C.Defs, C.Default, "Engineer")
 		assert(key == "Engineer" and cost == 0, "pinned engineer, free")
-		key, cost = R.resolve("Mage", 200, C.Defs, C.Default, "Nope")
-		assert(key == "Mage" and cost == 200, "an unknown pin is ignored")
-		key, cost = R.resolve("Mage", 200, C.Defs, C.Default, nil)
-		assert(key == "Mage" and cost == 200, "no pin: as before")
+		key, cost = R.resolve("Mage", 230, C.Defs, C.Default, "Nope")
+		assert(key == "Mage" and cost == 230, "an unknown pin is ignored")
+		key, cost = R.resolve("Mage", 230, C.Defs, C.Default, nil)
+		assert(key == "Mage" and cost == 230, "no pin: as before")
 	end,
 }
