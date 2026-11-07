@@ -44,6 +44,21 @@ local LEGS = {
 	-- (no hill at the HQs: one lifted the HQ's own rally into the next sector's view; the HQ spawn zones sit 420
 	-- back, past the fog from the enemy's crest)
 	flagClear = 25, -- no marked spot this close to a flag (the point gets shelled)
+	-- the bots' marked spots (Rules/MapTerrain.tactics), studs: the zone's 4 at `zone.angle` + 90s, `zone.clear` past
+	-- flagClear or `zone.inset` in from its edge; on each crest cover `back` behind its top at `across`, support the
+	-- same; an MG `zoneMg` past flagClear behind the point; the knolls' MGs rake `rake` out and `rake` in; trench runs
+	-- `back` behind the crest top; gather `out` past the lane's middle at `across`; support at the lane's ends `out`
+	-- past it and `past` beyond its end
+	spots = {
+		zone = { angle = 45, clear = 10, inset = 8 },
+		crestCover = { back = 4, across = { -80, 0, 80 } },
+		crestSupport = { back = 6, across = { -55, 55 } },
+		zoneMg = 25,
+		rake = 0.7,
+		trench = { back = 3, runs = { { -100, -40 }, { 40, 100 } } },
+		gather = { out = 2, across = { -80, 0, 80 } },
+		laneEnds = { out = 10, past = 40 },
+	},
 }
 
 -- each lane's hedge bank on the side of the point it attacks (dead ground to gather in), with a gap in the middle;

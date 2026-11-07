@@ -321,10 +321,11 @@ function MapTerrain.tactics(map: any): { [number]: any }
 	local out = {}
 	for i, s in map.sectors do
 		local t = { cover = {}, support = {}, mg = {}, guns = {}, gather = {}, trench = {} }
+		local P = C.spots
 		-- the zone's own few spots: one squad keeps it held from its edge
 		for k = 0, 3 do
-			local a = math.rad(45 + 90 * k)
-			local r = math.max(C.flagClear + 10, s.radius - 8)
+			local a = math.rad(P.zone.angle + 90 * k)
+			local r = math.max(C.flagClear + P.zone.clear, s.radius - P.zone.inset)
 			table.insert(t.cover, { x = s.x + r * math.cos(a), z = s.z + r * math.sin(a), n = 2 })
 		end
 		for _, side in { "West", "East" } do
@@ -336,39 +337,40 @@ function MapTerrain.tactics(map: any): { [number]: any }
 				-- (a town, `crest = false`, has no crest spots or trench runs: its houses are the line, for the bots to
 				-- score themselves or the map to list in its own `tactics`)
 				local crest = s.crest ~= false
-				for _, n in if crest then { -80, 0, 80 } else {} do
-					local x, z = outAlong(s.x, s.z, dx, dz, u - 4, n)
+				for _, n in if crest then P.crestCover.across else {} do
+					local x, z = outAlong(s.x, s.z, dx, dz, u - P.crestCover.back, n)
 					table.insert(t.cover, { x = x, z = z, face = face, n = 4, side = side })
 				end
-				for _, n in if crest then { -55, 55 } else {} do
-					local x, z = outAlong(s.x, s.z, dx, dz, u - 6, n)
+				for _, n in if crest then P.crestSupport.across else {} do
+					local x, z = outAlong(s.x, s.z, dx, dz, u - P.crestSupport.back, n)
 					table.insert(t.support, { x = x, z = z, face = face, side = side })
 				end
 				for _, sgn in { -1, 1 } do
 					local kx, kz = outAlong(s.x, s.z, dx, dz, C.knoll.u, sgn * C.knoll.n)
 					-- raking across the crest's front: out and in toward the leg's line
-					local rx, rz = dx * 0.7 + dz * sgn * 0.7, dz * 0.7 - dx * sgn * 0.7
+					local k = P.rake
+					local rx, rz = dx * k + dz * sgn * k, dz * k - dx * sgn * k
 					table.insert(t.mg, { x = kx, z = kz, face = bearing(rx, rz), side = side })
 					local gx, gz = outAlong(s.x, s.z, dx, dz, -C.guns.u, sgn * C.guns.n)
 					table.insert(t.guns, { x = gx, z = gz, side = side, kind = "FieldGun" })
 				end
-				local mx, mz = outAlong(s.x, s.z, dx, dz, -math.max(C.flagClear + 25, s.radius), 0)
+				local mx, mz = outAlong(s.x, s.z, dx, dz, -math.max(C.flagClear + P.zoneMg, s.radius), 0)
 				table.insert(t.mg, { x = mx, z = mz, face = face, side = side })
 				local hx, hz = outAlong(s.x, s.z, dx, dz, -C.guns.howitzer, 0)
 				table.insert(t.guns, { x = hx, z = hz, side = side, kind = "Howitzer" })
-				for _, run in if crest then { { -100, -40 }, { 40, 100 } } else {} do
-					local ax, az = outAlong(s.x, s.z, dx, dz, u - 3, run[1])
-					local bx, bz = outAlong(s.x, s.z, dx, dz, u - 3, run[2])
+				for _, run in if crest then P.trench.runs else {} do
+					local ax, az = outAlong(s.x, s.z, dx, dz, u - P.trench.back, run[1])
+					local bx, bz = outAlong(s.x, s.z, dx, dz, u - P.trench.back, run[2])
 					table.insert(t.trench, { ax = ax, az = az, bx = bx, bz = bz, kind = "Fire", side = side })
 				end
 				-- the enemy's attack on this point forms up in the fold on this approach, facing the point
 				local f = C.fold
-				for _, n in { -80, 0, 80 } do
-					local x, z = outAlong(s.x, s.z, dx, dz, f.u + 2, n)
+				for _, n in P.gather.across do
+					local x, z = outAlong(s.x, s.z, dx, dz, f.u + P.gather.out, n)
 					table.insert(t.gather, { x = x, z = z, face = bearing(-dx, -dz), side = enemy })
 				end
 				for _, sgn in { -1, 1 } do
-					local x, z = outAlong(s.x, s.z, dx, dz, f.u + 10, sgn * (f.half + 40))
+					local x, z = outAlong(s.x, s.z, dx, dz, f.u + P.laneEnds.out, sgn * (f.half + P.laneEnds.past))
 					table.insert(t.support, { x = x, z = z, face = bearing(-dx, -dz), side = enemy })
 				end
 			end
