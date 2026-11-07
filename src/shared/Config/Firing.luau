@@ -201,11 +201,33 @@ local Firing = {
 		-- Heard by everyone else (src/client/ShotAudio, Config/Audio.Heard), Pro Sound Effects; a list is variants, one
 		-- picked per shot. `start` skips each file's lead-in silence (measured 2026-10-16), `lead` is seconds from
 		-- `start` to the sound's peak (a pass is timed on its peak).
-		-- the far report: "Gun Retort 1 / 2 / 3" ("Distant, Present Decay")
+		-- the far report: "Gun Retort 1 / 2 / 3" ("Distant, Present Decay"); 2.2 (was 1.5, user 2026-11-06: barely
+		-- heard a sector off; with Config/Audio.Profiles.Report's ref, +8 dB from 140 studs out)
 		Far = {
-			{ id = 9114725082, volume = 1.5, start = 2.14, stop = 6.4, fade = 1.5 },
-			{ id = 9114725318, volume = 1.5, start = 0.86, stop = 4.8, fade = 1.5 },
-			{ id = 9114725314, volume = 1.5, start = 1.1, stop = 4.2, fade = 1.2 },
+			{ id = 9114725082, volume = 2.2, start = 2.14, stop = 6.4, fade = 1.5 },
+			{ id = 9114725318, volume = 2.2, start = 0.86, stop = 4.8, fade = 1.5 },
+			{ id = 9114725314, volume = 2.2, start = 1.1, stop = 4.2, fade = 1.2 },
+		},
+		-- (user 2026-11-06: "they just sound high pitched and meh"): a deep thump under every gun's shot, own and heard
+		-- (src/client/GunFx, src/client/ShotAudio), at the gun's pitch: "Gun Live Ammunition 1" (a 12 gauge heard
+		-- distant: 93% of it under 400 Hz) pitched down, its mids and highs cut, so only its weight is heard; far off
+		-- (`FarBody`) under the far report, the lows being what carries
+		Body = {
+			id = 9114710159,
+			volume = 2.2,
+			pitch = 0.7,
+			stop = 0.6,
+			fade = 0.3,
+			eq = { 2, -6, -20 },
+			profile = "Gunshot",
+		},
+		FarBody = { id = 9114710159, volume = 1.6, pitch = 0.7, stop = 0.55, fade = 0.3, profile = "Report" },
+		-- a bullet smacking into the ground beside the listener (Config/Audio.Heard.land): Roblox-licensed "Rock
+		-- Impact Dirt Hard Muted Thuds 1 / 2" and "Rock Hit Dirt Impact 12" (the grenade's thunks), quickened
+		Land = {
+			{ id = 9118616114, volume = 1.1, pitch = 1.5, stop = 0.35, fade = 0.15, profile = "Thunk" },
+			{ id = 9118616398, volume = 1.1, pitch = 1.6, stop = 0.35, fade = 0.15, profile = "Thunk" },
+			{ id = 9118598240, volume = 1, pitch = 1.4, stop = 0.35, fade = 0.15, profile = "Thunk" },
 		},
 		-- a rifle bullet's supersonic crack going by: "Whip Cracks 1 / 2" (a whip's crack is a small sonic boom)
 		Pass = {

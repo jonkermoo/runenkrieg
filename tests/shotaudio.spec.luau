@@ -138,4 +138,32 @@ return {
 		end
 		assert(A.Profiles.Report.max >= A.Profiles.Gunshot.max, "the report carries as far as the shot")
 	end,
+	["a far report is heard a sector off (user 2026-11-06)"] = function()
+		-- every rifle's far report 500 studs off (a sector is ~420): its volume through the 1/d falloff
+		local v = (Firing.Sounds.Far :: any)[1].volume * A.Profiles.Report.ref / 500
+		assert(v >= 0.5, `a rifle's report at 500 studs plays at {v}`)
+	end,
+	["every gun is heavy: lower, a thump under it, bullets landing close heard (user 2026-11-06)"] = function()
+		assert(A.Weight.pitch < 1 and A.Weight.pitch >= 0.85, "a little lower, not another gun")
+		assert(A.Weight.eq[1] > 0 and A.Weight.eq[3] < 0, "more lows, fewer highs")
+		local body = Firing.Sounds.Body :: any
+		assert(body and body.eq and body.eq[3] <= -12 and body.eq[2] < 0, "the thump is only its lows")
+		assert((Firing.Sounds.FarBody :: any).profile == "Report", "the far thump falls off as a report")
+		assert(#(Firing.Sounds.Land :: any) > 0 and H.land.radius > 0 and H.land.count >= 1, "rounds landing close")
+		assert(H.passVary > 0 and H.passVary < 0.15, "passes vary a little in pitch")
+	end,
+	["the machine gun is heard as a machine gun, louder than a rifle"] = function()
+		local mg = Artillery.Guns.mg08.mg :: any
+		assert(#mg.far > 0 and mg.farBody and mg.pass and mg.passBody, "its own far report, thud, crack and zip")
+		for _, e in mg.far do
+			assert(e.stop - e.start <= 0.7, "short: 7.5 rounds a second stay apart")
+			assert(e.volume > (Firing.Sounds.Far :: any)[1].volume, "over a rifle's report")
+		end
+		assert(
+			mg.passBy.radius > H.pass.radius and mg.passBy.edge >= H.pass.edge,
+			"its rounds heard going by from further"
+		)
+		-- the boom's trim holds the blast (1.72 s into its file), not the handling before it
+		assert(mg.boom.start >= 1.7 and mg.boom.stop > mg.boom.start, "the boom plays its blast")
+	end,
 }
