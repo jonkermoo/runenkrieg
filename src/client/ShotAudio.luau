@@ -20,6 +20,7 @@ local SoundFx = require(script.Parent.SoundFx)
 local Suppression = require(script.Parent.Suppression)
 
 local H = A.Heard
+local Weight = A.Weight
 
 local ShotAudio = {}
 
@@ -93,15 +94,19 @@ function ShotAudio.heardAs(shooter: Model, weapon: string, w: Source?, origin: V
 	local shotShare, farShare = R.mix(d, H.near, H.far)
 	local lo, mid, hi = R.air(d, H.air)
 	local report = w and w.report
-	local pitch = if report then report.pitch else 1
+	-- (every gun a little lower and heavier: Config/Audio.Weight)
+	local pitch = (if report then report.pitch else 1) * Weight.pitch
 	local tone = if report then report.eq else { 0, 0, 0 }
 	if shotShare > H.min then
 		SoundFx.play(any(sounds(weapon, w, "Shot", "Gunshot")), origin, nil, {
 			volume = shotShare,
-			eq = { lo + tone[1], mid + tone[2], hi + tone[3] },
+			eq = { lo + tone[1] + Weight.eq[1], mid + tone[2] + Weight.eq[2], hi + tone[3] + Weight.eq[3] },
 			delay = late,
 			pitch = pitch,
 		})
+		-- the thump under it (Config/Firing.Sounds.Body)
+		local body = { volume = shotShare, eq = { lo, mid, hi }, delay = late, pitch = pitch }
+		SoundFx.play(any(sounds(weapon, w, "Body", "Gunshot")), origin, nil, body)
 	end
 	local far = sounds(weapon, w, "Far", "Report")
 	if farShare > H.min then
@@ -128,8 +133,26 @@ function ShotAudio.heardAs(shooter: Model, weapon: string, w: Source?, origin: V
 		for _, name in { "Pass", "PassBody" } do
 			local pass = any(sounds(weapon, w, name, "Gunshot"))
 			if pass then
-				SoundFx.play(pass, at, nil, { volume = gain, delay = math.max(0, arrive - (pass.lead or 0)) })
+				SoundFx.play(pass, at, nil, {
+					volume = gain,
+					delay = math.max(0, arrive - (pass.lead or 0)),
+					pitch = 1 + (math.random() * 2 - 1) * H.passVary,
+				})
 			end
+		end
+	end
+
+	-- bullets smacking into the ground beside the listener, as they land (then the sound comes over)
+	local lands = 0
+	for _, hit in hits do
+		local off = (hit - listener).Magnitude
+		local land = any(sounds(weapon, w, "Land", "Thunk"))
+		if land and off <= H.land.radius and lands < H.land.count then
+			lands += 1
+			SoundFx.play(land, hit, nil, {
+				delay = (hit - origin).Magnitude / bullet + off / H.speed,
+				pitch = 1 + (math.random() * 2 - 1) * H.passVary,
+			})
 		end
 	end
 
@@ -160,12 +183,12 @@ function ShotAudio.heard(shooter: Model, weapon: string, origin: Vector3, hits: 
 	ShotAudio.heardAs(shooter, weapon, W[weapon], origin, hits)
 end
 
--- Loads every weapon's far reports and passes now, so the first one starts on time.
+-- Loads every weapon's far reports, thumps, passes and landings now, so the first one starts on time.
 function ShotAudio.preload()
 	local all = {}
 	for name, w in W do
-		for _, s in { "Far", "Pass" } do
-			table.insert(all, sounds(name, w, s, if s == "Far" then "Report" else "Gunshot"))
+		for s, profile in { Far = "Report", FarBody = "Report", Pass = "Gunshot", Body = "Gunshot", Land = "Thunk" } do
+			table.insert(all, sounds(name, w, s, profile))
 		end
 	end
 	SoundFx.preload(table.unpack(all))

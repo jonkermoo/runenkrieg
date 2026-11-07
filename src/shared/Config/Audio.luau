@@ -46,6 +46,12 @@ local Audio = {
 		Report = { ref = 140, max = 2400 },
 	},
 
+	-- Every gun's report, own and heard, a little lower and heavier than its `report` pitch and tone (Config/Weapons,
+	-- Config/Artillery `mg`): times its pitch, plus its equalizer's low / mid / high dB (user 2026-11-06: "guns don't
+	-- sound threatening right now. they just sound high pitched and meh"); a deep thump plays under each shot too
+	-- (Config/Firing.Sounds.Body, FarBody)
+	Weight = { pitch = 0.92, eq = { 3, 0, -3 } },
+
 	-- Someone else's shot as this listener hears it (src/client/ShotAudio, Rules/ShotAudio). Studs and seconds.
 	Heard = {
 		speed = 960, -- sound travels 343 m/s = 960 studs/s at 0.357 m per stud: a shot 480 studs off arrives 0.5 s late
@@ -61,6 +67,11 @@ local Audio = {
 		-- `edge` at the radius.
 		-- (a gun may widen it with its own `pass`: the machine gun's, src/client/ShotAudio)
 		pass = { radius = 15, clear = 40, bullet = 1960, pellet = 1120, edge = 0.3 },
+		-- each pass a little off the last in pitch (+/- this share): a burst going by is many cracks, not one copied
+		passVary = 0.07,
+		-- a bullet striking within `radius` studs of the listener smacks into the ground there
+		-- (Config/Firing.Sounds.Land), `count` a shot at most (a shotgun's pellets)
+		land = { radius = 14, count = 2 },
 		-- echoes: `rays` level rays from the listener out to `range` find walls and hillsides; the strongest `count`
 		-- reflections at least `extra` studs longer than the direct path (0.1 s later: closer ones only thicken the shot, the
 		-- 2026-10-16 test) play the far report from the wall at `gain` (what the reflection keeps; the falloff counts the

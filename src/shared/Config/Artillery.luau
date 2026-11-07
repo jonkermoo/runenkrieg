@@ -1365,7 +1365,7 @@ local Artillery = {
 				far = {
 					{
 						id = 9114725082,
-						volume = 3,
+						volume = 4,
 						pitch = 0.85,
 						start = 2.14,
 						stop = 2.7,
@@ -1374,7 +1374,7 @@ local Artillery = {
 					},
 					{
 						id = 9114725318,
-						volume = 3,
+						volume = 4,
 						pitch = 0.85,
 						start = 0.86,
 						stop = 1.4,
@@ -1383,7 +1383,7 @@ local Artillery = {
 					},
 					{
 						id = 9114725314,
-						volume = 2.6,
+						volume = 3.5,
 						pitch = 0.85,
 						start = 1.1,
 						stop = 1.65,
@@ -1391,20 +1391,21 @@ local Artillery = {
 						profile = "Report",
 					},
 				},
-				farBody = { id = 9114710159, volume = 2.6, pitch = 0.7, stop = 0.55, fade = 0.3, profile = "Report" },
+				farBody = { id = 9114710159, volume = 3.6, pitch = 0.7, stop = 0.55, fade = 0.3, profile = "Report" },
 				-- its rounds going by (user 2026-11-06: "someone getting shot at by an MG would know it's an mg and to be
-				-- worried"): a loud supersonic snap ("Whip Cracks 2", the sharp one) over a heavy zip ("Bullet Whiz 2"
-				-- pitched down), heard from twice as far off the path as a rifle's (`passBy`: radius, volume at its edge)
-				pass = { id = 9120660382, volume = 2.6, pitch = 0.9, start = 0.3, lead = 0.08, profile = "Gunshot" },
-				passBody = {
-					id = 9113634444,
-					volume = 1.6,
-					pitch = 0.85,
-					start = 0.1,
-					lead = 0.18,
-					profile = "Gunshot",
+				-- worried", "a terrifying threat"): each round a loud supersonic snap ("Whip Cracks 1 / 2", pitched down a
+				-- little) over a heavy zip ("Bullet Whiz 1 / 2" pitched down), every one a little off the last in pitch
+				-- (Config/Audio.Heard.passVary), heard from three times as far off the path as a rifle's (`passBy`:
+				-- radius, volume at its edge), so a burst sweeping past is a wall of cracks and zips
+				pass = {
+					{ id = 9120660382, volume = 3, pitch = 0.9, start = 0.3, lead = 0.08, profile = "Gunshot" },
+					{ id = 9120660173, volume = 3.5, pitch = 0.85, start = 0.32, lead = 0.06, profile = "Gunshot" },
 				},
-				passBy = { radius = 30, edge = 0.45 },
+				passBody = {
+					{ id = 9113634444, volume = 1.8, pitch = 0.85, start = 0.1, lead = 0.18, profile = "Gunshot" },
+					{ id = 9113634361, volume = 2.2, pitch = 0.8, lead = 0.04, profile = "Gunshot" },
+				},
+				passBy = { radius = 45, edge = 0.6 },
 				vary = 0.04,
 				-- (user 2026-10-29: "make the ammo box have a jingle sound"): a quick rattle of the can as each round
 				-- goes in (Pro Sound Effects "Ammo Box Movement 1")

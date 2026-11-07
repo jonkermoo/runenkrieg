@@ -1623,7 +1623,10 @@ function Artillery.start()
 				SoundFx.play(mg.jingle, if can then can.Position else origin, nil, { pitch = vary })
 			end
 			if model == mine then
-				SoundFx.play(mg.shot, origin, nil, { eq = mg.report.eq, pitch = mg.report.pitch * vary })
+				-- (a little lower and heavier, as every gun: Config/Audio.Weight)
+				local wt = AudioCfg.Weight
+				local eq = { mg.report.eq[1] + wt.eq[1], mg.report.eq[2] + wt.eq[2], mg.report.eq[3] + wt.eq[3] }
+				SoundFx.play(mg.shot, origin, nil, { eq = eq, pitch = mg.report.pitch * wt.pitch * vary })
 				SoundFx.play(mg.boom, origin, nil, { pitch = vary })
 				heat = Rules.mgHeat(heat, 1, 0, mg.spread)
 				CameraShake.kick(origin, mg.shake, mg.shakeReach) -- (user 2026-10-29: "some camera shake too")
