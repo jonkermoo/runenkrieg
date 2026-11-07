@@ -44,9 +44,11 @@ local Trenches = {}
 
 local T = C.Trench
 local D = C.Dugout
+local BotShape = require(Shared.Config.Bots).Trenches.Shape
 local VOXEL = 4
 local TOP = Rules.trenchTop(T)
 local RUN = TOP - T.floor -- how far a wall leans back from its foot to its top edge
+local DEEP = T.depth / T.pieces.made -- the wall pieces stretched up and out to the trench's depth
 -- the terrain is cut a little deeper and wider than the pieces lie (Config/Build.Trench.carve), so its 4-stud voxels
 -- stay behind the boards and under the floor instead of poking through them
 local CARVE = table.clone(T)
@@ -822,6 +824,8 @@ local function piecesNow(blk: Block)
 		local y = out:Cross(x).Unit
 		return CFrame.fromMatrix(origin, x, y, x:Cross(y).Unit)
 	end
+	-- (a wall's pieces, its corners and sheets stretched up and out of the trench to its depth, Trench.pieces.made; the
+	-- floor and what fell on it stay as made)
 	local function place(name: string, cf: CFrame, stretch: number, tone: string?): BasePart?
 		local src = k:FindFirstChild(name)
 		local off = offsets[name]
@@ -829,8 +833,19 @@ local function piecesNow(blk: Block)
 			return nil
 		end
 		local p = src:Clone()
-		p.Size = Vector3.new(src.Size.X * stretch, src.Size.Y, src.Size.Z)
-		p.CFrame = cf * CFrame.new(off.Position.X * stretch, off.Position.Y, off.Position.Z) * off.Rotation
+		local tall = if string.sub(name, 1, 5) == "Floor" or string.find(name, "Fall") then 1 else DEEP
+		-- (the piece's own axes turned into piece space: a stretch along piece y and z scales its size on whichever
+		-- of its own axes lie that way)
+		local r = off.Rotation
+		local function k3(v: Vector3): number
+			return math.abs(v.Y) + math.abs(v.Z)
+		end
+		local sx, sy, sz =
+			1 + (tall - 1) * k3(r.XVector), 1 + (tall - 1) * k3(r.YVector), 1 + (tall - 1) * k3(r.ZVector)
+		p.Size = Vector3.new(src.Size.X * stretch * sx, src.Size.Y * sy, src.Size.Z * sz)
+		p.CFrame = cf
+			* CFrame.new(off.Position.X * stretch, off.Position.Y * tall, off.Position.Z * tall)
+			* off.Rotation
 		p.Color = pieceColor(tone or name, soil)
 		local base = not string.find(name, "Planks") and not string.find(name, "Sheet")
 		p.Anchored = true
@@ -1113,10 +1128,13 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 		return `Too far: stand within {T.firstReach} studs of either end`
 	end
 	local dir = flat.Unit
-	if linkA and linkA.kind == "end" and bendAt(linkA, dir) > T.maxBend then
+	-- (a bot's run joins a free end at no more than Config/Bots.Trenches.Shape.maxBend: the lines a player would dig,
+	-- no saw-toothed corners, user 2026-11-06: "make sure bots dont build abnormal trenches")
+	local maxBend = if owner < 0 then math.min(T.maxBend, BotShape.maxBend) else T.maxBend
+	if linkA and linkA.kind == "end" and bendAt(linkA, dir) > maxBend then
 		return "Too sharp a bend"
 	end
-	if linkB and linkB.kind == "end" and bendAt(linkB, -dir) > T.maxBend then
+	if linkB and linkB.kind == "end" and bendAt(linkB, -dir) > maxBend then
 		return "Too sharp a bend"
 	end
 	-- it may not cross a trench: only touch the ones it joins, at its ends
@@ -1351,15 +1369,25 @@ end
 -- every live square of `team` (nil: every team's): its model, team, middle, HP and whether it was dug full once
 -- (src/server/Build.worksOf)
 -- (`hp` up to its max; a reinforced square's HP past it is `extra`)
-function Trenches.squares(
-	team: string?
-): { { model: Model, team: string, at: Vector3, hp: number, extra: number, built: boolean } }
+function Trenches.squares(team: string?): {
+	{
+		model: Model,
+		team: string,
+		owner: number?,
+		at: Vector3,
+		hp: number,
+		extra: number,
+		built: boolean,
+	}
+}
 	local out = {}
 	for _, blk in blocks do
 		if live(blk) and blk.model and (team == nil or blk.team == team) then
+			local o = blk.model:GetAttribute("Owner")
 			table.insert(out, {
 				model = blk.model,
 				team = blk.team,
+				owner = if type(o) == "number" then o else nil,
 				at = (blk.a + blk.b) / 2,
 				hp = math.min(blk.hp, T.hp.max),
 				extra = math.max(blk.hp - T.hp.max, 0),
@@ -1581,6 +1609,37 @@ end
 function Trenches.dug(key: string): boolean
 	local x, y, z = string.match(key, "^(-?%d+),(-?%d+),(-?%d+)$")
 	return x ~= nil and original[voxelKey(tonumber(x) :: number, tonumber(y) :: number, tonumber(z) :: number)] ~= nil
+end
+
+-- The shape of `team`'s dug and planned squares, bots' (Owner below 0) and players' apart (the admin bot runs readout;
+-- user 2026-11-06, "make sure bots dont build abnormal trenches"): joints where a run turns by more than `sharp`
+-- degrees, and squares shorter than `short` studs that aren't the only square of their run
+function Trenches.shapes(
+	team: string,
+	sharp: number,
+	short: number
+): { [string]: { joints: number, sharp: number, short: number } }
+	local out = {
+		bots = { joints = 0, sharp = 0, short = 0 },
+		players = { joints = 0, sharp = 0, short = 0 },
+	}
+	for _, blk in blocks do
+		if blk.team == team and live(blk) then
+			local o = blk.model and blk.model:GetAttribute("Owner")
+			local s = out[if type(o) == "number" and o < 0 then "bots" else "players"]
+			local l = blk.linkB
+			if l and l.kind == "end" then
+				s.joints += 1
+				if bendAt(l, -blk.dir) > sharp then
+					s.sharp += 1
+				end
+			end
+			if blk.length < short and #blk.run > 1 then
+				s.short += 1
+			end
+		end
+	end
+	return out
 end
 
 -- Removes every trench and scar, the ground put back (dev: the admin panel's undo)

@@ -45,11 +45,29 @@ function Audio.duck(share: number)
 	end
 end
 
--- Every game sound muffled (src/client/Concussion): `high`, `mid`, `low` dB on the group's equalizer bands (all 0: clear).
+-- Every game sound muffled: `high`, `mid`, `low` dB on the group's equalizer bands (all 0: clear), set by `source`
+-- (src/client/Concussion's own when none; src/client/SuppressionScreen "Suppression"). With more than one source on,
+-- each band takes the strongest (the farthest from 0).
 local muffler: EqualizerSoundEffect? = nil
-function Audio.muffle(high: number, mid: number, low: number)
+local muffles: { [string]: { number } } = {}
+function Audio.muffle(high: number, mid: number, low: number, source: string?)
+	local key = source or "Concussion"
+	if high == 0 and mid == 0 and low == 0 then
+		if not muffles[key] then
+			return
+		end
+		muffles[key] = nil
+	else
+		muffles[key] = { high, mid, low }
+	end
+	local h, m, l = 0, 0, 0
+	for _, b in muffles do
+		h = if math.abs(b[1]) > math.abs(h) then b[1] else h
+		m = if math.abs(b[2]) > math.abs(m) then b[2] else m
+		l = if math.abs(b[3]) > math.abs(l) then b[3] else l
+	end
 	if not muffler then
-		if high == 0 and mid == 0 and low == 0 then
+		if h == 0 and m == 0 and l == 0 then
 			return
 		end
 		local e = Instance.new("EqualizerSoundEffect")
@@ -59,8 +77,8 @@ function Audio.muffle(high: number, mid: number, low: number)
 		muffler = e
 	end
 	local e = muffler :: EqualizerSoundEffect
-	e.HighGain, e.MidGain, e.LowGain = high, mid, low
-	e.Enabled = high ~= 0 or mid ~= 0 or low ~= 0
+	e.HighGain, e.MidGain, e.LowGain = h, m, l
+	e.Enabled = h ~= 0 or m ~= 0 or l ~= 0
 end
 
 -- The player's Master x Effects volume, not ducked (for a sound outside the group).

@@ -154,10 +154,34 @@ local DevTools = {
 		Health = { 100, 75, 50, 25, 10 },
 		GodAttribute = "DevGod", -- on the Player in god mode: knocked but never hurt (src/server/Damage)
 		SelfKnock = "Torso", -- "Knock me": Config/Ragdoll.Knocks entry, thrown backwards
+		-- "Knock me down (long)": the same knock, down as long as a hit this hard keeps you (Config/Ragdoll.ByDamage),
+		-- no health lost: time to try the stay-down key's prompt (src/client/DownHud)
+		LongKnockDamage = 90,
 		-- "Shell shock" rows (src/server/DevTools, Config/Concussion; user 2026-11-03): a real grenade (Config/Grenades
 		-- .Types) or shell (Config/Artillery.Guns) going off on the ground this many studs in front of you, your own
 		-- (knocks you, hurts you only with "My blasts hurt me" on); and a helmet shot from the front by `HelmetWeapon`
 		-- (Config/Damage.Weapons), as a real one
+		-- the admin panel's MG bursts at you (src/server/DevTools "MGBurst", src/client/Suppression): a hidden machine gun
+		-- (`gun`, Config/Artillery) `distance` studs in front of you and `height` up fires at its own rate for `seconds`,
+		-- every bullet missing your head by `miss` studs (min, max) and flying on (`ground`: striking the ground that far
+		-- from your feet; `height` there its own); harmless, everyone sees and hears it
+		MGBurst = {
+			gun = "mg08",
+			distance = 90,
+			height = 4,
+			Bursts = {
+				{ label = "MG burst at me (1 s, misses by 1-4)", seconds = 1, miss = { 1, 4 } },
+				{ label = "MG long burst at me (4 s, misses by 1-4)", seconds = 4, miss = { 1, 4 } },
+				{ label = "MG burst wide of me (2 s, misses by 6-10)", seconds = 2, miss = { 6, 10 } },
+				{
+					label = "MG into the dirt round my feet (2 s, 2-6 studs)",
+					seconds = 2,
+					miss = { 2, 6 },
+					ground = true,
+					height = 35, -- (from above: a low line struck the rise in front instead)
+				},
+			},
+		},
 		Shock = {
 			Sources = {
 				{ key = "grenade_mills", label = "Grenade", grenade = true },
@@ -347,6 +371,10 @@ local DevTools = {
 		House = { attribute = "DevBotHouse", bots = 3, spots = 3, within = 40, seconds = 60, arrive = 2.5, keep = 6 },
 		-- the readout of each side's latest runs toward the enemy, straight or zig-zag and why (src/server/Bots)
 		BotRunsAttribute = "DevBotRuns",
+		-- the admin panel's "Plan a player's trench here": a run `length` studs long across the way to the nearest sector's
+		-- point, through the aim point, planned as this player (its UserId the owner) for the side of the nearest other soldier
+		-- within `near` studs (user 2026-11-06: bots must dig the player's trench plans)
+		PlayerPlan = { length = 40, near = 250 },
 		-- - at the aim point: the nearest squad within `near` studs pushes there for `pushSeconds` (its Grenadier
 		--   throwing first); the nearest bot butt-strokes toward it; the nearest free gun goes to the nearest bot
 		BotNear = 80,

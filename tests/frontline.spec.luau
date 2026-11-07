@@ -261,9 +261,9 @@ return {
 		assert(R.pressing(F, 1, 1), "one enemy inside the crests is")
 		assert(F.ring > F.inner and F.hold > 0)
 	end,
-	["waves: one clock every 15 s from the countdown's end (user 2026-10-27)"] = function()
+	["waves: one clock every 20 s from the countdown's end (user 2026-10-27; 20 s since 2026-11-06)"] = function()
 		local W = Cfg.Waves
-		assert(W.every == 15 and W.dead == 5 and W.shield > 0, "the user's numbers")
+		assert(W.every == 20 and W.dead == 5 and W.shield > 0, "the user's numbers")
 		assert(R.nextWave(100, 15, 90) == 100 and R.nextWave(100, 15, 100) == 100)
 		assert(
 			R.nextWave(100, 15, 100.1) == 115 and R.nextWave(100, 15, 115) == 115 and R.nextWave(100, 15, 129) == 130

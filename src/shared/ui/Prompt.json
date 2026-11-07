@@ -54,5 +54,24 @@
 	"blocked": {
 		"key": 0.55,
 		"action": 0.45
+	},
+	"down": {
+		"_doc": "Your own stay-down prompt while knocked down (src/client/DownHud, Config/Ragdoll.DownHud): the same tag as a field note (key cap, small-capital line over the action, the underline that fills) with the seconds left after the words, no pin or lead, its bottom centre at `at` (screen scale) and `rise` px up. The underline is `width` px; while held it is full and drains as the stay-down time runs out.",
+		"preview": { "object": "STAYING DOWN", "action": "Waiting for a medic - let go to get up", "time": "60s", "key": "SPACE" },
+		"at": [0.5, 0.78],
+		"width": 300,
+		"time": 17,
+		"keyHeight": 20,
+		"keyText": 14
+	},
+	"mark": {
+		"_doc": "The marker over a knocked-down teammate (src/client/DownHud): a pale disc with a red cross, and under it the word (DOWN, or HOLDING ON while they hold to stay down) in small capitals; `size` x `tall` px, `up` studs over the head.",
+		"preview": { "word": "HOLDING ON" },
+		"size": 96,
+		"tall": 44,
+		"disc": 18,
+		"bar": 3,
+		"word": 11,
+		"up": 2.2
 	}
 }

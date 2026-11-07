@@ -22,6 +22,7 @@ DevActions.Aimed = table.freeze({
 	BotDown = true,
 	BotShellHere = true,
 	BotHouse = true,
+	PlayerPlan = true,
 })
 
 -- actions with no value (or a plain on/off)
@@ -30,6 +31,7 @@ local PLAIN = table.freeze({
 	Kill = true,
 	Respawn = true,
 	KnockMe = true,
+	KnockMeLong = true,
 	HelmetOff = true,
 	HelmetShot = true,
 	HealDummies = true,
@@ -51,9 +53,12 @@ local PLAIN = table.freeze({
 	BotDown = true,
 	BotShellHere = true,
 	BotHouse = true,
+	PlayerPlan = true,
 	RebuildMaps = true,
 	HitchReport = true,
 	GunDummy = true,
+	SquadFill = true,
+	SquadClear = true,
 })
 local SWITCHES = table.freeze({
 	God = true,
@@ -146,6 +151,8 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 		return table.find(cfg.Admin.Points, value) ~= nil
 	elseif action == "Grenade" then
 		return table.find(cfg.Admin.Grenades, value) ~= nil
+	elseif action == "MGBurst" then
+		return type(value) == "number" and cfg.Admin.MGBurst.Bursts[value] ~= nil
 	elseif action == "ShockAt" then
 		if type(value) ~= "table" or table.find(cfg.Admin.Shock.Distances, value.distance) == nil then
 			return false

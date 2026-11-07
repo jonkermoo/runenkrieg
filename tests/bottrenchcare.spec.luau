@@ -37,8 +37,21 @@ return {
 		assert(not C.shelledNear(ev, 0, 0, 100 + H.seconds + 1, H.radius, H.seconds), "too old")
 		assert(not C.shelledNear(ev, 200, 0, 100, H.radius, H.seconds), "a death is not a shell")
 	end,
-	["decide: critical squares reinforced, the rest by how used and safe, hot ones wait"] = function()
+	["decide (always): every square reinforced but one out ahead nobody uses, hot ones wait"] = function()
 		local S = K.Score
+		assert(S.always, "the default since 2026-11-06")
+		assert(C.decide(square({ base = true }), S) == "reinforce", "the base")
+		assert(C.decide(square({}), S) == "ignore", "unused, out ahead: left")
+		assert(C.decide(square({ link = true }), S) == "reinforce", "the only way up, unused")
+		assert(C.decide(square({ used = 0.1 }), S) == "reinforce", "used a little, ahead")
+		assert(C.decide(square({ safe = 0.2 }), S) == "reinforce", "unused, behind the front")
+		assert(C.decide(square({ used = 1, safe = 1, hot = true }), S) == "wait", "hot: later")
+		local h, x = C.target("reinforce", 0, square({ safe = 0.2 }), TH.max, Cfg.Trenches.standHp, TH.extra, S)
+		assert(h == TH.max and x == TH.extra, "to the full extra")
+	end,
+	["decide: critical squares reinforced, the rest by how used and safe, hot ones wait"] = function()
+		local S = table.clone(K.Score)
+		S.always = false
 		assert(C.decide(square({ dugout = true, hot = true }), S) == "reinforce", "a dugout's square, even hot")
 		assert(C.decide(square({ base = true }), S) == "reinforce", "the base")
 		assert(C.decide(square({}), S) == "ignore", "unused, far forward: left")
@@ -52,7 +65,8 @@ return {
 		assert(hot < cool, "the shell map's heat counts against")
 	end,
 	["target: the HP and extra each decision wants"] = function()
-		local S = K.Score
+		local S = table.clone(K.Score)
+		S.always = false
 		local stand, max, extra = Cfg.Trenches.standHp, TH.max, TH.extra
 		assert(select(1, C.target("patch", 1, square({}), max, stand, extra, S)) == stand)
 		local h, x = C.target("fix", 2, square({}), max, stand, extra, S)

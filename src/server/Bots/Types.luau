@@ -50,6 +50,7 @@ export type BuildJob = {
 	reinforce: boolean?, -- a dug square's job past its max (Commander's reinforce list): only such a job swings HP into a
 	-- full square's extra (Build.workAs)
 	buried: boolean?, -- a trench square dug full once and buried since (pioneers dig it first, Config/Bots.Trenches.Redig)
+	plan: boolean?, -- a square a player planned, not dug yet: a pioneer's first job (Config/Bots.Trenches.Plans)
 	redig: number?, -- a buried-to-nothing square planned again where it lay: kept on the list until then (Trenches.Redig)
 	lostBy: { [number]: boolean }?, -- bots (by id) that left it with no way there, no swing or flapping (Build.Work)
 	sys: string?, -- a trench run's system: "S<sector>", or "S<sector>F<k>" a forward line (Config/Bots.Trenches.Forward)
@@ -83,6 +84,7 @@ export type Sap = {
 	parallel: boolean?, -- its last run the parallel across (Config/Bots.Front): dug, it is over and the squad goes over
 	dugAt: number, -- when it began, or its last run was dug (Config/Bots.Sap.dig)
 	began: number?, -- when it began (Config/Bots.Sap.maxSeconds)
+	dir: Vector3?, -- the way its last dug run ran (flat unit): the next one bends off it no more than Trenches.Shape.maxBend
 }
 export type TrenchSquare = {
 	x: number,
@@ -291,6 +293,8 @@ export type SquadState = {
 -- may take now
 export type TrenchPost = { pos: Vector3, floor: Vector3?, face: Vector3? }
 export type SideBuild = {
+	-- players' planned squares and when it first listed each (Config/Bots.Trenches.Plans; the trench stats' plans line)
+	planSeen: { [Model]: number }?,
 	front: number?,
 	held: number, -- its sectors held from its end when planned (Rules/Frontline.held)
 	holds: boolean,

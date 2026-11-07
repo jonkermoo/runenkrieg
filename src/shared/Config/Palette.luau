@@ -377,6 +377,9 @@ local Palette = {
 		outline = { 24, 28, 22 },
 		text = { 236, 232, 220 },
 		stroke = 2,
+		-- the marker over each squadmate (Config/Squads.Marker, src/client/SquadMarkers): the diamond (gold; red when knocked
+		-- down), its ink edge and the name over it
+		Squad = { mate = { 226, 196, 110 }, down = { 217, 88, 78 }, edge = { 21, 18, 15 }, name = { 241, 235, 220 } },
 		-- a teammate's health outline (Config/TeamOutline, src/client/TeamOutline): the colour at each share of full
 		-- health, shaded in between; at or below the lowest share it stays the lowest's
 		TeamOutline = {
@@ -556,6 +559,8 @@ local Palette = {
 				selText = { 241, 235, 220 },
 				accent = { 21, 18, 15 },
 				pencil = { 184, 50, 42 },
+				-- the squad panel's statuses (src/client/SquadPanel, Config/Squads.Status): waiting in the wave line in blue ink
+				wave = { 52, 84, 138 },
 				fold = { 0, 0, 0 },
 				foldTransparency = 0.8,
 				backdrop = { 0, 0, 0 },

@@ -1391,11 +1391,11 @@ local function allBuild(b: Builder): boolean
 	return b.player ~= nil and buildsAll(b.player)
 end
 
-local function award(b: Builder, reason: string)
+local function award(b: Builder, reason: string, times: number?)
 	if b.player then
-		Loadouts.award(b.player, reason)
+		Loadouts.award(b.player, reason, times)
 	else
-		Loadouts.awardBot(b.id, reason)
+		Loadouts.awardBot(b.id, reason, times)
 	end
 end
 
@@ -1696,7 +1696,12 @@ local builtWatchers: { (Player, number) -> () } = {}
 function Build.onBuilt(fn: (Player, number) -> ())
 	table.insert(builtWatchers, fn)
 end
-local function credit(b: Builder, hp: number)
+-- `spent`: the share of a full swing this strike is paid for (Rules.swingSpent; Config/Classes.Earn.Work, user
+-- 2026-11-06: "player's who play engineer should benefit just as much as aggressive players")
+local function credit(b: Builder, hp: number, spent: number)
+	if hp > 0 and spent > 0 then
+		award(b, "Work", spent)
+	end
 	local player = b.player
 	if hp > 0 and player then
 		for _, fn in builtWatchers do
@@ -1719,17 +1724,15 @@ local function work(b: Builder, target: any, mode: any)
 	if Rules.tooSoon(now, lastSwing[b.key], GAP, C.SwingSlack) then
 		return
 	end
+	local spent = Rules.swingSpent(now, lastSwing[b.key], ShovelCfg.Dig.length)
 	local k = powerOf(b, mode)
 	-- a trench block
 	local blk = Trenches.blockOf(target)
 	if blk then
 		if Trenches.distance(blk, root.Position) <= C.Trench.swingReach then
 			lastSwing[b.key] = now
-			local done, added = Trenches.work(blk, team, mode, k, shareOf(b))
-			credit(b, added)
-			if done then
-				award(b, "Trench")
-			end
+			local _, added = Trenches.work(blk, team, mode, k, shareOf(b))
+			credit(b, added, spent)
 		end
 		return
 	end
@@ -1764,7 +1767,7 @@ local function work(b: Builder, target: any, mode: any)
 			remove(r)
 			return
 		end
-		credit(b, left - r.work)
+		credit(b, left - r.work, spent)
 		r.work = left
 		r.worked = now
 		if r.work >= r.need and not r.built then
@@ -1787,6 +1790,7 @@ local function work(b: Builder, target: any, mode: any)
 		end
 		lastSwing[b.key] = now
 		local what, after = guns.repair(gun, Rules.digAmount(g.hp / g.repair * k, g.hp, shareOf(b)))
+		award(b, "Work", spent) -- (the swings that mend it pay as building does)
 		if what == "usable" then
 			award(b, "Repair") -- a wreck back in service (Config/Classes.Earn.Repair)
 		end
@@ -1865,7 +1869,7 @@ local function work(b: Builder, target: any, mode: any)
 			remove(r)
 			return
 		end
-		credit(b, left - r.work)
+		credit(b, left - r.work, spent)
 		r.work = left
 		r.worked = now
 		if r.work >= r.need then
@@ -1891,7 +1895,7 @@ local function work(b: Builder, target: any, mode: any)
 			remove(r)
 			return
 		end
-		credit(b, left - r.work)
+		credit(b, left - r.work, spent)
 		r.work = left
 		r.worked = now
 		if r.work >= r.need and not r.paid then
@@ -1911,7 +1915,7 @@ local function work(b: Builder, target: any, mode: any)
 			remove(r)
 			return
 		end
-		credit(b, left - r.work)
+		credit(b, left - r.work, spent)
 		r.work = left
 		r.worked = now
 		if r.work >= r.need then
@@ -1933,7 +1937,7 @@ local function work(b: Builder, target: any, mode: any)
 		remove(r) -- (at 0 it is simply gone)
 		return
 	end
-	credit(b, left - r.work)
+	credit(b, left - r.work, spent)
 	r.work = left
 	r.worked = now
 	if r.work >= r.need then
@@ -2113,7 +2117,7 @@ export type Work = {
 	key: string, -- its Config/Build.Pieces key ("Trench" for a trench square)
 	kind: string,
 	team: string,
-	owner: number?, -- who laid it (a UserId or a BotId); nil for a trench square
+	owner: number?, -- who laid it (a UserId or a BotId; a trench square: who planned it)
 	at: Vector3, -- where to stand near (a gun's own spot; a square's middle)
 	hp: number, -- its HP now (a standing gun's: the gun's)
 	max: number,
@@ -2161,6 +2165,7 @@ function Build.worksOf(team: string?, class: string?): { Work }
 			key = "Trench",
 			kind = "Trench",
 			team = s.team,
+			owner = s.owner,
 			at = s.at,
 			hp = s.hp,
 			max = T.max,

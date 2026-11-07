@@ -5,7 +5,7 @@
 -- Engineer / Grenadier for free, dig speed, shelling a side's trenches), then Fly (on/off) and a speed multiplier (Config/DevTools.Admin), then
 -- test rows the server does (Net "DevAction", src/server/DevTools): You (health steps, kill, respawn, knock, helmet off,
 -- god mode, unlimited ammo and no staff cooldown), Weapon (the visible gun's sight lines, client only: src/client/DevSights), Shell shock (a grenade / shell at a chosen distance in front, a helmet
--- shot: src/client/Concussion), Loadout (match points, a class every life), Team (respawn now as grey / olive / brown, kept until changed, or random again), Grenades (give yourself
+-- shot: src/client/Concussion), Suppression (MG bursts that just miss you, the level now), Loadout (match points, a class every life), Team (respawn now as grey / olive / brown, kept until changed, or random again), Grenades (give yourself
 -- a full count of one), Shovel (the dig step, build anything, the slope readout), World (the range's test shooters, undo destruction, the
 -- hitch log and print: src/shared/Hitches) and Time
 -- (jump the clock to dawn / noon / dusk / midnight, pause the day cycle) and Weather (clear / fog / rain now, the random
@@ -32,6 +32,7 @@ local ModeCfg = require(Shared.Config.Modes)
 local SectorCfg = require(Shared.Config.Sectors)
 local TeamCfg = require(Shared.Config.Teams)
 local TeamOutlineCfg = require(Shared.Config.TeamOutline)
+local RagdollCfg = require(Shared.Config.Ragdoll)
 local EnvCfg = require(Shared.Config.Environment)
 local GrenadeCfg = require(Shared.Config.Grenades)
 local W = require(Shared.Config.Weapons)
@@ -45,9 +46,11 @@ local DevPanel = require(script.Parent.DevPanel)
 local DevCinematic = require(script.Parent.DevCinematic)
 local DevSights = require(script.Parent.DevSights)
 local Settings = require(script.Parent.Settings)
+local Squad = require(script.Parent.Squad)
 local ShotSpread = require(script.Parent.ShotSpread)
 local Menus = require(script.Parent.Menus) :: any
 local MapLoader = require(script.Parent.MapLoader)
+local Suppression = require(script.Parent.Suppression)
 local LoadCfg = require(Shared.Config.JoinLoading)
 
 local DevAdminMenu = {}
@@ -753,6 +756,13 @@ local function build(player: Player): DevPanel.Panel
 				on = true,
 			},
 			{ id = "TeamOutlineSelf", label = "Outline me too", attribute = TeamOutlineCfg.SelfAttribute, on = true },
+			-- the knocked-down marker over you too (src/client/DownHud), to see it without a teammate
+			{
+				id = "DownMarkSelf",
+				label = "Down marker on me too",
+				attribute = RagdollCfg.DownHud.selfAttribute,
+				on = true,
+			},
 		}
 	do
 		local b = DevPanel.button(p.panel, t.id, "", order + i)
@@ -768,7 +778,7 @@ local function build(player: Player): DevPanel.Panel
 		player:GetAttributeChangedSignal(t.attribute):Connect(show)
 		show()
 	end
-	order += 3
+	order += 4
 
 	-- You (src/server/DevTools): health steps, death, respawn, god mode, a knock, the helmet off, unlimited ammo
 	DevPanel.heading(p.panel, "You", order + 1)
@@ -779,6 +789,9 @@ local function build(player: Player): DevPanel.Panel
 	row("Kill", "Kill me", "Kill")
 	row("Respawn", "Respawn now", "Respawn")
 	row("KnockMe", "Knock me", "KnockMe")
+	-- down as long as a heavy hit keeps you (Config/DevTools.Admin.LongKnockDamage, no health lost): time to try the
+	-- stay-down key and its prompt (src/client/DownHud)
+	row("KnockMeLong", "Knock me down (long)", "KnockMeLong")
 	row("HelmetOff", "Helmet off", "HelmetOff")
 	order += 1
 	local god = DevPanel.button(p.panel, "God", "", order)
@@ -850,6 +863,27 @@ local function build(player: Player): DevPanel.Panel
 		end
 	end
 
+	-- Suppression (src/client/Suppression, src/client/SuppressionScreen; Config/DevTools.Admin.MGBurst): a hidden machine
+	-- gun in front of you firing bursts that just miss (harmless), and the level now (pinned past 1: machine guns only)
+	heading("Suppression")
+	local level = DevPanel.button(p.panel, "SuppressionLevel", "Suppression: 0.00", order + 1)
+	order += 1
+	task.spawn(function()
+		while p.panel.Parent do
+			if p.panel.Visible then
+				local l, pinned = Suppression.level()
+				level.Text = if pinned > 0
+					then string.format("Suppression: %.2f (pinned %d%%)", l, math.floor(pinned * 100 + 0.5))
+					else string.format("Suppression: %.2f", l)
+				paint(level, l > 0)
+			end
+			task.wait(0.1)
+		end
+	end)
+	for i, b in A.MGBurst.Bursts do
+		row(`MGBurst{i}`, b.label, "MGBurst", i)
+	end
+
 	-- Loadout (src/server/Loadouts): match points, a class every life (free, locked or not) or your own picks again
 	heading("Loadout")
 	for _, n in A.Points do
@@ -888,6 +922,34 @@ local function build(player: Player): DevPanel.Panel
 	end
 	player:GetAttributeChangedSignal("Kit"):Connect(showTeam)
 	showTeam()
+
+	-- Squad (Config/Squads, src/server/Squads; game rule 8): your squad and each member's status (src/client/Squad), your
+	-- team's nearest bots or dummies made test mates of it (markers and statuses to look at; the result on the button),
+	-- and every test mate dropped
+	DevPanel.heading(p.panel, "Squad", order + 1)
+	order += 2
+	local squadLine = DevPanel.heading(p.panel, "", order)
+	squadLine.TextWrapped = true
+	local fill = row("SquadFill", "Fill my squad with test mates", "SquadFill")
+	row("SquadClear", "Clear test mates", "SquadClear")
+	local squadSaid = Net.event("DevAction").OnClientEvent:Connect(function(kind: any, action: any, reason: any)
+		if (kind == "Refused" or kind == "Done") and action == "SquadFill" and type(reason) == "string" then
+			fill.Text = `Fill my squad with test mates: {reason}`
+			task.delay(Cfg.Blasts.RefusedSeconds, function()
+				fill.Text = "Fill my squad with test mates"
+			end)
+		end
+	end)
+	local squadLoop = task.spawn(function()
+		while true do
+			squadLine.Text = Squad.describe()
+			task.wait(0.5)
+		end
+	end)
+	p.gui.Destroying:Once(function()
+		squadSaid:Disconnect()
+		task.cancel(squadLoop)
+	end)
 
 	-- Grenades: give yourself a full count of one (Config/DevTools.Admin.Grenades)
 	DevPanel.heading(p.panel, "Grenades", order + 1)

@@ -103,6 +103,8 @@ export type SquareCare = {
 -- Its decision: "wait" (hot, not critical: looked at again later), "ignore", "patch" (to `stand` HP: usable again),
 -- "fix" (to full) or "reinforce" (full, then the extra: 25, 50 or 75 by its score), and its score. A dugout's square
 -- and a base square are critical: never less than "reinforce" (a base square nobody uses yet to the first sheet only).
+-- `cfg.always`: every square "reinforce" to the full extra, but one out ahead (`safe` 0) that nobody uses and that isn't
+-- critical or its system's only way up ("ignore"), and a hot one ("wait").
 function Care.decide(s: SquareCare, cfg: any): (string, number)
 	local W = cfg.w
 	local score = W.used * math.min(s.used, 1)
@@ -114,6 +116,14 @@ function Care.decide(s: SquareCare, cfg: any): (string, number)
 	local critical = s.dugout or s.base
 	if s.hot and not critical then
 		return "wait", score
+	elseif cfg.always then
+		-- (every dug square reinforced but for a reason: shelled just now, above, or out ahead of its lines and nobody
+		-- using it; the score only orders them; user 2026-11-06: "a built trench should now always be prioritized to be
+		-- reinforced unless for a realistic reason")
+		if not critical and not s.link and s.used <= 0 and s.safe <= 0 then
+			return "ignore", score
+		end
+		return "reinforce", score
 	elseif critical or score >= cfg.reinforce then
 		return "reinforce", score
 	elseif score >= cfg.fix then
@@ -143,7 +153,7 @@ function Care.target(
 		return 0, 0
 	end
 	local step = extra / #cfg.steps
-	if s.dugout then
+	if s.dugout or cfg.always then
 		return max, extra
 	end
 	local n = 1

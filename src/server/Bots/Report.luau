@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Stats = game:GetService("Stats")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Bots)
+local Build = require(Shared.Config.Build)
 local DevCfg = require(Shared.Config.DevTools)
 local FrontCfg = require(Shared.Config.Frontline)
 local W = require(Shared.Config.Weapons)
@@ -458,6 +459,22 @@ local function runLines()
 		if sb and #sb.runNotes > 0 then
 			table.insert(lines, `{side}: {table.concat(sb.runNotes, "; ")}`)
 		end
+		-- (the shape of its trenches: joints, sharp joints and short squares, bots' and players'; bot plans refused for
+		-- a sharp bend; Config/Bots.Trenches.Shape)
+		local SH = Cfg.Trenches.Shape
+		local kit: string? = nil
+		for _, b in bots do
+			if b.side == side and b.kit then
+				kit = b.kit
+				break
+			end
+		end
+		local sh = Trenches.shapes(kit or side, SH.sharp, SH.short)
+		local bent = State.ByTrench.runs[`{side} refused: Too sharp a bend`] or 0
+		table.insert(
+			lines,
+			`{side} shape: bots {sh.bots.joints} joints, {sh.bots.sharp} sharp, {sh.bots.short} short; players {sh.players.joints}/{sh.players.sharp}/{sh.players.short}; bot plans refused sharp {bent}`
+		)
 	end
 	workspace:SetAttribute(DevCfg.Admin.BotRunsAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
@@ -720,6 +737,23 @@ local function trenchStats()
 			)} held off shelled ground; {k("routes")} ways up dug; base {k("baseUp")}/{k("baseAll")} standing; {#lives} lost (median {math.floor(
 				median + 0.5
 			)} s), {k("lost")} left; {n("joins")} joins; gates {if #gates > 0 then table.concat(gates, ", ") else "-"}`
+		)
+		-- (players' plans waiting and dug, how long each took; reinforcing: squares at the full extra of those dug, the
+		-- slots it had this time; dugouts standing; Config/Bots.Trenches.Plans, Care.Reinforce, Dugouts.perBays)
+		local times = table.clone(State.ByTrench.planTimes[side] or {})
+		table.sort(times)
+		local mid = if #times > 0 then math.floor(times[math.ceil(#times / 2)] + 0.5) else 0
+		local full = 0
+		for _, t in (if sb then sb.trench else {}) do
+			if t.built and t.extra >= Build.Trench.hp.extra - 1e-3 then
+				full += 1
+			end
+		end
+		table.insert(
+			lines,
+			`  plans: {k("plansWaiting")} players' squares waiting, {#times} dug (median {mid} s); reinforced to the full extra {full} of {dug}, {k(
+				"reinforceSlots"
+			)} slots now; {#(if sb then sb.rooms else {})} dugouts standing`
 		)
 	end
 	-- (minutes since a sector last changed hands, or since the match began: how stale the fighting is)

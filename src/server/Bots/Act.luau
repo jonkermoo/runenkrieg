@@ -204,8 +204,8 @@ local function pickJob(b: Bot): (BuildJob?, string?)
 	return r, if r then nil else `none within {reach} studs`
 end
 
--- a pioneer's trench job (Config/Bots.Trenches.pioneers): the nearest buried square on its side's list, else the
--- nearest trench run or square, or a tree in the way of its lines (Config/Bots.Build.Trees: a run refused for a tree
+-- a pioneer's trench job (Config/Bots.Trenches.pioneers): the nearest square a player planned, else the nearest buried
+-- square on its side's list, else the nearest trench run or square, or a tree in the way of its lines (Config/Bots.Build.Trees: a run refused for a tree
 -- waits on it)
 local function pickTrench(b: Bot): BuildJob?
 	local sb = buildLists[b.side :: string]
@@ -213,16 +213,24 @@ local function pickTrench(b: Bot): BuildJob?
 		return nil
 	end
 	-- (the squares shells have buried first, dug again or planned again where they lay: Config/Bots.Trenches.Redig)
-	local trench, buried = {}, {}
+	local trench, buried, plans = {}, {}, {}
 	for _, r in sb.open do
 		if r.job.key == "Trench" or r.job.key == "Tree" then
 			table.insert(trench, r)
 			if r.buried or r.redig then
 				table.insert(buried, r)
 			end
+			if r.plan then
+				table.insert(plans, r)
+			end
 		end
 	end
 	local take = Cfg.Trenches.pioneerTake
+	-- (a player's plan before anything else, Config/Bots.Trenches.Plans; user 2026-11-06: "wont even dig my pre plan")
+	local p = if #plans > 0 then pickFrom(b, plans, true, false, take, true) else nil
+	if p then
+		return p
+	end
 	-- (a repairer: the best repair on its side's list, the nearest of the best, Config/Bots.Trenches.Care.repairers)
 	if b.repairer then
 		local best = -math.huge
@@ -1055,13 +1063,18 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 		local reason = if job.key == "Trench"
 			then Build.planAs(m, spot, Routes.ground(job.ex :: number, job.ez :: number))
 			else Build.placeAs(m, job.key, spot, f)
-		-- a run of its side's lines refused whole: planned as far as it goes, halving down to a square, the rest of it
-		-- from there on (Config/Bots.Trenches.Tree; a measured match's runs on Map 1 met a tree 69 times in 78 tries)
+		-- a run of its side's lines refused whole: planned as far as it goes, halving down to Trenches.Shape.minRun in
+		-- whole blocks (no stubs), the rest of it from there on (Config/Bots.Trenches.Tree; a measured match's runs on Map
+		-- 1 met a tree 69 times in 78 tries)
 		if reason and r.run then
 			local far = Routes.ground(job.ex :: number, job.ez :: number)
 			local along = flat(far - spot)
-			local step = along.Magnitude / 2
-			while step >= BuildCfg.Trench.block do
+			local blk = BuildCfg.Trench.block
+			local function whole(x: number): number
+				return math.floor(x / blk) * blk
+			end
+			local step = whole(along.Magnitude / 2)
+			while step >= Cfg.Trenches.Shape.minRun and along.Magnitude - step >= Cfg.Trenches.Shape.minRun do
 				local to = Routes.ground(spot.X + along.Unit.X * step, spot.Z + along.Unit.Z * step)
 				if Build.planAs(m, spot, to) == nil then
 					stats.partRuns += 1
@@ -1070,7 +1083,7 @@ local function doBuild(b: Bot, act: Act, now: number): boolean
 					reason = nil
 					break
 				end
-				step /= 2
+				step = whole(step / 2)
 			end
 		end
 		if reason and pileInstead() then

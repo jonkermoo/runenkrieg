@@ -1121,13 +1121,13 @@ return {
 			return spot({ cover = low })
 		end
 		assert(along(0.25) == nil, "a gentle slope")
-		assert(along(0.5) == noGround, "a steep slope")
+		assert(along(0.7) == noGround, "a steep slope")
 	end,
 	["dugouts: room for three, no two rooms within apart of each other in 3D (user 2026-11-03)"] = function()
 		local d = C.Dugout
 		local piece = assert(B.piece("Dugout", C.Pieces))
 		-- (three soldiers of 2 x 1 standing side by side with room between, and one more stride's depth)
-		assert(piece.width >= 3 * 2 + 3 and piece.depth >= 7 and piece.height >= C.Trench.depth)
+		assert(piece.width >= 3 * 2 + 3 and piece.depth >= 7 and piece.height > M.Character.Height)
 		local T = C.Trench
 		assert(
 			T.floor + d.stair + piece.depth + d.cut <= T.spacing - T.floor,

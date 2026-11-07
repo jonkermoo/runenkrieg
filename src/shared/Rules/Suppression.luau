@@ -33,9 +33,32 @@ function Suppression.blast(
 	return falloff(b.add, math.min(b.reach * kg ^ (1 / 3), b.maxReach), b.curve, distance)
 end
 
--- the level after a hit adding `hit`, never past `cap`
+-- how far point `p` is from the segment `a` -> `b` (the body: feet to head), { x, y, z } each
+function Suppression.toLine(p: { number }, a: { number }, b: { number }): number
+	local ab = { b[1] - a[1], b[2] - a[2], b[3] - a[3] }
+	local ap = { p[1] - a[1], p[2] - a[2], p[3] - a[3] }
+	local len2 = ab[1] * ab[1] + ab[2] * ab[2] + ab[3] * ab[3]
+	local t = if len2 > 0 then math.clamp((ap[1] * ab[1] + ap[2] * ab[2] + ap[3] * ab[3]) / len2, 0, 1) else 0
+	local d = { ap[1] - ab[1] * t, ap[2] - ab[2] * t, ap[3] - ab[3] * t }
+	return math.sqrt(d[1] * d[1] + d[2] * d[2] + d[3] * d[3])
+end
+
+-- the level after a hit adding `hit`, never past `cap`; a hit never lowers it (a rifle's under a machine gun's pin)
 function Suppression.add(level: number, hit: number, cap: number): number
-	return math.clamp(level + math.max(hit, 0), 0, cap)
+	return math.max(level, math.clamp(level + math.max(hit, 0), 0, cap))
+end
+
+-- how pinned a level is: 0 up to `cap` (the most anything but a machine gun reaches), 1 at `top` (Config MG.cap)
+function Suppression.pinned(level: number, cap: number, top: number): number
+	if top <= cap then
+		return 0
+	end
+	return math.clamp((level - cap) / (top - cap), 0, 1)
+end
+
+-- a value from `a` at level 1 to `b` pinned, growing in from 0 below level 1
+function Suppression.blend(level: number, pinned: number, a: number, b: number): number
+	return math.clamp(level, 0, 1) * (a + (b - a) * math.clamp(pinned, 0, 1))
 end
 
 -- the level `dt` s on, `since` s after the last hit at the start of it: held for `hold` s, then falling 1 every `fall` s
