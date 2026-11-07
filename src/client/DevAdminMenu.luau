@@ -45,6 +45,7 @@ local DevPanel = require(script.Parent.DevPanel)
 local DevCinematic = require(script.Parent.DevCinematic)
 local DevSights = require(script.Parent.DevSights)
 local Settings = require(script.Parent.Settings)
+local Squad = require(script.Parent.Squad)
 local ShotSpread = require(script.Parent.ShotSpread)
 local Menus = require(script.Parent.Menus) :: any
 local MapLoader = require(script.Parent.MapLoader)
@@ -910,6 +911,34 @@ local function build(player: Player): DevPanel.Panel
 	end
 	player:GetAttributeChangedSignal("Kit"):Connect(showTeam)
 	showTeam()
+
+	-- Squad (Config/Squads, src/server/Squads; game rule 8): your squad and each member's status (src/client/Squad), your
+	-- team's nearest bots or dummies made test mates of it (markers and statuses to look at; the result on the button),
+	-- and every test mate dropped
+	DevPanel.heading(p.panel, "Squad", order + 1)
+	order += 2
+	local squadLine = DevPanel.heading(p.panel, "", order)
+	squadLine.TextWrapped = true
+	local fill = row("SquadFill", "Fill my squad with test mates", "SquadFill")
+	row("SquadClear", "Clear test mates", "SquadClear")
+	local squadSaid = Net.event("DevAction").OnClientEvent:Connect(function(kind: any, action: any, reason: any)
+		if (kind == "Refused" or kind == "Done") and action == "SquadFill" and type(reason) == "string" then
+			fill.Text = `Fill my squad with test mates: {reason}`
+			task.delay(Cfg.Blasts.RefusedSeconds, function()
+				fill.Text = "Fill my squad with test mates"
+			end)
+		end
+	end)
+	local squadLoop = task.spawn(function()
+		while true do
+			squadLine.Text = Squad.describe()
+			task.wait(0.5)
+		end
+	end)
+	p.gui.Destroying:Once(function()
+		squadSaid:Disconnect()
+		task.cancel(squadLoop)
+	end)
 
 	-- Grenades: give yourself a full count of one (Config/DevTools.Admin.Grenades)
 	DevPanel.heading(p.panel, "Grenades", order + 1)

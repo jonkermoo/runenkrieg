@@ -257,9 +257,9 @@ return {
 		s.owner[2] = "East"
 		assert(R.spawnSector(s, "West", true, at(1, 0, 5)) == 1, "never behind its own HQ")
 	end,
-	["waves: one clock every 15 s from the countdown's end (user 2026-10-27)"] = function()
+	["waves: one clock every 20 s from the countdown's end (user 2026-10-27; 20 s since 2026-11-06)"] = function()
 		local W = Cfg.Waves
-		assert(W.every == 15 and W.dead == 5 and W.shield > 0, "the user's numbers")
+		assert(W.every == 20 and W.dead == 5 and W.shield > 0, "the user's numbers")
 		assert(R.nextWave(100, 15, 90) == 100 and R.nextWave(100, 15, 100) == 100)
 		assert(
 			R.nextWave(100, 15, 100.1) == 115 and R.nextWave(100, 15, 115) == 115 and R.nextWave(100, 15, 129) == 130

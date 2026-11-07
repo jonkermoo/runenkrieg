@@ -20,6 +20,7 @@
 		"className": "Auto rifler",
 		"team": "Katzmark army",
 		"caption": "You deploy at S2",
+		"squad": "Squad: Thurisaz 6 / 6",
 		"countKatzmark": "34 / 34",
 		"countSelvara": "34 / 34",
 		"countSowilo": "34 / 34",
@@ -43,6 +44,7 @@
 					{ "id": "ChangeTeam", "kind": "button", "clear": true, "text": "Change team", "textSize": 19, "textColor": "text", "fade": 0.35, "shade": 0.55, "align": "left", "pos": [0, 0, 0, 30], "size": [0, 150, 0, 30] }
 				]
 			},
+			{ "id": "Squad", "kind": "button", "clear": true, "bind": "squad", "text": "Squad", "textSize": 19, "textColor": "text", "shade": 0.55, "align": "left", "pos": [0, 32, 0, 178], "size": [0, 260, 0, 30] },
 			{
 				"id": "Soldier",
 				"kind": "group",
