@@ -161,7 +161,7 @@ local DevTools = {
 		-- the admin panel's MG bursts at you (src/server/DevTools "MGBurst", src/client/Suppression): a hidden machine gun
 		-- (`gun`, Config/Artillery) `distance` studs in front of you and `height` up fires at its own rate for `seconds`,
 		-- every bullet missing your head by `miss` studs (min, max) and flying on (`ground`: striking the ground that far
-		-- from your feet); harmless, everyone sees and hears it
+		-- from your feet; `height` there its own); harmless, everyone sees and hears it
 		MGBurst = {
 			gun = "mg08",
 			distance = 90,
@@ -175,6 +175,7 @@ local DevTools = {
 					seconds = 2,
 					miss = { 2, 6 },
 					ground = true,
+					height = 35, -- (from above: a low line struck the rise in front instead)
 				},
 			},
 		},

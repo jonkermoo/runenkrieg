@@ -167,7 +167,7 @@ local function mgBurst(player: Player, character: Model, root: BasePart, b: any)
 	local mg = (require(Shared.Config.Artillery).Guns :: any)[B.gun].mg
 	local look = root.CFrame.LookVector * Vector3.new(1, 0, 1)
 	look = if look.Magnitude > 0 then look.Unit else Vector3.zAxis
-	local origin = root.Position + look * B.distance + Vector3.new(0, B.height, 0)
+	local origin = root.Position + look * B.distance + Vector3.new(0, b.height or B.height, 0)
 	local emitter = Instance.new("Model")
 	emitter.Name = "DevMGBurst"
 	emitter:SetAttribute("Gun", B.gun)
@@ -198,7 +198,9 @@ local function mgBurst(player: Player, character: Model, root: BasePart, b: any)
 				-- the ground `b.miss` studs round the feet (in front, beside, behind)
 				local a = random:NextNumber() * math.pi * 2
 				local r = random:NextNumber(b.miss[1], b.miss[2])
-				target = root.Position + Vector3.new(math.cos(a) * r, -3, math.sin(a) * r)
+				local over = root.Position + Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
+				local down = workspace:Raycast(over + Vector3.new(0, 10, 0), Vector3.new(0, -40, 0), params)
+				target = if down then down.Position else over - Vector3.new(0, 3, 0)
 			else
 				-- a miss `b.miss` studs off the head, square to the line, never down through the body
 				local a = math.rad(random:NextNumber(-40, 220))
