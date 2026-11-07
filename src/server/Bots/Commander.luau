@@ -2651,7 +2651,6 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		end
 	end
 	-- (players' plans near its front, the sectors it holds and the enemy's next one first, Trenches.Plans)
-	local planZones = table.clone(digZones)
 	local nextS, nextD = nil, math.huge
 	for i, sec in Map.sectors do
 		local dx = (sec.x - zone.x) * tx + (sec.z - zone.z) * tz
@@ -2659,12 +2658,12 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			nextS, nextD = i, dx
 		end
 	end
+	local newFrom = #near
+	dig(plansOnly, digZones, TR.Plans.reach)
 	if nextS then
 		local sec = Map.sectors[nextS]
-		table.insert(planZones, { x = sec.x, z = sec.z, radius = sec.radius })
+		dig(plansOnly, { { x = sec.x, z = sec.z, radius = sec.radius } }, TR.Plans.ahead)
 	end
-	local newFrom = #near
-	dig(plansOnly, planZones, TR.Plans.reach)
 	dig(baseOnly)
 	dig(squaresOnly)
 	-- (reinforcing doesn't wait for every new square: `Care.Reinforce.share` of the slots left go to it while new

@@ -621,9 +621,10 @@ local Bots = {
 		Chain = { off = 4, past = 0.25 },
 		Redig = { keep = 300, tries = 2 },
 		-- players' plans (a square planned by a player, not dug yet): the side's first trench job, within `reach` studs of
-		-- its front zone, the sectors it holds and the enemy's next one, dug under fire, on shelled ground and while its
-		-- offensive goes in (user 2026-11-06: "they are beiong shelled and shot and wont even dig my pre plan")
-		Plans = { reach = 400 },
+		-- its front zone and the sectors it holds, and `ahead` studs of the enemy's next one (its approaches, not deep in
+		-- the enemy's ground), dug under fire, on shelled ground and while its offensive goes in (user 2026-11-06: "they
+		-- are beiong shelled and shot and wont even dig my pre plan")
+		Plans = { reach = 400, ahead = 150 },
 		pioneerTake = 600, -- (was 400: Map 1 sectors stand ~420 apart, a held system behind the front out of reach)
 		-- a run refused for a tree in its way (Config/Bots.Build.Trees: the pioneers and Engineers fell it) waits `wait` s
 		-- for it to come down, up to `waits` times, before it swings aside as for any other refusal (a measured match:
