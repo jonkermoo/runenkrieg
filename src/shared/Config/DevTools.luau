@@ -154,6 +154,9 @@ local DevTools = {
 		Health = { 100, 75, 50, 25, 10 },
 		GodAttribute = "DevGod", -- on the Player in god mode: knocked but never hurt (src/server/Damage)
 		SelfKnock = "Torso", -- "Knock me": Config/Ragdoll.Knocks entry, thrown backwards
+		-- "Knock me down (long)": the same knock, down as long as a hit this hard keeps you (Config/Ragdoll.ByDamage),
+		-- no health lost: time to try the stay-down key's prompt (src/client/DownHud)
+		LongKnockDamage = 90,
 		-- "Shell shock" rows (src/server/DevTools, Config/Concussion; user 2026-11-03): a real grenade (Config/Grenades
 		-- .Types) or shell (Config/Artillery.Guns) going off on the ground this many studs in front of you, your own
 		-- (knocks you, hurts you only with "My blasts hurt me" on); and a helmet shot from the front by `HelmetWeapon`

@@ -76,6 +76,20 @@ local Ragdoll = {
 	-- then, changes nothing (up at the usual time). At most `max` s past the wait (then up anyway); the client's
 	-- "StayDown" (Net) at most `rate` a second. While dragged the same key breaks free instead (Config/Settings Key_DragEscape).
 	StayDown = { key = "Space", max = 60, rate = 10 },
+	-- What staying down looks like (src/client/DownHud; user 2026-11-06: "give a hold space to stay down indicator or
+	-- something when a player is knocked"; layout src/shared/ui/Prompt.json `down` and `mark`, colours Palette.UI.Prompt):
+	-- - your own prompt while down and alive: the key, what holding it does, its fill and the seconds left. The server
+	--   puts the get-up wait's end on the character as `upAtAttribute` (workspace:GetServerTimeNow() time).
+	-- - a marker over each knocked-down, living teammate (players, bots, the admin panel's dummies; nobody in a
+	--   free-for-all), the nearest `maxMarks` within `range` studs, seen through walls, saying whether they are holding
+	--   to stay down (waiting for a medic or a drag). The admin panel's `selfAttribute` (on the Player) marks you too.
+	DownHud = {
+		upAtAttribute = "UpAt",
+		range = 120,
+		maxMarks = 8,
+		rate = 0.2, -- seconds between marker refreshes
+		selfAttribute = "DevDownMarkSelf",
+	},
 	-- The get-up (user 2026-11-01: "lets add an animation for getting up"; tools/animation/getup.luau, the approved draft):
 	-- lying on the back (the chest facing up) or the front. The root is stood upright where the soldier will stand,
 	-- facing the feet (back) or the head (front), `ahead` studs on from the lying torso, and the animation lies the torso
