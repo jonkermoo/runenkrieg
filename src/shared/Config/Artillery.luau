@@ -532,14 +532,17 @@ local Artillery = {
 		},
 		Static = { every = 0.07, reach = 2.2, life = 0.09 },
 		Charge = {
-			color = "Glow",
+			color = "Glow", -- (a gun nobody of a team mans; else its gunner's team's staff scheme, Rules/Artillery.fxScheme)
 			-- the layered circles, stacked out from the muzzle (user 2026-10-21: "multi layer ... way way WAY bigger"): each
 			-- opens at `at` of the charge over `appear` s (the last one assembling), `ahead` studs out, `diameter` across,
-			-- `orbits` curves round it; on the shot they crumble outermost first, `closeEach` s apart
+			-- `orbits` curves round it; on the shot they crumble outermost first, `closeEach` s apart. A tight cone along the
+			-- barrel (user 2026-11-06: "make the howitzer effects a tighter cone", drawn narrow along the bore): ~16 degrees
+			-- off the bore, reaching a little further out (was 16 / 30 / 48 across at 3 / 11 / 22 out, ~40 degrees, a wide
+			-- funnel whose orbits swept round half the sky)
 			layers = {
-				{ at = 0, ahead = 3, diameter = 16, appear = 0.3, orbits = 2 },
-				{ at = 0.3, ahead = 11, diameter = 30, appear = 0.35, orbits = 3 },
-				{ at = 0.55, ahead = 22, diameter = 48, appear = 0.6, orbits = 4, assemble = true },
+				{ at = 0, ahead = 3, diameter = 7, appear = 0.3, orbits = 2 },
+				{ at = 0.3, ahead = 13, diameter = 13, appear = 0.35, orbits = 3 },
+				{ at = 0.55, ahead = 25, diameter = 20, appear = 0.6, orbits = 4, assemble = true },
 			},
 			closeEach = 0.08,
 			rimEvery = { 0.3, 0.06 }, -- lightning between the first and last rims, every this many s (start, end)
