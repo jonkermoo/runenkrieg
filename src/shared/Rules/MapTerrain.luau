@@ -333,11 +333,14 @@ function MapTerrain.tactics(map: any): { [number]: any }
 				local face = bearing(dx, dz)
 				local enemy = if side == "West" then "East" else "West"
 				local u = C.crest.u
-				for _, n in { -80, 0, 80 } do
+				-- (a town, `crest = false`, has no crest spots or trench runs: its houses are the line, for the bots to
+				-- score themselves or the map to list in its own `tactics`)
+				local crest = s.crest ~= false
+				for _, n in if crest then { -80, 0, 80 } else {} do
 					local x, z = outAlong(s.x, s.z, dx, dz, u - 4, n)
 					table.insert(t.cover, { x = x, z = z, face = face, n = 4, side = side })
 				end
-				for _, n in { -55, 55 } do
+				for _, n in if crest then { -55, 55 } else {} do
 					local x, z = outAlong(s.x, s.z, dx, dz, u - 6, n)
 					table.insert(t.support, { x = x, z = z, face = face, side = side })
 				end
@@ -353,7 +356,7 @@ function MapTerrain.tactics(map: any): { [number]: any }
 				table.insert(t.mg, { x = mx, z = mz, face = face, side = side })
 				local hx, hz = outAlong(s.x, s.z, dx, dz, -C.guns.howitzer, 0)
 				table.insert(t.guns, { x = hx, z = hz, side = side, kind = "Howitzer" })
-				for _, run in { { -100, -40 }, { 40, 100 } } do
+				for _, run in if crest then { { -100, -40 }, { 40, 100 } } else {} do
 					local ax, az = outAlong(s.x, s.z, dx, dz, u - 3, run[1])
 					local bx, bz = outAlong(s.x, s.z, dx, dz, u - 3, run[2])
 					table.insert(t.trench, { ax = ax, az = az, bx = bx, bz = bz, kind = "Fire", side = side })
