@@ -719,8 +719,8 @@ function BotTrenches.zigAngle(height: number, cfg: { min: number, perStud: numbe
 end
 
 -- A run from A to B dug as a zig-zag: legs `leg` studs long, each turned `angle` degrees off the line to B, one way
--- then the other, the last straight onto B (each leg's line ends off the next one's: no straight sight down it). The
--- legs, of the run's kind.
+-- then the other, the last onto B (each leg's line ends off the next one's: no straight sight down it). The last leg
+-- takes what is left over, at least a leg's way on toward B (no stub). The legs, of the run's kind.
 function BotTrenches.zigzag(run: Run, angle: number, leg: number): { Run }
 	local dx, dz = run.bx - run.ax, run.bz - run.az
 	local d = math.sqrt(dx * dx + dz * dz)
@@ -733,7 +733,8 @@ function BotTrenches.zigzag(run: Run, angle: number, leg: number): { Run }
 	local fwd, side = math.cos(a) * leg, math.sin(a) * leg
 	local legs: { Run } = {}
 	local px, pz, done, sign = run.ax, run.az, 0, 1
-	while d - done > fwd + 1e-6 do
+	-- (zig while more than two legs' way on is left: the last leg runs on to B from there, at least a leg's way on)
+	while d - done > fwd * 2 + 1e-6 do
 		local nx = px + ux * fwd + cx * side * sign
 		local nz = pz + uz * fwd + cz * side * sign
 		table.insert(legs, { kind = run.kind, ax = px, az = pz, bx = nx, bz = nz, route = run.route })

@@ -138,8 +138,9 @@ return {
 		-- (on the wall, short of its top edge, high enough to see over the parapet)
 		assert(step > TB.floor and step < TB.floor + TB.depth / math.tan(math.rad(TB.wallAngle)))
 		assert(T.rise + 4.5 > TB.depth + 2.3, "eyes over the parapet")
-		assert(math.abs(R.stepOut(4.25, 59, T.rise) - 6.29) < 0.05, "the wider trench: 6.3 as before")
-		assert(math.abs(R.stepOut(3, 59, T.rise) - 5.04) < 0.05, "the slimmer trench: about 5.05")
+		assert(math.abs(R.stepOut(3, 59, 3.4) - 5.04) < 0.05, "the 5.5-deep trench's step: about 5.05")
+		assert(math.abs(R.stepOut(3, 59, T.rise) - 5.64) < 0.05, "the 6.5-deep trench's: about 5.65")
+		assert(near(T.rise - TB.depth, 3.4 - 5.5), "the feet as far under the ground line as in the 5.5-deep trench")
 	end,
 	["firePost: on the forward wall across the square's own line, turned with its tilt"] = function()
 		local TB = Build.Trench
@@ -464,5 +465,16 @@ return {
 		end
 		assert(legs[1].bz > 0 and legs[2].bz < legs[1].bz, "one way, then back")
 		assert(#R.zigzag(run, 30, 0) == 1, "no legs: straight")
+	end,
+	["zigzag: no stub at the end, the last leg a leg or longer (user 2026-11-06: no abnormal trenches)"] = function()
+		for _, d in { 33, 40, 47, 60, 75, 90 } do
+			local legs = R.zigzag({ kind = "Comm", ax = 0, az = 0, bx = d, bz = 0 }, T.Zigzag.angle.max, T.Zigzag.leg)
+			local fwd = T.Zigzag.leg * math.cos(math.rad(T.Zigzag.angle.max))
+			assert(len(legs[#legs]) >= fwd - 1e-6, `the last leg of a {d}-stud run`)
+			assert(near(legs[#legs].bx, d) and near(legs[#legs].bz, 0), "onto B")
+		end
+		-- (each joint turns at most twice the angle, under the bend a bot may join at)
+		assert(2 * T.Zigzag.angle.max <= T.Shape.maxBend, "a zig-zag joint is a bend a bot may lay")
+		assert(T.Zigzag.leg >= T.Shape.minRun, "legs of two blocks")
 	end,
 }

@@ -101,8 +101,9 @@ local Build = {
 		-- a new trench keeps this far (between centre lines) from every other trench, except near the end where it joins
 		-- one (user 2026-10-24: "you shouldnt be able to build a new trench within a certain distance of another trench
 		-- unless you're extending"; 32 since the parapets: two trenches' parapets just meet; 25 since the narrower trench,
-		-- user 2026-11-02, "make it a little more narrow and less thick", option B)
-		spacing = 25,
+		-- user 2026-11-02, "make it a little more narrow and less thick", option B; 26 with the deeper trench, 2026-11-06:
+		-- its wall tops 0.6 wider each side)
+		spacing = 26,
 		maxBend = 135,
 		maxSlope = 22, -- degrees of ground slope along the run
 		-- the run's slope measured over this many studs (a voxel's step between two samples 3 studs apart read as too
@@ -204,8 +205,9 @@ local Build = {
 		-- 6-wide floor as a narrow bowl and 60 degree walls as 45-55, so the carve is wider at the floor and steeper)
 		-- (user 2026-10-23: 1.5x wider, then "a little more narrow"; 4.25 to 3, user 2026-11-02, "make it a little more narrow and less thick", option B: the 6-stud floor of
 		-- docs/METRICS.md, two soldiers can pass)
+		-- (5.5 to 6.5, user 2026-11-06: "let's deepen the trenches a little bit more to encourage trench fighting")
 		floor = 3,
-		depth = 5.5,
+		depth = 6.5,
 		-- (user 2026-10-23: "just make it a wall with less slope ... no invisible steps": no wall grip)
 		-- (user 2026-10-23: steeper, 70, "it could be either deeper or less slopy"; 2026-10-24: "make this less steep
 		-- (just a bit) so our character can walk out of (not smoothly and easily of course)", 48, then "make the slope
@@ -251,7 +253,10 @@ local Build = {
 		-- (trench_pieces v12, tools/blender/trench/trench_wood.py; user 2026-11-02: "only use our old trench model
 		-- again, but the one with wood on it and we make random variations of that": every one of the eight walls has
 		-- plank steps, so none is set apart as `wood` and each side rolls any of them)
-		pieces = { segment = 8, walls = 8, floors = 4, wood = {}, woodChance = 0 },
+		-- `made`: the trench depth the wall pieces were modelled for; a deeper trench stretches its walls, corners and sheets
+		-- up and out by depth / made, keeping the wall angle (user 2026-11-06: "let's deepen the trenches a little bit
+		-- more to encourage trench fighting")
+		pieces = { segment = 8, walls = 8, floors = 4, wood = {}, woodChance = 0, made = 5.5 },
 		-- the pieces' stages (Rules.trenchStage, % of hp.max): none while it is first dug (its markers and the cut
 		-- deepening a swing at a time), the finished pieces at full HP, then destruction Hit1-3 under each of `hit`
 		-- (boards working loose; the upper slabs and half the boards down; a few boards and one low slab left, earth
