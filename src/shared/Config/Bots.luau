@@ -176,7 +176,7 @@ local Bots = {
 		boundMax = 7,
 		hop = 30,
 		arrive = 6,
-		spread = 5,
+		spread = 8, -- (5 to 8, user 2026-11-06: one shell must not catch a whole squad)
 		-- a squad moves on from a point on its way (its waypoint, its approach spot) once `readyShare` of its free
 		-- members (not building, rescuing or guarding) are there, or anyone has waited there `waitMax` s (user
 		-- 2026-11-03 play test: "a lot of AI's frozen after a sector taken": members off on jobs kept the rest waiting)
@@ -414,6 +414,11 @@ local Bots = {
 		Breast = { step = 8, keys = { "SandbagPile", "Hesco" } },
 		Walls = { ahead = 5, spread = 8.5, count = 2 },
 		Pinned = { threat = 1.5, shaken = 0.5, every = 45, ahead = 2.5, near = 20 },
+		-- - Exposed (user 2026-11-06: "just being able to see an enemy is considered not safe because the enemy can see
+		--   you"; "ai's still dont use trenches in the open"): a bot that has seen an enemy from the open (no cover
+		--   reached, not in a trench) for `after` s, not pressing on (Move / Assault), with no cover found within
+		--   Pinned.near studs, digs a foxhole at its feet facing the enemy (at most every Pinned.every s).
+		Exposed = { after = 4 },
 		-- Gun crews (Rules/BotBuild.crewWanted / gunSpots; user 2026-11-02: "if artillery has been unlocked for a side and
 		-- not a lot of any has been placed, some bots should take priority in getting engineer and start building it in
 		-- strategic places"; "Up to 2, if they can pay"): while a side has fewer than `enough` guns standing (anyone's
@@ -785,6 +790,8 @@ local Bots = {
 			"Cobblestone",
 		},
 		cover = 25,
+		-- (shelled: a trench or foxhole this near is its cover, user 2026-11-06: "make bots more aware of artillery")
+		shellCover = 40,
 		Jump = { reach = 120, ahead = 15, at = 10, gather = 0.75, wait = 25 },
 	},
 
@@ -1069,6 +1076,10 @@ local Bots = {
 		HeardRange = 0.35,
 		AlertRadius = 15,
 		SpreadMin = 6,
+		-- seen is not safe (user 2026-11-06: "just being able to see an enemy is considered not safe because the enemy
+		-- can see you"): any enemy in sight counts as having spotted it (was only one looking its way, within LookCone):
+		-- it takes cover or drops into its trench, then fights from there (Rules/Bots fight; not while pressing on)
+		SeenSpots = true,
 	},
 
 	-- At ease (Rules/Bots.calm; user 2026-11-04: "make AI not hold weapons if they know for a FACT that theres no enemies

@@ -138,6 +138,9 @@ export type Bot = {
 	blockedUntil: number,
 	lastOpen: Vector3?, -- where it stood when it last saw its target (a peek goes back there)
 	spotted: boolean,
+	-- since when it has seen an enemy from the open: no cover reached, not in a trench (Config/Bots.Build.Exposed)
+	exposedSince: number?,
+	exposureAt: number?, -- when its exposure was last tallied (State.ByTrench.exposure)
 	hurtAt: number?,
 	threatAt: number?,
 	danger: boolean?, -- Normal: it knows there's danger (Rules/BotTrenches.danger): its paths keep to trenches

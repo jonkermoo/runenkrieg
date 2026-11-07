@@ -649,6 +649,29 @@ local function weigh(b: Bot, now: number)
 		takeJob(b, r, now)
 		return
 	end
+	-- seen from the open a while with no cover near: a foxhole at its feet facing the enemy (Config/Bots.Build.Exposed)
+	if
+		b.side
+		and b.threatFrom
+		and BotBuild.exposedDig(
+			if b.exposedSince then now - (b.exposedSince :: number) else 0,
+			hasCover,
+			b.postFloor ~= nil,
+			b.role == "Move" or b.role == "Assault",
+			now - (b.pileAt or -math.huge),
+			{ after = BD.Exposed.after, every = PN.every }
+		)
+	then
+		local to = flat((b.threatFrom :: Vector3) - root.Position)
+		to = if to.Magnitude > 1e-3 then to.Unit else flat(root.CFrame.LookVector)
+		local at = root.Position
+		local job = { key = "Foxhole", x = at.X, z = at.Z, fx = to.X, fz = to.Z }
+		local r = { job = job, base = job, left = 0, tries = 0, waitUntil = 0, open = true, underFire = true }
+		b.pileAt = now
+		stats.exposedHoles += 1
+		takeJob(b, r, now)
+		return
+	end
 	-- a job on its side's build list, when calm and it sees no enemy (Config/Bots.Build)
 	-- holding an open post with no trench near: a foxhole there, facing the enemy (Config/Bots.Dugouts.Fox)
 	local post = b.post
