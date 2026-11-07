@@ -2714,6 +2714,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			local rr = r :: BuildJob
 			rr.at, rr.left, rr.open, rr.fix = w.at, swings[i] or w.left, true, fix[i] == true
 			rr.buried = square and w.built and w.hp < w.max
+			rr.plan = square and not w.built and w.owner ~= nil and (w.owner :: number) > 0
 			rr.reinforce = reinforcing[i] == true -- (a plain dig job at a full square swings no more: Act.doBuild)
 			rr.decision = decided[i]
 			rr.care = if decided[i] then scoreOf[i] else nil

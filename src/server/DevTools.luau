@@ -205,7 +205,7 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		local PP = Cfg.Admin.PlayerPlan
 		local kit, best = nil, PP.near
 		for _, m in workspace:GetDescendants() do
-			local k = m:IsA("Model") and m:GetAttribute("Kit")
+			local k = m:IsA("Model") and m ~= player.Character and m:GetAttribute("Kit")
 			local r = type(k) == "string" and (m :: Model):FindFirstChild("HumanoidRootPart")
 			if r and r:IsA("BasePart") and (r.Position - aim).Magnitude < best then
 				kit, best = k, (r.Position - aim).Magnitude

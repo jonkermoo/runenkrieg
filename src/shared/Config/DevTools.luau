@@ -348,7 +348,7 @@ local DevTools = {
 		-- the readout of each side's latest runs toward the enemy, straight or zig-zag and why (src/server/Bots)
 		BotRunsAttribute = "DevBotRuns",
 		-- the admin panel's "Plan a player's trench here": a run `length` studs long across the way to the nearest sector's
-		-- point, through the aim point, planned as this player (its UserId the owner) for the side of the nearest soldier
+		-- point, through the aim point, planned as this player (its UserId the owner) for the side of the nearest other soldier
 		-- within `near` studs (user 2026-11-06: bots must dig the player's trench plans)
 		PlayerPlan = { length = 40, near = 250 },
 		-- - at the aim point: the nearest squad within `near` studs pushes there for `pushSeconds` (its Grenadier

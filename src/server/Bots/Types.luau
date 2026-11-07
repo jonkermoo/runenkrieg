@@ -50,6 +50,7 @@ export type BuildJob = {
 	reinforce: boolean?, -- a dug square's job past its max (Commander's reinforce list): only such a job swings HP into a
 	-- full square's extra (Build.workAs)
 	buried: boolean?, -- a trench square dug full once and buried since (pioneers dig it first, Config/Bots.Trenches.Redig)
+	plan: boolean?, -- a square a player planned, not dug yet: a pioneer's first job (Config/Bots.Trenches.Plans)
 	redig: number?, -- a buried-to-nothing square planned again where it lay: kept on the list until then (Trenches.Redig)
 	lostBy: { [number]: boolean }?, -- bots (by id) that left it with no way there, no swing or flapping (Build.Work)
 	sys: string?, -- a trench run's system: "S<sector>", or "S<sector>F<k>" a forward line (Config/Bots.Trenches.Forward)
