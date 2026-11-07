@@ -269,13 +269,16 @@ local LanternMeadows = {
 	-- The festival road along the arch and over the ford, the landmarks, and the lanes' hedge banks (Rules/Village).
 	-- The brickfield farm (S2) and the river town (S4) wait for their design sheet (MAP_RULES §3: design first).
 	village = {
-		area = rect(1700, 2930, -300, 300),
+		-- (houses only in the town round S4: Borgo Aurel, user approved 2026-11-06)
+		-- (inside the two sunken lanes' hedges, which stand ~157 out from the point)
+		area = rect(1800, 2095, -165, 205),
 		kit = "Selvara",
 		roads = {
 			{
 				id = "Main",
 				width = 10,
-				maxLots = 0,
+				maxLots = 22,
+				rows = true, -- the main street's houses in order, a terrace
 				points = points({
 					{ -90, -170 },
 					{ 420, -170 },
@@ -291,18 +294,33 @@ local LanternMeadows = {
 					{ 2930, -170 },
 				}),
 			},
+			-- the two back streets, ~70 either side of the main one, two outer ones past them, and the two cross lanes ~90
+			-- either side of the piazza
+			{ id = "Nord", width = 8, maxLots = 18, points = points({ { 1815, 115 }, { 1940, 100 }, { 2085, 46 } }) },
+			{ id = "Sud", width = 8, maxLots = 16, points = points({ { 1815, -25 }, { 1940, -40 }, { 2030, -74 } }) },
+			{ id = "Alto", width = 7, maxLots = 14, points = points({ { 1820, 172 }, { 1940, 160 }, { 2060, 112 } }) },
+			{
+				id = "Basso",
+				width = 7,
+				maxLots = 8,
+				points = points({ { 1830, -88 }, { 1940, -104 }, { 2000, -128 } }),
+			},
+			{ id = "VicoOvest", width = 7, maxLots = 6, points = points({ { 1857, -62 }, { 1843, 128 } }) },
+			{ id = "VicoEst", width = 7, maxLots = 6, points = points({ { 2000, -78 }, { 2050, 70 } }) },
 		},
-		lotSpacing = 26,
-		setback = 5,
-		buildingGap = 6,
+		lotSpacing = 16,
+		setback = 3,
+		buildingGap = 4,
 		keepClear = {
 			{ x = PTS[1][1], z = CZ + PTS[1][2], r = 50 },
 			{ x = PTS[3][1], z = CZ + PTS[3][2], r = 50 },
-			{ x = PTS[4][1], z = CZ + PTS[4][2], r = 20 },
+			{ x = PTS[4][1], z = CZ + PTS[4][2], r = 38 }, -- Borgo Aurel's piazza
+			-- the two little squares where each side's wave stands while S4 is its front sector (MapTerrain.rally)
+			{ x = 1986, z = CZ + 11, r = 30 },
+			{ x = 1891, z = CZ + 37, r = 30 },
 			{ x = PTS[5][1], z = CZ + PTS[5][2], r = 20 },
 			{ x = 2840, z = CZ - 170, r = 80 }, -- the East spawn
 		},
-		-- the map's own landmarks (Config/Buildings), moved onto the new points (user 2026-11-06 plan)
 		specials = {
 			-- the festival stage and the lantern-makers' hall on S3's north flank, on its x, facing the point: a support
 			-- position looking down both legs
@@ -314,12 +332,15 @@ local LanternMeadows = {
 			{ id = "BrickfieldFarm", style = "BrickfieldFarm", x = PTS[2][1], z = CZ + PTS[2][2], front = { 0, -1 } },
 			-- the cascina on S5's point, its south side, facing the flag; Selvara's camp
 			{ id = "Cascina", style = "Cascina", x = PTS[5][1], z = CZ - 228, front = { 0, 1 } },
+			-- Borgo Aurel's campanile and loggia on the piazza, north and south of the flag
+			{ id = "Campanile", style = "Campanile", x = 1944, z = CZ + 78, front = { 0, -1 } },
+			{ id = "Loggia", style = "Loggia", x = 1934, z = CZ - 20, front = { 0, 1 } },
 			-- the ferry house on the east bank above the festival ford, facing the river
 			{ id = "Ferry", style = "FerryHouse", x = 1716, z = CZ + 100, front = { -1, 0 } },
 		},
 		hedgerows = laneHedges,
-		-- (no garden trees until the town is built: they'd stand in the open ground)
-		trees = { cell = 18, density = 0, roadClear = 5, buildingClear = 6 },
+		-- garden trees only in the town (the village area)
+		trees = { cell = 18, density = 0.05, roadClear = 5, buildingClear = 6 },
 		cars = 0,
 		features = features,
 	},

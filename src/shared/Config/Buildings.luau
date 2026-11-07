@@ -921,6 +921,67 @@ local Buildings = {
 			},
 			description = "The brickfield farm: a walled brick yard with a barn, farmhouse, cart sheds, sties and a bottle kiln.",
 		},
+		-- Borgo Aurel's bell tower on S4's piazza, north side, on the flag's line (map rework, user approved 2026-11-06):
+		-- ochre stucco, four stages, a stair inside up to a battlemented belfry walk that looks down both legs. Fair
+		-- because it stands on the point: whoever holds the point holds the tower.
+		Campanile = {
+			folder = "Landmarks",
+			width = 12,
+			depth = 12,
+			stories = 1,
+			roofPitch = 0,
+			class = "Stone",
+			wallThickness = 1.4,
+			walls = { "Ochre", "Cream" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					name = "Tower",
+					x = 0,
+					z = 0,
+					width = 12,
+					depth = 12,
+					stories = 4,
+					storyHeight = 7.5,
+					windows = 1,
+					roofPitch = 0,
+					roofStyle = "Battlement",
+					quoins = true,
+					climb = true,
+				},
+			},
+			description = "Borgo Aurel's campanile: an ochre bell tower on the piazza with a climbable belfry walk.",
+		},
+		-- Borgo Aurel's market loggia on S4's piazza, south side: one storey open on both long sides through five arched
+		-- bays (wide doors), under terracotta. Cover on the piazza, the same from both legs.
+		Loggia = {
+			folder = "Landmarks",
+			width = 26,
+			depth = 10,
+			stories = 1,
+			storyHeight = 9,
+			roofPitch = 22,
+			roofStyle = "Tile",
+			class = "Stone",
+			walls = { "Cream", "Rose" },
+			roofs = { "Terracotta" },
+			windows = 0,
+			doors = {
+				{ center = -10, w = 3.6, h = 6 },
+				{ center = -5, w = 3.6, h = 6 },
+				{ center = 0, w = 3.6, h = 6 },
+				{ center = 5, w = 3.6, h = 6 },
+				{ center = 10, w = 3.6, h = 6 },
+			},
+			backDoor = {
+				{ center = -10, w = 3.6, h = 6 },
+				{ center = -5, w = 3.6, h = 6 },
+				{ center = 0, w = 3.6, h = 6 },
+				{ center = 5, w = 3.6, h = 6 },
+				{ center = 10, w = 3.6, h = 6 },
+			},
+			description = "Borgo Aurel's loggia: an open market arcade on the piazza, five bays front and back.",
+		},
 		-- The cascina at S5, south of the point on its x between it and the river, facing it: a two-storey ochre farmhouse
 		-- under terracotta with a portico below and an open loggia above, an arched gateway through to the courtyard
 		-- behind, a three-stage dovecote tower at its west end (pigeon holes at the top, stairs inside: about the
