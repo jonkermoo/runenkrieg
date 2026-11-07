@@ -38,6 +38,7 @@ local Modes = require(script.Parent.Modes)
 local ZoneMatch = require(script.Parent.ZoneMatch)
 local SectorCfg = require(Shared.Config.Sectors)
 local Ragdoll = require(script.Parent.Ragdoll)
+local Squads = require(script.Parent.Squads)
 local Cfg = require(Shared.Config.DevTools)
 local BotsCfg = require(Shared.Config.Bots)
 local ClassCfg = require(Shared.Config.Classes)
@@ -356,6 +357,12 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		player:LoadCharacter()
 	elseif action == "BuildAll" then
 		player:SetAttribute(Cfg.Admin.BuildAllAttribute, if value then true else nil)
+	elseif action == "SquadFill" then
+		-- your team's nearest bots or dummies shown as squadmates (src/server/Squads.fill; the result on its button)
+		local n, why = Squads.fill(player)
+		Net.event("DevAction"):FireClient(player, if why then "Refused" else "Done", action, why or `{n} joined`)
+	elseif action == "SquadClear" then
+		Squads.clearTestMates()
 	elseif action == "Ammo" then
 		player:SetAttribute(Cfg.Admin.AmmoAttribute, if value then true else nil)
 	elseif action == "GunExact" then

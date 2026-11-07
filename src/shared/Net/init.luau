@@ -57,6 +57,9 @@ local Remotes: { string } = {
 	-- server -> clients near the bot: (bot: Model, text: string) a bot soldier's callout, shown as a bubble over its head
 	-- (src/server/Bots, Rules/BotCallouts; src/client/BotSay), never in the chat log; also the dev dummies' "Say", to all
 	"BotSay",
+	-- Player squads (src/server/Squads, src/client/SquadPanel; Config/Squads): client -> server: ("New") start a squad
+	-- and join it, ("Join", key: string) join one of your team's squads, ("Leave") leave yours
+	"Squad",
 	-- The head's turn toward the look, shown to soldiers nearby (src/client/LookTilt, src/server/LookTilt;
 	-- Config/Locomotion.LookTilt.Head): client -> server: (yaw: number) degrees from the torso's facing; server ->
 	-- clients within Head.Send.Range: (character: Model, yaw: number) clamped and quantized, throttled per soldier

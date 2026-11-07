@@ -45,6 +45,9 @@ local SketchCfg = require(Shared.Config.SketchMap) :: any
 local Ink = require(script.Parent.Ink)
 local MatchCam = require(script.Parent.MatchCam)
 local SettingsMenu = require(script.Parent.SettingsMenu)
+local SquadPanel = require(script.Parent.SquadPanel)
+local Squad = require(script.Parent.Squad)
+local SquadCfg = require(Shared.Config.Squads)
 local SketchMap = require(script.Parent.SketchMap)
 local DevPanel = require(script.Parent.DevPanel)
 local ModesCfg = require(Shared.Config.Modes)
@@ -674,6 +677,29 @@ function Menus.start()
 		teamsRelayout()
 		renderTeams() -- (the relayout puts every card back where the spec has it)
 	end
+	-- the Squad button (Config/Squads): your squad and its head count, or an invitation; opens the squad panel
+	local squadButton = L.Squad :: TextButton
+	local function squadWords(): string
+		local own = Squad.mine()
+		return if own then `Squad: {own.name} {#own.members} / {SquadCfg.Max}` else "Join a squad"
+	end
+	squadButton.Activated:Connect(function()
+		SquadPanel.open()
+	end)
+	task.spawn(function()
+		while true do
+			if loadout.gui.Enabled then
+				squadButton.Visible = Squad.team() ~= nil
+				local words = squadButton:FindFirstChild("Words") :: TextLabel?
+				local text = squadWords()
+				squadButton.Text = text
+				if words then
+					words.Text = text
+				end
+			end
+			task.wait(SquadCfg.Panel.Refresh)
+		end
+	end)
 	changeTeam.Activated:Connect(function()
 		cardsOpen = not cardsOpen
 		armed = nil

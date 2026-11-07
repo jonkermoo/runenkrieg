@@ -93,7 +93,7 @@ local Frontline = {
 	-- (src/server/Deploy, Normal only) and stands in its side's wave line, frozen and protected, until the wave goes;
 	-- then it can move and keeps the shield `shield` seconds more (user 2026-10-31: "a shield that remains for a bit even
 	-- when you're unfrozen"), unless it attacks first.
-	Waves = { every = 15, dead = 5, shield = 3 },
+	Waves = { every = 20, dead = 5, shield = 3 }, -- every 20 s (user 2026-11-06: "make the respawn 20 seconds"; was 15)
 	-- The wave line (user 2026-10-31: "make sure spawns are lined up and they spawn in the general area of the flag"):
 	-- `perRow` soldiers side by side `gap` apart, filled from the middle out, each row `rowGap` behind the last, facing
 	-- the side's target sector. At a fought-over sector the line's front row stands `back` of the way from its point to

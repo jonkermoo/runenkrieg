@@ -54,6 +54,8 @@ local PLAIN = table.freeze({
 	RebuildMaps = true,
 	HitchReport = true,
 	GunDummy = true,
+	SquadFill = true,
+	SquadClear = true,
 })
 local SWITCHES = table.freeze({
 	God = true,
