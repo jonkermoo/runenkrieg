@@ -2113,7 +2113,7 @@ export type Work = {
 	key: string, -- its Config/Build.Pieces key ("Trench" for a trench square)
 	kind: string,
 	team: string,
-	owner: number?, -- who laid it (a UserId or a BotId); nil for a trench square
+	owner: number?, -- who laid it (a UserId or a BotId; a trench square: who planned it)
 	at: Vector3, -- where to stand near (a gun's own spot; a square's middle)
 	hp: number, -- its HP now (a standing gun's: the gun's)
 	max: number,
@@ -2161,6 +2161,7 @@ function Build.worksOf(team: string?, class: string?): { Work }
 			key = "Trench",
 			kind = "Trench",
 			team = s.team,
+			owner = s.owner,
 			at = s.at,
 			hp = s.hp,
 			max = T.max,
