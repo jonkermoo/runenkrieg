@@ -104,17 +104,18 @@ return {
 		local _, _, _, dx, _, dz = A.muzzle(BORE, 30, 0)
 		assert(near(A.yawOf(dx, dz), 30, 1e-6))
 	end,
-	["the agreed ranges: the field gun lobs out to ~505 (one sector), the howitzer a short-arc mortar"] = function()
+	["the agreed ranges: the field gun lobs out to ~713 (one point ahead), the howitzer a short-arc mortar"] = function()
 		-- (user 2026-11-03: "it should fire similarily to a mortar, maybe with less arc", "its too flat", then "keep the 1
-		-- sector range of the field cannon", a slower shell): 5 to 70 degrees, no hidden tilt, ~505 studs at 45
+		-- sector range of the field cannon"; 2026-11-06, the map rework's 520 spacing, "guns (a)"): 5 to 70 degrees, no
+		-- hidden tilt, ~713 studs at 45, ~712 for the howitzer at its lowest
 		assert(QF.elevation[1] == 5 and QF.elevation[2] == 70 and (QF.aimTilt or 0) == 0 and QF.rest == 20)
 		local most = QF.speed * QF.speed / QF.gravity
-		assert(math.abs(most - 505) < 5, most)
-		assert(math.abs(A.range(QF.speed, 5, QF.gravity) - 88) < 5)
-		assert(math.abs(A.range(QF.speed, 70, QF.gravity) - 324) < 5, "lobbed at its highest")
+		assert(math.abs(most - 713) < 5, most)
+		assert(math.abs(A.range(QF.speed, 5, QF.gravity) - 124) < 5)
+		assert(math.abs(A.range(QF.speed, 70, QF.gravity) - 458) < 5, "lobbed at its highest")
 		assert(QF.elevation[2] < HOW.elevation[2], "flatter than the howitzer")
 		assert(HOW.elevation[1] >= 45) -- it only lobs
-		assert(math.abs(A.range(HOW.speed, HOW.elevation[1], HOW.gravity) - 590) < 20)
+		assert(math.abs(A.range(HOW.speed, HOW.elevation[1], HOW.gravity) - 712) < 20)
 		assert(A.range(HOW.speed, HOW.elevation[2], HOW.gravity) < 250)
 		-- slower than under Roblox's gravity (user 2026-10-21): the flights are longer
 		local function flight(g: any, e: number): number
@@ -693,26 +694,29 @@ return {
 	end,
 	["no shell lands past one sector's spacing plus the margin, on either map (user 2026-11-03)"] = function()
 		local R = C.Reach
-		assert(R.sectors == 1 and R.margin == 90)
+		-- (margin 190, was 90: user 2026-11-06, the map rework, "guns (a)")
+		assert(R.sectors == 1 and R.margin == 190)
 		for _, name in { "Map1", "LanternMeadows" } do
 			local map = require(`../src/shared/Config/Maps/{name}`) :: any
 			local span = A.sectorSpan(map.sectors)
 			-- (Map 1 ~420, Lantern Meadows ~520 since the map rework, user 2026-11-06)
 			assert(span > 400 and span < 560, `{name} span {span}`)
 			local cap = A.reachCap(span, R)
-			-- the field cannon at one sector too (user 2026-11-03: "keep the 1 sector range of the field cannon"), its
-			-- longest shot inside it, so it lays its whole dial, low and lobbed
 			local qcap = A.reachCap(span, R, "artillery_qf18")
 			assert(near(qcap, cap, 1e-6), `{name} field cannon reach {qcap}`)
-			-- (its shell is tuned to Map 1's ~420 spacing; at Lantern Meadows' 520 since the map rework its longest shot,
-			-- ~510, falls short of the cap: open with the user, 2026-11-06)
-			if name == "Map1" then
-				assert(QF.speed * QF.speed / QF.gravity <= qcap and QF.speed * QF.speed / QF.gravity > qcap - 20)
+			local qMost = QF.speed * QF.speed / QF.gravity
+			local hMost = A.range(HOW.speed, HOW.elevation[1] + (HOW.aimTilt or 0), HOW.gravity)
+			-- never two points away, on any map
+			assert(qMost < 2 * span and hMost < 2 * span, `{name}: a gun reaches two points away`)
+			if map.legs then
+				-- the shells are tuned to the leg pattern's spacing (user 2026-11-06): the field cannon's longest shot is
+				-- the cap, so it lays its whole dial, low and lobbed; the howitzer's lowest lay comes down at the cap
+				assert(qMost <= qcap + 1 and qMost > qcap - 20, `{name} field cannon {qMost} for a cap of {qcap}`)
 				local q = A.capped(QF, qcap)
 				assert(q[1] == QF.elevation[1] and q[2] == QF.elevation[2], "the field gun's whole dial")
-			end
-			-- (the howitzer's lowest lay is tuned to Map 1's spacing too: at 520 it can't reach the cap; same open question)
-			if name == "Map1" then
+				assert(hMost <= cap + 1 and hMost > cap - 20, `{name} howitzer {hMost} for a cap of {cap}`)
+			else
+				-- (Map 1, still on the old 420 spacing until its rework: the howitzer stops short of its longest shot)
 				for key, g in { how = HOW } do
 					local lims = A.capped(g, cap)
 					assert(lims[1] >= g.elevation[1] and lims[2] <= g.elevation[2] and lims[1] <= lims[2], key)

@@ -766,7 +766,10 @@ local Artillery = {
 	-- howitzer lowers no further). Bots aim within it too. Machine guns keep their own range. `guns`: a gun's own, keyed
 	-- by gun (none now: the field cannon is back at one sector, user 2026-11-03 "keep the 1 sector range of the field
 	-- cannon", by a slower shell whose longest shot is inside it, so it still lays its whole dial; was 1.5 sectors).
-	Reach = { sectors = 1, margin = 90, guns = {} },
+	-- (margin 190, was 90: user 2026-11-06, the map rework, "guns (a)": the gun pits stand 140 behind their point, so
+	-- a gun there reaches the next point, ~520 out on Lantern Meadows, and no further than ~190 past it; two points
+	-- away, 1,040, stays out of reach)
+	Reach = { sectors = 1, margin = 190, guns = {} },
 	Wreck = {
 		at = { 75, 50, 25, 0 },
 		dark = 4,
@@ -841,11 +844,11 @@ local Artillery = {
 			swing = 10,
 			traverseRate = 6,
 			elevationRate = 4,
-			-- 190 studs/s (user 2026-11-03 picked "a slower shell so the longest shot, 45°, lands at ~510 studs": one
-			-- sector, Reach, with the whole dial still laid; was 227, 720 at 45): 88 studs at 5 degrees, 324 at 20, 437 at
-			-- 30, 504 at 45 (its longest, inside Map 1's 513 and Lantern Meadows' 512), 324 lobbed at 70 (topping out ~220
-			-- up, ~5 s in the air); 1.8 s at 20, 3.8 s at 45
-			speed = 190,
+			-- 225.8 studs/s (user 2026-11-06, the map rework, "guns (a)": points 520 apart, so the longest shot, 45°,
+			-- lands at ~712, one point ahead from the gun pits 140 behind its own point, never two; Reach below. Was 190,
+			-- 504 at 45, user 2026-11-03, for 420 spacing): ~124 at 5 degrees, ~458 at 20, ~618 at 30, ~712 at 45, ~458
+			-- lobbed at 70
+			speed = 225.8,
 			gravity = 71.6,
 			charge = 0.45,
 			breechOpens = true,
@@ -1024,7 +1027,9 @@ local Artillery = {
 			swing = 3,
 			traverseRate = 5,
 			elevationRate = 5,
-			speed = 160,
+			-- (176, was 160: the map rework's 520 spacing, user 2026-11-06 "guns (a)": its lowest lay, 45, now ~712, one
+			-- point ahead from its pad 210 behind its own point)
+			speed = 176,
 			gravity = 43.5, -- (340 under 196.2 before: the same ranges, ~2.1x the flight: 5.2 s at 45, 7.2 at 80)
 			charge = 1.8, -- its magic charge-up (user 2026-10-21: "make the howitzer have a cinematic magic charge up")
 			breechOpens = false, -- (user 2026-10-21: "remove the close and opening on the howitzer, leave it closed")
