@@ -461,7 +461,14 @@ local function runLines()
 		-- (the shape of its trenches: joints, sharp joints and short squares, bots' and players'; bot plans refused for
 		-- a sharp bend; Config/Bots.Trenches.Shape)
 		local SH = Cfg.Trenches.Shape
-		local sh = Trenches.shapes(side, SH.sharp, SH.short)
+		local kit: string? = nil
+		for _, b in bots do
+			if b.side == side and b.kit then
+				kit = b.kit
+				break
+			end
+		end
+		local sh = Trenches.shapes(kit or side, SH.sharp, SH.short)
 		local bent = State.ByTrench.runs[`{side} refused: Too sharp a bend`] or 0
 		table.insert(
 			lines,
