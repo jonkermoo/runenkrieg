@@ -46,6 +46,7 @@ local Damage = require(Shared.Config.Damage)
 local DevCfg = require(Shared.Config.DevTools)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Artillery)
+local Spells = require(Shared.Config.Spells)
 local LiveMap = require(Shared.LiveMap)
 local Grenade = require(Shared.Rules.Grenade)
 local ShotRules = require(Shared.Rules.ShotAudio)
@@ -139,6 +140,13 @@ local function gunnerOf(model: Model): (Model?, boolean)
 	return bot, true
 end
 
+-- the magic gun's colours: its gunner's team's staff scheme (Rules/Artillery.fxScheme; user 2026-11-06: "make howitzer
+-- colors match team staff colors")
+local function schemeOf(model: Model, gun: any): string
+	local character = gunnerOf(model)
+	return Rules.fxScheme(gun, character and character:GetAttribute("Kit"), Spells.Staff.Teams)
+end
+
 -- the character whose gunner tracks this client plays on `model`: mine when I'm on it (they replicate), a bot's on
 -- every client
 local function playedBy(model: Model): Model?
@@ -203,7 +211,7 @@ local function track(model: Model)
 			local frame = model:GetPivot()
 			local at = frame:PointToWorldSpace(Vector3.new(mx, my, mz))
 			local muzzle = CFrame.lookAt(at, at + frame:VectorToWorldSpace(Vector3.new(dx, dy, dz)))
-			local stop = ArtilleryFx.charge(gun, muzzle, pose.crystal)
+			local stop = ArtilleryFx.charge(gun, muzzle, pose.crystal, schemeOf(model, gun))
 			charging[model] = stop
 			task.delay(gun.charge + 0.5, function()
 				if charging[model] == stop then
@@ -1042,6 +1050,10 @@ function Artillery.start()
 				Boom = gun.mg.boom,
 				Jingle = gun.mg.jingle,
 				Reload = gun.mg.reload.sounds,
+				Far = gun.mg.far,
+				FarBody = gun.mg.farBody,
+				Pass = gun.mg.pass,
+				PassBody = gun.mg.passBody,
 			})
 			CaseDrop.preload()
 			local ids = { gun.mg.reload.animation }
@@ -1560,13 +1572,14 @@ function Artillery.start()
 		local landing, flight = trace(origin, velocity, gun.gravity, { model })
 		-- the muzzle blast and the air, smoke and sound round the gun, the gunner's view kicked wide, and the shell
 		-- itself flying its path
-		ArtilleryFx.shot(gun, origin, velocity)
+		local scheme = schemeOf(model, gun)
+		ArtilleryFx.shot(gun, origin, velocity, scheme)
 		if mine == model then
 			ArtilleryFx.punch(gun, function()
 				return mine == model
 			end)
 		end
-		ArtilleryFx.shell(gun, origin, velocity, if landing then flight else Cfg.MaxFlight)
+		ArtilleryFx.shell(gun, origin, velocity, if landing then flight else Cfg.MaxFlight, scheme)
 		local stop = charging[model]
 		if stop then
 			charging[model] = nil
@@ -1620,12 +1633,25 @@ function Artillery.start()
 				SoundFx.play(mg.jingle, if can then can.Position else origin, nil, { pitch = vary })
 			end
 			if model == mine then
-				SoundFx.play(mg.shot, origin, nil, { eq = mg.report.eq, pitch = mg.report.pitch * vary })
+				-- (a little lower and heavier, as every gun: Config/Audio.Weight)
+				local wt = AudioCfg.Weight
+				local eq = { mg.report.eq[1] + wt.eq[1], mg.report.eq[2] + wt.eq[2], mg.report.eq[3] + wt.eq[3] }
+				SoundFx.play(mg.shot, origin, nil, { eq = eq, pitch = mg.report.pitch * wt.pitch * vary })
 				SoundFx.play(mg.boom, origin, nil, { pitch = vary })
 				heat = Rules.mgHeat(heat, 1, 0, mg.spread)
 				CameraShake.kick(origin, mg.shake, mg.shakeReach) -- (user 2026-10-29: "some camera shake too")
 			else
-				local heard = { sounds = { Shot = mg.shot }, report = mg.report }
+				local heard = {
+					sounds = {
+						Shot = mg.shot,
+						Far = mg.far,
+						FarBody = mg.farBody,
+						Pass = mg.pass,
+						PassBody = mg.passBody,
+					},
+					report = mg.report,
+					passBy = mg.passBy,
+				}
 				ShotAudio.heardAs(model, model:GetAttribute("Gun") :: any, heard, origin, { hit })
 				-- (its boom too, near enough to hear it apart from the far report, late as sound is)
 				local d = (origin - workspace.CurrentCamera.CFrame.Position).Magnitude
@@ -1645,20 +1671,22 @@ function Artillery.start()
 		end)
 
 	-- a shell's blast
-	Net.event("ArtilleryBlast").OnClientEvent:Connect(function(position: Vector3, key: string)
+	-- (`kit`: its gunner's team, for the magic gun's colours: Rules/Artillery.fxScheme)
+	Net.event("ArtilleryBlast").OnClientEvent:Connect(function(position: Vector3, key: string, kit: string?)
 		local gun = Cfg.Guns[key]
 		if not gun then
 			return
 		end
+		local scheme = Rules.fxScheme(gun, kit, Spells.Staff.Teams)
 		local t0 = os.clock()
 		Vfx.Blast.play(position, {
 			normal = Vector3.yAxis,
 			kg = gun.kg,
-			scheme = gun.vfx.scheme,
+			scheme = scheme,
 			magic = gun.vfx.magic,
 		})
 		Hitches.since("Shell blast fx", t0)
-		ArtilleryFx.blast(gun, position)
+		ArtilleryFx.blast(gun, position, scheme)
 		local d = (camera.CFrame.Position - position).Magnitude
 		local delay, high, low = Grenade.heard(d, Cfg.Heard, AudioCfg.Heard.speed)
 		SoundFx.play(gun.sound.blast :: any, position, nil, { delay = delay, eq = { low, 0, high } })

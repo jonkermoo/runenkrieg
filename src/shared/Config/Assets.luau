@@ -579,7 +579,7 @@ local Assets = {
 			description = "Bandage worn round the head (2 crossing turns); its Origin goes at the head part centre. Place by the Origin position and keep each part's imported rotation (as Helmets / Armory do); never PivotTo the model (its pivot is rotated: KNOWN_TRAPS).",
 		},
 		rig1 = {
-			id = 117320424913312, -- no pouch below the torso or inside the arms (user 2026-10-31; v2 108363500048383: smooth one-piece bands)
+			id = 127689166763929, -- belt off the torso's underside (user 2026-11-06: "still clipping with the underside"; was 117320424913312: no pouch below the torso or inside the arms, 2026-10-31)
 			category = "Teams",
 			folder = "Shared/Rigs",
 			source = "assets/teams/shared/rigs/rig1.fbx",
@@ -594,7 +594,7 @@ local Assets = {
 			},
 		},
 		rig2 = {
-			id = 128422032102660, -- no pouch below the torso, chest pouches on the bands (user 2026-10-31; v2 80275123969636: smooth one-piece bands)
+			id = 74530963740320, -- belt off the torso's underside (user 2026-11-06; was 128422032102660: no pouch below the torso, chest pouches on the bands, 2026-10-31)
 			category = "Teams",
 			folder = "Shared/Rigs",
 			source = "assets/teams/shared/rigs/rig2.fbx",
@@ -609,7 +609,7 @@ local Assets = {
 			},
 		},
 		rig3 = {
-			id = 92353728399895, -- no pouch below the torso (user 2026-10-31; v2 122497898146324: smooth one-piece bands)
+			id = 119729769896497, -- belt off the torso's underside (user 2026-11-06; was 92353728399895: no pouch below the torso, 2026-10-31)
 			category = "Teams",
 			folder = "Shared/Rigs",
 			source = "assets/teams/shared/rigs/rig3.fbx",

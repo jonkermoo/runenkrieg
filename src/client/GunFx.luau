@@ -23,9 +23,11 @@ local Holes = require(Shared.Rules.Holes)
 local Net = require(Shared.Net)
 local Hitches = require(Shared.Hitches)
 local W = require(Shared.Config.Weapons)
+local AudioCfg = require(Shared.Config.Audio)
 local Audio = require(script.Parent.Audio)
 local CaseDrop = require(script.Parent.CaseDrop)
 local Impacts = require(script.Parent.Impacts)
+local SoundFx = require(script.Parent.SoundFx)
 
 local GunFx = {}
 
@@ -136,9 +138,11 @@ function GunFx.sound(gun: BasePart, name: string)
 			made.PlaybackRegionsEnabled = true
 			made.PlaybackRegion = NumberRange.new(c.start or 0, c.stop or 600)
 		end
-		if report then
+		if name == "Shot" then -- (its tone, a little heavier: Config/Audio.Weight)
+			local tone = if report then report.eq else { 0, 0, 0 }
 			local q = Instance.new("EqualizerSoundEffect")
-			q.LowGain, q.MidGain, q.HighGain = report.eq[1], report.eq[2], report.eq[3]
+			local w = AudioCfg.Weight.eq
+			q.LowGain, q.MidGain, q.HighGain = tone[1] + w[1], tone[2] + w[2], tone[3] + w[3]
 			q.Parent = made
 		end
 		made.Parent = gun
@@ -148,6 +152,9 @@ function GunFx.sound(gun: BasePart, name: string)
 	local c = soundOf(gun, name)
 	local pitch = if report then report.pitch else 1
 	if name == "Shot" then
+		pitch *= AudioCfg.Weight.pitch
+		-- the thump under the shot (Config/Firing.Sounds.Body), at the gun's pitch
+		SoundFx.play(soundOf(gun, "Body"), gun, nil, { pitch = pitch })
 		-- each shot its own copy (user 2026-10-13: a quick second shot cut the first one off), gone once it has played
 		snd = snd:Clone()
 		snd.Parent = gun

@@ -71,9 +71,16 @@ end
 
 type Flame = { tip: Attachment, beam: Beam, dir: Vector3, length: number, width: number }
 
-function Muzzle.play(origin: Vector3, direction: Vector3, scale: number?, look: string?, full: boolean?)
+-- (`look`: a Looks name, or a look's own table: the howitzer's in its gunner's team colours, Rules/Artillery.magicLook)
+function Muzzle.play(
+	origin: Vector3,
+	direction: Vector3,
+	scale: number?,
+	look: (string | { [string]: any })?,
+	full: boolean?
+)
 	local k = scale or 1
-	local L = (Cfg.Looks :: any)[look or "Field"] or Cfg.Looks.Field
+	local L = if type(look) == "table" then look else (Cfg.Looks :: any)[look or "Field"] or Cfg.Looks.Field
 	local near = full ~= false
 	local dir = if direction.Magnitude > 1e-6 then direction.Unit else Vector3.zAxis
 	local along = facing(origin, dir)

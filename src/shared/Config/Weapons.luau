@@ -475,8 +475,8 @@ local Weapons: { [string]: Weapon } = {
 			-- heard far off (src/client/ShotAudio): "Gun Live Ammunition 1" (Pro Sound Effects, a Mossberg 12 gauge
 			-- "Distant and Low Angle"), cut before the pump's cocking; pellets whiz by: "Bullet Whiz 1 / 2"
 			Far = {
-				{ id = 9114710159, volume = 1.6, stop = 1.4, fade = 0.6 },
-				{ id = 9114712952, volume = 1.6, stop = 1.25, fade = 0.5 },
+				{ id = 9114710159, volume = 2.4, stop = 1.4, fade = 0.6 },
+				{ id = 9114712952, volume = 2.4, stop = 1.25, fade = 0.5 },
 			},
 			Pass = {
 				{ id = 9113634361, volume = 1, lead = 0.04 },

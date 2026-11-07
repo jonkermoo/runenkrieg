@@ -367,6 +367,40 @@ return {
 		end
 		assert(V.Looks.Field.ring == nil and V.Looks.Magic.ring, "only the magic gun's smoke ring has runes")
 	end,
+	["the howitzer's magic takes its gunner's team's staff colours, in a tight cone"] = function()
+		-- user 2026-11-06: "make howitzer colors match team staff colors", "make the howitzer effects a tighter cone"
+		local Palette = require("../src/shared/Config/Palette")
+		local Vfx = require("../src/shared/Config/Vfx")
+		local Spells = require("../src/shared/Config/Spells")
+		local teams = Spells.Staff.Teams
+		for kit, scheme in teams do
+			assert(A.fxScheme(HOW, kit, teams) == scheme, kit)
+			assert(A.fxScheme(QF, kit, teams) == QF.vfx.scheme, "a plain gun keeps its own look")
+			local look = A.magicLook((Vfx.Schemes :: any)[scheme])
+			for _, c in { look.flash, look.glint, look.embers, look.ring, table.unpack(look.fire) } do
+				assert((Palette.Magic :: any)[c], `{scheme}: {c}`)
+			end
+		end
+		assert(A.fxScheme(HOW, nil, teams) == HOW.vfx.scheme and A.fxScheme(HOW, "nobody", teams) == HOW.vfx.scheme)
+		-- the grey team's frost blue gives the old Magic look
+		local arcane = A.magicLook(Vfx.Schemes.Arcane)
+		local old = Vfx.Muzzle.Looks.Magic
+		assert(arcane.flash == old.flash and arcane.ring == old.ring and arcane.embers == old.embers)
+		for i, c in old.fire do
+			assert(arcane.fire[i] == c, i)
+		end
+		-- the charge circles widen at most ~20 degrees off the bore, each further out and wider than the last
+		local last = nil
+		for _, layer in C.Fx.Charge.layers do
+			assert(math.deg(math.atan(layer.diameter / 2 / layer.ahead)) < 50)
+			if last then
+				assert(layer.ahead > last.ahead and layer.diameter > last.diameter)
+				local spread = (layer.diameter - last.diameter) / 2 / (layer.ahead - last.ahead)
+				assert(math.deg(math.atan(spread)) <= 20, "a tight cone")
+			end
+			last = layer
+		end
+	end,
 	["the field gun stands on levelled bare earth with its hitbox, the howitzer keeps its block"] = function()
 		-- user 2026-10-27: "the field cannon shouldnt have a platform ... make the ground its on lose its grass"
 		local L = QF.level :: any

@@ -467,7 +467,9 @@ end
 -- runs long, then the blast (src/server/Damage)
 local function burst(key: string, at: Vector3, by: Model?)
 	local gun = Cfg.Guns[key]
-	Net.event("ArtilleryBlast"):FireAllClients(at, key)
+	-- (with its gunner's team: the magic gun's blast in its staff colours, Rules/Artillery.fxScheme)
+	local kit = by and by:GetAttribute("Kit")
+	Net.event("ArtilleryBlast"):FireAllClients(at, key, if type(kit) == "string" then kit else nil)
 	Damage.blast(at, gun.kg, by, { fragments = gun.fragments, craterScale = gun.craterScale })
 end
 
