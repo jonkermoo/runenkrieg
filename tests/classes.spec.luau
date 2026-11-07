@@ -33,7 +33,7 @@ return {
 		assert(not C.Defs.Engineer.locked, "the engineer is open to players (user 2026-11-01)")
 		assert(R.price(C.Defs[C.Default]) == 0 and not C.Defs[C.Default].locked, "the default is free and pickable")
 		for _, key in { "Grenadier", "Engineer" } do
-			assert(C.Defs[key].unlock <= C.Start, `the start pays the {key}'s unlock`)
+			assert(R.price(C.Defs[key]) <= C.Start, `the start pays a first life as the {key}`)
 		end
 		assert(R.price(C.Defs.Grenadier) + R.price(C.Defs.Engineer) > C.Start, "but not both")
 		for _, key in C.List do

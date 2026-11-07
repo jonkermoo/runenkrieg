@@ -71,7 +71,7 @@ local Classes = {
 	},
 	-- points at the start of every match: enough to unlock and play the Grenadier or the Engineer (user 2026-11-05:
 	-- "give all soldiers a starting fee enough to pay for engineer or to pay for grenadier")
-	Start = 75,
+	Start = 85, -- (user 2026-11-06: "Start at 85": a first life as Grenadier or Engineer, unlock and fee)
 	Default = "Rifleman", -- free: anyone can always play it
 	-- the classes in the menu's order
 	List = { "Rifleman", "Grenadier", "AutoRifler", "Shotgunner", "Engineer", "Mage" },
