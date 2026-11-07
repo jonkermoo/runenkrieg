@@ -774,4 +774,27 @@ function Artillery.heatGlow(heat: number, i: number, n: number, lead: number): n
 	return math.clamp((heat - from) / (1 - from), 0, 1)
 end
 
+-- The look of a gun's magic (user 2026-11-06: "make howitzer colors match team staff colors"): a magic gun's is its
+-- gunner's team's staff scheme (`teams`: Config/Spells.Staff.Teams, by the gunner's "Kit"), as the staff's own cast
+-- is its caster's; anyone else, and every plain gun, its own `vfx.scheme` (Config/Vfx.Schemes names)
+function Artillery.fxScheme(gun: any, kit: any, teams: { [string]: string }): string
+	if gun.vfx.magic and type(kit) == "string" and teams[kit] then
+		return teams[kit]
+	end
+	return gun.vfx.scheme
+end
+
+-- A magic muzzle look (Config/Vfx.Muzzle.Looks) in scheme `s`'s colours (a Config/Vfx.Schemes entry): the fireball
+-- deep edge -> body -> body -> white-hot core, its flash, glint and star the core, embers and rune ring the body (the
+-- frost-blue Arcane gives the old Magic look: Deep, Glow, Glow, Core)
+function Artillery.magicLook(s: any): { [string]: any }
+	return {
+		fire = { s.layers[3], s.glow, s.glow, s.core },
+		flash = s.core,
+		glint = s.core,
+		embers = s.glow,
+		ring = s.glow,
+	}
+end
+
 return Artillery

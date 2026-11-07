@@ -12,6 +12,8 @@
 -- - shell(gun, origin, velocity, flight): the shell flying its path: the field gun's a hot slug trailing smoke that
 --   corkscrews off it at first and shedding sparks, the howitzer's a blue orb trailing light with static crackling
 --   round it;
+-- - the magic gun's colours are its gunner's team's staff scheme (`scheme`, a Config/Vfx.Schemes name from
+--   Rules/Artillery.fxScheme; user 2026-11-06: "make howitzer colors match team staff colors"), nil: its own;
 -- - charge(gun, model, muzzle, crystal): the howitzer's charge-up before the shot: a magic circle opening at the
 --   muzzle, energy gathering in it, lightning running from the crystal to the muzzle, static on the crystal, a rising
 --   hum; returns a stop called at the shot;
@@ -26,6 +28,7 @@ local Rules = require(Shared.Rules.Artillery)
 local CameraShake = require(script.Parent.CameraShake)
 local SoundFx = require(script.Parent.SoundFx)
 local Vfx = require(script.Parent.Vfx)
+local VfxCfg = require(Shared.Config.Vfx)
 
 local ArtilleryFx = {}
 
@@ -35,6 +38,14 @@ local rng = Random.new()
 
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
+end
+
+-- a magic gun's scheme (Config/Vfx.Schemes), nil for a plain gun or an unknown name
+local function schemeOf(gun: any, scheme: string?): any
+	if not gun.vfx.magic then
+		return nil
+	end
+	return (VfxCfg.Schemes :: any)[scheme or gun.vfx.scheme]
 end
 
 -- a quick swelling see-through ball (the air thrown out by the blast)
@@ -176,13 +187,14 @@ function ArtilleryFx.punch(gun: any, manning: () -> boolean)
 	end)
 end
 
-function ArtilleryFx.shot(gun: any, origin: Vector3, dir: Vector3)
+function ArtilleryFx.shot(gun: any, origin: Vector3, dir: Vector3, scheme: string?)
 	local k = gun.muzzleScale
 	local d = if dir.Magnitude > 1e-6 then dir.Unit else Vector3.zAxis
 	local look = if gun.vfx.magic then "Magic" else "Field"
+	local s = schemeOf(gun, scheme)
 	local near = (workspace.CurrentCamera.CFrame.Position - origin).Magnitude <= F.far
 	-- the muzzle's own beats: fireball, flash, glint, jet, smoke ring, embers, dust (Vfx/Muzzle)
-	Vfx.Muzzle.play(origin, d, k, look, near)
+	Vfx.Muzzle.play(origin, d, k, if s then Rules.magicLook(s) else look, near)
 	CameraShake.kick(origin, F.Shake.shot * k, F.Shake.reach * k)
 	-- smoke curling up out of the barrel after the shot, thinning out (user 2026-10-21: "make smoke come out of the
 	-- cannons (both)")
@@ -194,14 +206,15 @@ function ArtilleryFx.shot(gun: any, origin: Vector3, dir: Vector3)
 		return
 	end
 	local S = F.Shot
+	local wave = if s then s.core else S.color
 	-- the pressure wave racing out along the bore, twice, and a ring blown flat across the ground
-	Vfx.Shockwave.play(origin + d * S.ahead * k, d, S.color, S.wave * k)
+	Vfx.Shockwave.play(origin + d * S.ahead * k, d, wave, S.wave * k)
 	task.delay(0.06, function()
-		Vfx.Shockwave.play(origin + d * S.ahead * k * 2, d, S.color, S.wave * k * 1.4)
+		Vfx.Shockwave.play(origin + d * S.ahead * k * 2, d, wave, S.wave * k * 1.4)
 	end)
 	local ground = workspace:Raycast(origin, Vector3.new(0, -S.groundReach * k, 0))
 	if ground then
-		Vfx.Shockwave.play(ground.Position + Vector3.new(0, 0.2, 0), Vector3.yAxis, S.color, S.ground * k)
+		Vfx.Shockwave.play(ground.Position + Vector3.new(0, 0.2, 0), Vector3.yAxis, wave, S.ground * k)
 	end
 	bubble(origin + d * S.ahead * k, F.Air.size * k, F.Air.time)
 	-- the smoke bank hanging low in front, and on the magic gun its motes twinkling in it
@@ -214,7 +227,14 @@ function ArtilleryFx.shot(gun: any, origin: Vector3, dir: Vector3)
 	run(smoke(at, box, B, k), B.rate, B.at, B.time, B.life[2], 0)
 	if gun.vfx.magic then
 		local G = B.sparkle
-		run(motes(at, box, Vfx.Util.color(G.color), G.size * k, G.life, 2), G.rate, B.at, B.time * 2, G.life[2], 0)
+		run(
+			motes(at, box, Vfx.Util.color(if s then s.glow else G.color), G.size * k, G.life, 2),
+			G.rate,
+			B.at,
+			B.time * 2,
+			G.life[2],
+			0
+		)
 	end
 	-- the sound layers after the report: the recoil's clank, the dirt pattering down, the barrel running home
 	for _, layer in F.Sound[look] do
@@ -251,10 +271,14 @@ local function trailOff(kit: TrailKit)
 end
 
 -- the shell flying its path for `flight` seconds (the server's own path, the same maths)
-function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight: number)
+function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight: number, scheme: string?)
 	local P = gun.shell
-	local core =
-		Vfx.Pool.part(Enum.PartType.Ball, rgb(P.color), Vector3.one * P.size, CFrame.new(origin), 0, Enum.Material.Neon)
+	-- the magic shell in its team's colours: a white-hot core and star, a trail and static in the scheme's body colour
+	local s = schemeOf(gun, scheme)
+	local hot = if s then Vfx.Util.color(s.core) else rgb(P.color)
+	local tail = if s then Vfx.Util.color(s.glow) else rgb(P.tail)
+	local static = if s then s.glow else P.static
+	local core = Vfx.Pool.part(Enum.PartType.Ball, hot, Vector3.one * P.size, CFrame.new(origin), 0, Enum.Material.Neon)
 	-- its trail: two attachments across it, a Trail fading behind
 	local kit = trailOn(core)
 	local trail = kit.trail
@@ -262,7 +286,7 @@ function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight:
 	kit.a1.Position = Vector3.new(0, -P.size * 0.4, 0)
 	trail.Lifetime = P.trail
 	trail.LightEmission = if P.magic then 1 else 0.6
-	trail.Color = ColorSequence.new(rgb(P.color), rgb(P.tail))
+	trail.Color = ColorSequence.new(hot, tail)
 	trail.Transparency = NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 0.1),
 		NumberSequenceKeypoint.new(1, 1),
@@ -285,12 +309,12 @@ function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight:
 		e.Rate = C.rate
 		e.Enabled = true
 		screw = e
-		local m = motes(CFrame.new(origin), Vector3.one * 0.2, rgb(P.color), P.size * 0.3, { 0.2, 0.4 }, 6)
+		local m = motes(CFrame.new(origin), Vector3.one * 0.2, hot, P.size * 0.3, { 0.2, 0.4 }, 6)
 		m.Rate = C.sparks
 		m.Enabled = true
 		sparks = m
 	end
-	local light = Vfx.Pool.light(origin, rgb(P.color), P.light, P.star and P.star.brightness or 2)
+	local light = Vfx.Pool.light(origin, hot, P.light, P.star and P.star.brightness or 2)
 	-- a bright four-point star (user 2026-10-21: "make it a bright 4 point star ... look at some clips from animes"):
 	-- the anime sparkle: four long spikes in a cross, wide at the core and tapering to needle points (beams square to the
 	-- camera), four faint short ones between them, a soft halo round the white-hot core; it twinkles
@@ -307,14 +331,20 @@ function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight:
 			spikes[k] = Vfx.Pool.beam(
 				centre :: Attachment,
 				tips[k],
-				rgb(S.color),
+				if s then hot else rgb(S.color),
 				if long then S.width else S.diagWidth,
 				0,
 				if long then 0 else S.diagFade,
 				S.beamBrightness
 			)
 		end
-		halo = Vfx.Pool.part(Enum.PartType.Ball, rgb(S.color), Vector3.one * S.halo, CFrame.new(origin), S.haloFade)
+		halo = Vfx.Pool.part(
+			Enum.PartType.Ball,
+			if s then hot else rgb(S.color),
+			Vector3.one * S.halo,
+			CFrame.new(origin),
+			S.haloFade
+		)
 	end
 	local nextArc = 0
 	local t0 = os.clock()
@@ -396,15 +426,22 @@ function ArtilleryFx.shell(gun: any, origin: Vector3, velocity: Vector3, flight:
 		if P.magic and now >= nextArc then
 			nextArc = now + F.Static.every
 			local off = rng:NextUnitVector() * F.Static.reach * P.size
-			Vfx.Lightning.bolt(p, p + off, F.Static.life, P.static)
+			Vfx.Lightning.bolt(p, p + off, F.Static.life, static)
 		end
 		return true
 	end, finish)
 end
 
 -- the howitzer's charge-up at `muzzle` (a CFrame looking out of it), from the crystal; returns a stop for the shot
-function ArtilleryFx.charge(gun: any, muzzle: CFrame, crystal: BasePart?): () -> ()
+function ArtilleryFx.charge(gun: any, muzzle: CFrame, crystal: BasePart?, scheme: string?): () -> ()
 	local C = F.Charge
+	-- its team's colours, as its staff's charge (Config/Vfx.Schemes: circle, dots, haze, orbits, white-hot centres)
+	local s = schemeOf(gun, scheme)
+	local color = if s then s.charge else C.color
+	local accent = if s then s.accent else nil
+	local haze = if s then s.haze else nil
+	local orbit = if s then s.orbit else C.color
+	local hot = if s then s.core else nil
 	local time = gun.charge
 	-- the layered circles (user 2026-10-21: "a similar multi layer circle animation" to the staff's, "the circles are
 	-- way way WAY bigger"): stacked out from the muzzle along the bore, each opening in its turn through the charge,
@@ -412,9 +449,9 @@ function ArtilleryFx.charge(gun: any, muzzle: CFrame, crystal: BasePart?): () ->
 	local circles: { any } = {}
 	local orbits: { any } = {}
 	local opened: { boolean } = {}
-	local orb = Vfx.Charge.start(muzzle.Position, time, C.color)
+	local orb = Vfx.Charge.start(muzzle.Position, time, color, hot)
 	if crystal then
-		Vfx.Aura.play(crystal, time, C.color)
+		Vfx.Aura.play(crystal, time, color)
 	end
 	local hum = SoundFx.loop(C.hum, muzzle.Position)
 	SoundFx.play(C.open :: any, muzzle.Position)
@@ -433,9 +470,16 @@ function ArtilleryFx.charge(gun: any, muzzle: CFrame, crystal: BasePart?): () ->
 		for i, layer in C.layers do
 			if not opened[i] and t >= layer.at * time then
 				opened[i] = true
-				circles[i] =
-					Vfx.Circle.open(frame(layer), layer.diameter, C.color, layer.appear, layer.assemble == true)
-				orbits[i] = Vfx.Orbits.new(layer.orbits, layer.diameter, C.color)
+				circles[i] = Vfx.Circle.open(
+					frame(layer),
+					layer.diameter,
+					color,
+					layer.appear,
+					layer.assemble == true,
+					accent,
+					haze
+				)
+				orbits[i] = Vfx.Orbits.new(layer.orbits, layer.diameter, orbit, hot)
 				orbits[i].move(frame(layer))
 			end
 		end
@@ -443,7 +487,7 @@ function ArtilleryFx.charge(gun: any, muzzle: CFrame, crystal: BasePart?): () ->
 		-- lightning from the crystal along the barrel to the muzzle, quicker as it builds
 		if crystal and now >= nextBolt then
 			nextBolt = now + C.boltEvery[1] + (C.boltEvery[2] - C.boltEvery[1]) * k
-			Vfx.Lightning.bolt(crystal.Position, muzzle.Position, C.boltLife, C.color)
+			Vfx.Lightning.bolt(crystal.Position, muzzle.Position, C.boltLife, color)
 		end
 		-- and between the circles' rims, more as it builds
 		local last = #circles
@@ -453,7 +497,7 @@ function ArtilleryFx.charge(gun: any, muzzle: CFrame, crystal: BasePart?): () ->
 			local l0, l1 = C.layers[1], C.layers[last]
 			local p0 = frame(l0) * CFrame.new(math.cos(a) * l0.diameter / 2, math.sin(a) * l0.diameter / 2, 0)
 			local p1 = frame(l1) * CFrame.new(math.cos(a) * l1.diameter / 2, math.sin(a) * l1.diameter / 2, 0)
-			Vfx.Lightning.bolt(p0.Position, p1.Position, C.boltLife, C.color)
+			Vfx.Lightning.bolt(p0.Position, p1.Position, C.boltLife, color)
 		end
 		return true
 	end)
@@ -476,18 +520,20 @@ function ArtilleryFx.charge(gun: any, muzzle: CFrame, crystal: BasePart?): () ->
 end
 
 -- the howitzer's static after its blast: bolts leaping out over the ground, a crackling aura (its shake: Vfx/Blast)
-function ArtilleryFx.blast(gun: any, position: Vector3)
+function ArtilleryFx.blast(gun: any, position: Vector3, scheme: string?)
 	if not gun.vfx.magic then
 		return
 	end
 	local B = F.Blast
-	Vfx.Aura.play(position, B.aura, B.color)
+	local s = schemeOf(gun, scheme)
+	local color = if s then s.glow else B.color
+	Vfx.Aura.play(position, B.aura, color)
 	for _ = 1, B.bolts do
 		task.delay(rng:NextNumber(0, B.spread), function()
 			local a = rng:NextNumber(0, 2 * math.pi)
 			local r = gun.zone * rng:NextNumber(0.5, 1.2)
 			local to = position + Vector3.new(math.cos(a) * r, rng:NextNumber(-1, 3), math.sin(a) * r)
-			Vfx.Lightning.bolt(position + Vector3.new(0, 1, 0), to, B.life, B.color)
+			Vfx.Lightning.bolt(position + Vector3.new(0, 1, 0), to, B.life, color)
 		end)
 	end
 end
