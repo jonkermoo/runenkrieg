@@ -282,14 +282,36 @@ local function sapTick(
 		for _, b in members do
 			b.sapper = nil
 		end
-		if phase ~= "Move" and phase ~= "Bound" or not sb then
-			sqs.markAt, sqs.markDist = now, d
+		-- (its progress by its most forward member: one walking up from the spawn after a respawn drags its middle back,
+		-- and a squad waiting at its gather point while its side gathers is where it was told to be; user 2026-11-06:
+		-- "everyone breaks at sector 4": half of each offensive's squads sapped from 130-220 studs short of it)
+		local fore = d
+		for _, b in members do
+			if b.root and alive(b) then
+				fore = math.min(fore, flat((b.root :: BasePart).Position - goalAt).Magnitude)
+			end
+		end
+		local gatherAt: Vector3? = sqs.jump or sqs.approach
+		local waiting = false
+		if allowed and gatherAt and not underFire then
+			for _, b in members do
+				if
+					b.root
+					and alive(b)
+					and flat((b.root :: BasePart).Position - gatherAt :: Vector3).Magnitude <= SQ.arrive * 3
+				then
+					waiting = true
+				end
+			end
+		end
+		if phase ~= "Move" and phase ~= "Bound" or not sb or waiting then
+			sqs.markAt, sqs.markDist = now, fore
 			return
 		end
-		if not sqs.markAt or d < (sqs.markDist :: number) - SP.progress then
-			sqs.markAt, sqs.markDist = now, d
+		if not sqs.markAt or fore < (sqs.markDist :: number) - SP.progress then
+			sqs.markAt, sqs.markDist = now, fore
 		end
-		local since, gained = now - (sqs.markAt :: number), (sqs.markDist :: number) - d
+		local since, gained = now - (sqs.markAt :: number), (sqs.markDist :: number) - fore
 		-- (stuck under fire; fighting by trench, also once near the objective: Rules/BotFront.sapNow)
 		local stalled = BotSap.stalled(since, gained, underFire, lost, SP)
 		-- (none while one given up rests, or while pressing on out of the open)
