@@ -66,7 +66,7 @@ function Greybox.build(mapName: string): string
 	-- and the frontline's wave lines stand on open ground (Rules/Frontline.lineQuads)
 	local lineCfg = fresh(Shared.Config.Frontline).Line
 	local lines = if map.sectors and #map.sectors >= 3
-		then fresh(Shared.Rules.Frontline).lineQuads(map.sectors, lineCfg, lineCfg.treeClear)
+		then fresh(Shared.Rules.Frontline).lineQuads(map.sectors, lineCfg, lineCfg.treeClear, MT.rallyOf(map))
 		else nil
 	local natural = if fixed
 		then fixed.trees

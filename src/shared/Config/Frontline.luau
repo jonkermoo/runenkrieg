@@ -121,6 +121,11 @@ local Frontline = {
 		recheck = 0.25,
 		relift = 0.05,
 	},
+	-- When a side's front sector counts as attacked (Rules/Frontline.pressing, .spawnSector; user 2026-11-06, the map
+	-- rework): `count` or more enemies within `ring` studs of its point (across the ground; that takes in the attackers'
+	-- sunken lane, the map's legs.fold.u), or any one within `inner` (inside its crests). Its side then spawns a sector
+	-- back, and only comes forward again `hold` seconds after the last time it was pressed (so it never flickers).
+	Fallback = { ring = 200, inner = 110, count = 3, hold = 30 },
 	-- the shield round a soldier in the wave line: a ball `size` studs across in its team's magic colour
 	-- (Config/Palette.UI.Grimoire.Magic), `transparency` see-through, fading out over the last of the shield's time
 	Shield = { size = 7, transparency = 0.75, name = "WaveShield" },

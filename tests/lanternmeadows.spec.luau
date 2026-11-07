@@ -21,25 +21,24 @@ local function unit(x: number, z: number): (number, number)
 	return x / l, z / l
 end
 
--- the first `rows` rows of `side`'s wave line at sector `i`, as src/server/Frontline stands it: at its own HQ in its
--- spawn zone, else Line.back of the way to the point behind (Rules/Frontline.lineCentre), facing the sector it attacks
+-- the first `rows` rows of `side`'s wave line while sector `i` is its front sector, as src/server/Frontline stands it on
+-- a map with the leg pattern: at the sector's rally (Rules/MapTerrain.rally), facing the enemy's next point
 local function waveLine(side: string, i: number, rows: number): { { number } }
-	local s = sectors[i]
-	local cx, cz
-	if i == (if side == "West" then 1 else #sectors) then
-		local r = Map.spawnZones[side]
-		cx, cz = (r.minX + r.maxX) / 2, (r.minZ + r.maxZ) / 2
-	else
-		cx, cz = R.lineCentre(sectors, i, side :: any, Front.Line)
-	end
-	local aim = sectors[if side == "West" then i + 1 else i - 1]
-	local fx, fz = unit(aim.x - cx, aim.z - cz)
+	local cx, cz, fx, fz = MT.rally(Map, i, side)
+	assert(cx and cz and fx and fz, `{side} has no rally at {sectors[i].id}`)
 	local out = {}
 	for k = 1, rows * Front.Line.perRow do
 		local r, b = R.slot(k, Front.Line)
 		table.insert(out, { cx - fz * r - fx * b, cz + fx * r - fz * b })
 	end
 	return out
+end
+
+-- (x, z) `u` out from sector i toward its neighbour on `side`'s enemy end and `n` across
+local function at(i: number, side: string, u: number, n: number): { number }
+	local dx, dz = MT.legWay(Map, i, side)
+	local x, z = MT.along(sectors[i].x, sectors[i].z, dx :: number, dz :: number, u, n)
+	return { x, z }
 end
 
 -- whether the ground leaves a clear line from `ah` over the ground at a to `bh` over the ground at b
@@ -56,41 +55,32 @@ local function clear(a: { number }, ah: number, b: { number }, bh: number): bool
 end
 
 return {
-	["every wave line stands closer to the point behind than to its front point, on its own side's ground, out of the river (user 2026-11-02)"] = function()
-		local rows = Front.Line.tries // Front.Line.perRow
-		assert(Front.Line.back > 0.5 and Front.Line.back < 1, "past halfway back, short of the point behind")
-		for i = 2, #sectors - 1 do
-			for _, side in { "West", "East" } do
-				local front, rear = sectors[i], sectors[if side == "West" then i - 1 else i + 1]
-				for _, p in waveLine(side, i, rows) do
-					local df = math.sqrt((p[1] - front.x) ^ 2 + (p[2] - front.z) ^ 2)
-					local dr = math.sqrt((p[1] - rear.x) ^ 2 + (p[2] - rear.z) ^ 2)
-					assert(dr < df, `{side}'s line at {front.id} is nearer {front.id} than {rear.id}`)
-					assert(dr > rear.radius + 20, `{side}'s line at {front.id} crowds {rear.id}'s zone`)
-					-- in the front sector or the one behind: both its own while it holds the front one
-					local id = Sec.sectorAt(Map, MT, p[1], p[2], SecCfg.Divider.RiverSegments)
-					assert(id == front.id or id == rear.id, `{side}'s line at {front.id} reaches into {id}`)
-					assert(not MT.isRiver(Map, p[1], p[2]), `{side}'s line at {front.id} stands in the river`)
-				end
-			end
-		end
-	end,
-	["the wave lines' ground is clear of trees (Rules/Frontline.lineQuads)"] = function()
+	["rallies: each side's spawn behind its own crest, in its own sector, on dry ground clear of trees (user 2026-11-06)"] = function()
 		local B = require("../src/shared/Config/Buildings")
 		local P = require("../src/shared/Config/Props")
 		local V = require("../src/shared/Rules/Village")
 		local lots = V.layout(Map, B, M, MT, P).lots
-		local quads = R.lineQuads(sectors, Front.Line, Front.Line.treeClear)
-		assert(#quads == 2 * (#sectors - 2), `{#quads} line quads`)
+		local quads = R.lineQuads(sectors, Front.Line, Front.Line.treeClear, MT.rallyOf(Map))
 		local rows = Front.Line.tries // Front.Line.perRow
-		for i = 2, #sectors - 1 do
+		for i, s in sectors do
 			for _, side in { "West", "East" } do
-				for _, p in waveLine(side, i, rows) do
-					local inside = false
-					for _, q in quads do
-						inside = inside or V.pointInQuad(p[1], p[2], q)
+				if MT.legWay(Map, i, side) then
+					local cx, cz = MT.rally(Map, i, side)
+					local d = dist({ x = cx :: number, z = cz :: number }, s)
+					assert(
+						math.abs(d - Map.legs.rally) < 1e-6 and Map.legs.rally < Map.legs.crest.u - 20,
+						"behind the crest"
+					)
+					for _, p in waveLine(side, i, rows) do
+						local id = Sec.sectorAt(Map, MT, p[1], p[2], SecCfg.Divider.RiverSegments)
+						assert(id == s.id, `{side}'s line at {s.id} reaches into {id}`)
+						assert(not MT.isRiver(Map, p[1], p[2]), `{side}'s line at {s.id} stands in the river`)
+						local inside = false
+						for _, q in quads do
+							inside = inside or V.pointInQuad(p[1], p[2], q)
+						end
+						assert(inside, `a slot of {side}'s line at {s.id} isn't in its cleared ground`)
 					end
-					assert(inside, `a slot of {side}'s line at {sectors[i].id} isn't in its cleared ground`)
 				end
 			end
 		end
@@ -100,33 +90,101 @@ return {
 			end
 		end
 	end,
-	["spawns behind cover: the ground hides a wave line from the next sector's point and wave line (user 2026-11-01)"] = function()
+	["spawns behind cover: no enemy short of the crest sees a rally (its point, crest, lane, the open ground)"] = function()
 		local eye, head = M.Character.EyeHeight, M.Character.Height
+		local C = Map.legs
 		for i = 1, #sectors - 1 do
 			for _, p in { { "West", i, "East", i + 1 }, { "East", i + 1, "West", i } } do
-				local side, at, foe, from = p[1] :: string, p[2] :: number, p[3] :: string, p[4] :: number
+				local side, own, foe, from = p[1] :: string, p[2] :: number, p[3] :: string, p[4] :: number
 				local viewers = waveLine(foe, from, 1)
 				table.insert(viewers, { sectors[from].x, sectors[from].z })
-				for _, slot in waveLine(side, at, 2) do
+				-- the enemy on its own crest facing us, in the lane it attacks us from, halfway across the open ground
+				for _, n in { -80, 0, 80 } do
+					table.insert(viewers, at(from, foe, C.crest.u, n))
+					table.insert(viewers, at(own, side, C.fold.u, n))
+					table.insert(viewers, at(own, side, dist(sectors[own], sectors[from]) / 2, n))
+				end
+				for _, slot in waveLine(side, own, 2) do
 					for _, v in viewers do
 						assert(
 							not clear(v, eye, slot, head),
-							`{side}'s line at {sectors[at].id} seen from {foe} at {sectors[from].id}`
+							`{side}'s line at {sectors[own].id} seen from {v[1]}, {v[2]}`
 						)
 					end
 				end
 			end
 		end
 	end,
-	["points on rises: the same crest everywhere, the zone's edge within the zone's height of its point"] = function()
-		for _, s in sectors do
-			local top = MT.heightAt(Map, s.x, s.z)
-			assert(math.abs(top - Map.rise.height) < 1, `{s.id}'s crest is {top}`)
-			for k = 0, 15 do
-				local a = k * math.pi / 8
-				local y = MT.heightAt(Map, s.x + math.cos(a) * s.radius, s.z + math.sin(a) * s.radius)
-				assert(math.abs(y - top) < Front.Height, `{s.id}'s zone edge is {top - y} under its point`)
+	["an attacked point's reinforcements can't see it: the spawn a sector back is hidden from its zone and crests"] = function()
+		local eye, head = M.Character.EyeHeight, M.Character.Height
+		local C = Map.legs
+		for i = 2, #sectors - 1 do
+			for _, side in { "West", "East" } do
+				local back = if side == "West" then i - 1 else i + 1
+				local viewers = {}
+				for k = 0, 15 do
+					local a = k * math.pi / 8
+					table.insert(viewers, {
+						sectors[i].x + math.cos(a) * sectors[i].radius,
+						sectors[i].z + math.sin(a) * sectors[i].radius,
+					})
+				end
+				local foe = if side == "West" then "East" else "West"
+				for _, n in { -80, 0, 80 } do
+					table.insert(viewers, at(i, foe, C.crest.u, n)) -- the crest facing the spawn
+				end
+				for _, slot in waveLine(side, back, 2) do
+					for _, v in viewers do
+						assert(
+							not clear(slot, eye, v, head),
+							`{side}'s spawn at {sectors[back].id} sees {sectors[i].id} at {v[1]}, {v[2]}`
+						)
+					end
+				end
+				local d = dist(sectors[i], sectors[back]) - C.rally
+				assert(d > 400, `{side} reinforces {sectors[i].id} from {d} studs`)
 			end
+		end
+	end,
+	["the leg pattern: crests stand over the point and the open ground, lanes are sunk, knolls rise"] = function()
+		local C = Map.legs
+		local function h(q: { number }): number
+			return MT.heightAt(Map, q[1], q[2])
+		end
+		for i, s in sectors do
+			for _, side in { "West", "East" } do
+				local o = sectors[if side == "West" then i + 1 else i - 1]
+				if o then
+					local top = h(at(i, side, C.crest.u, 0))
+					local base = h({ s.x, s.z })
+					assert(top - base > 4 or s.isHQ, `{s.id}'s {side} crest stands {top - base} over its point`)
+					local mid = at(i, side, dist(s, o) / 2, 0)
+					assert(top - h(mid) > 4, `{s.id}'s {side} crest stands {top - h(mid)} over the open ground`)
+					local floor = h(at(i, side, C.fold.u, 0))
+					local lip = math.max(h(at(i, side, C.fold.u - 14, 0)), h(at(i, side, C.fold.u + 14, 0)))
+					assert(lip - floor > 3.5, `{s.id}'s {side} lane is {lip - floor} deep`)
+					for _, sgn in { -1, 1 } do
+						local k = at(i, side, C.knoll.u, sgn * C.knoll.n)
+						local foot = at(i, side, C.knoll.u, sgn * (C.knoll.n + C.knoll.radius + 6))
+						assert(h(k) - h(foot) > 4, `{s.id}'s knoll is {h(k) - h(foot)} high`)
+					end
+				end
+			end
+		end
+	end,
+	["the open ground is open: no trees along the chain (user 2026-11-06)"] = function()
+		for _, t in MT.trees(Map) do
+			assert(MT.chainDistance(Map, t.x, t.z) >= Map.legs.calm.width, `a tree at {t.x}, {t.z}`)
+		end
+	end,
+	["the arch: legs 520 long, turning 5-25 degrees, mirrored about S3's x (user 2026-11-06)"] = function()
+		local mx = sectors[3].x
+		for i = 1, #sectors - 1 do
+			local a, b = sectors[i], sectors[i + 1]
+			local turn = math.deg(math.atan(math.abs(b.z - a.z) / (b.x - a.x)))
+			assert(turn >= 5 and turn <= 25, `{a.id}->{b.id} turns {turn}`)
+			local m = sectors[#sectors + 1 - i]
+			assert(m.x == 2 * mx - a.x and m.z == a.z, `{a.id} has no mirror`)
 		end
 	end,
 	["chain is 5 points, an HQ at each end (user 2026-10-27: S1 and S5 are the HQs)"] = function()
@@ -154,8 +212,8 @@ return {
 	["sector spacing within 15% of the metric"] = function()
 		for i = 1, #sectors - 1 do
 			local d = dist(sectors[i], sectors[i + 1])
-			local target = M.Sector.Spacing
-			assert(math.abs(d - target) / target <= 0.15, `{sectors[i].id}->{sectors[i + 1].id} is {d}`)
+			local target = 520 -- (the map rework's spacing, user 2026-11-06; Metrics.Sector.Spacing is Map 1's 420)
+			assert(math.abs(d - target) / target <= 0.05, `{sectors[i].id}->{sectors[i + 1].id} is {d}`)
 		end
 	end,
 	["capture zones never overlap"] = function()
@@ -187,10 +245,10 @@ return {
 		for z = s5.z, Map.bounds.minZ, -2 do
 			wet = wet or (MT.riverDistance(Map, s5.x, z) < r.width / 2 and s5.z - z)
 		end
-		assert(wet and wet < 220, "S5 isn't by the river")
+		assert(wet and wet < 260, "S5 isn't by the river")
 		assert(MT.riverDistance(Map, sectors[1].x, sectors[1].z) > 600, "the West has no river")
 	end,
-	["the Aurel: a wide festival ford and two narrow ones, on the river, wadeable, deep between"] = function()
+	["the Aurel: a wide festival ford, a narrow one and the rock ford, on the river, wadeable, deep between"] = function()
 		local r = Map.river
 		local wide, narrow = 0, 0
 		for _, f in r.fords do
@@ -204,8 +262,8 @@ return {
 			local depth = r.waterY - MT.heightAt(Map, f.x, f.z)
 			assert(depth > 0 and depth < Cfg.WadeDepth, `the ford at {f.x}, {f.z} is {depth} deep`)
 		end
-		assert(wide >= 1 and narrow >= 2, "need 1+ wide ford and 2+ narrow fords")
-		for _, q in { { 1444, Map.bounds.minZ + 380 }, { 1446, Map.bounds.minZ + 220 }, { 2000, Map.bounds.minZ + 28 } } do
+		assert(wide >= 2 and narrow >= 1, "need 2+ wide fords (the festival and the rock ford) and a narrow one")
+		for _, q in { { 1680, Map.bounds.minZ + 330 }, { 1685, Map.bounds.minZ + 560 }, { 2200, Map.bounds.minZ + 32 } } do
 			local _, cx, cz = MT.riverNearest(Map, q[1], q[2])
 			assert(r.waterY - MT.heightAt(Map, cx, cz) > 4, `the river is shallow at {cx}, {cz}`)
 		end
@@ -303,14 +361,10 @@ return {
 		assert(Map.bounds.maxZ + own < Map1.bounds.minZ - other, "Lantern Meadows' ground runs into Map 1's")
 		assert(Map.bounds.minZ - own > -9000, "too far out")
 	end,
-	["fair cover: the hedgerows round S2 the same either side of its x, the landmarks on their point's x"] = function()
-		local x0 = sectors[2].x
-		local runs = {}
-		for _, h in Map.village.hedgerows do
-			if math.abs(h.a[1] - x0) < 300 then -- (the fields round S2; the river crossings' cover is its own)
-				table.insert(runs, h)
-			end
-		end
+	["fair cover: the lanes' hedge banks mirror over S3's x, like the points"] = function()
+		local x0 = sectors[3].x
+		local runs = Map.village.hedgerows
+		assert(#runs >= 2 * 2 * (#sectors - 1), "two hedge runs on every lane")
 		for _, h in runs do
 			local found = false
 			for _, o in runs do
@@ -325,26 +379,14 @@ return {
 						)
 				end
 			end
-			assert(found, `a hedgerow from {h.a[1]}, {h.a[2]} has no mirror over S2`)
-		end
-		for _, l in Map.village.specials do
-			local nearest, d = nil, math.huge
-			for _, s in sectors do
-				local e = math.sqrt((l.x - s.x) ^ 2 + (l.z - s.z) ^ 2)
-				if e < d then
-					nearest, d = s, e
-				end
-			end
-			if d < Map.rise.radius then -- (on a point's rise; the ferry house at the ford is fair by the sector tests)
-				assert(l.x == nearest.x, `{l.id} isn't on {nearest.id}'s x`)
-			end
+			assert(found, `a hedgerow from {h.a[1]}, {h.a[2]} has no mirror over S3`)
 		end
 	end,
 	["each spawn sits behind its own HQ, ~400 out, still in the HQ's sector (user 2026-11-02)"] = function()
 		for side, i in { West = 1, East = #sectors } do
 			local r, hq = Map.spawnZones[side], sectors[i]
 			local d = dist({ x = (r.minX + r.maxX) / 2, z = (r.minZ + r.maxZ) / 2 }, hq)
-			assert(d > 360 and d < 440, `{side} spawn {d} from its HQ`)
+			assert(d > 380 and d < 460, `{side} spawn {d} from its HQ`)
 			for _, c in { { r.minX, r.minZ }, { r.maxX, r.minZ }, { r.maxX, r.maxZ }, { r.minX, r.maxZ } } do
 				assert(
 					Sec.sectorAt(Map, MT, c[1], c[2], SecCfg.Divider.RiverSegments) == hq.id,
