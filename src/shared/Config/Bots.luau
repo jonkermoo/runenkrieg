@@ -661,10 +661,11 @@ local Bots = {
 		-- saw tooth; now two blocks a leg, at most 70 degrees a joint, and no short leg left at the end)
 		Zigzag = { cone = 20, plunge = 10, range = 500, leg = 16, angle = { min = 25, perStud = 1, max = 35 } },
 		-- the shape of a bot's runs (src/server/Trenches.plan for a bot's plan; Act's runs planned part way): it joins a
-		-- free end at no more than `maxBend` degrees off straight (a player may turn 135), and a run planned part way goes
+		-- free end at no more than `maxBend` degrees off straight (a player may turn 135; 100 lets a communication trench
+		-- meet a fire bay's end square on, 75 refused 7 of those in a Lantern Meadows match), and a run planned part way goes
 		-- in whole blocks of at least `minRun`, leaving at least that much to plan (no stubs). The admin
 		-- bot runs readout counts joints turning more than `sharp` and squares shorter than `short` (Trenches.shapes).
-		Shape = { maxBend = 75, minRun = 16, sharp = 75, short = 6 },
+		Shape = { maxBend = 100, minRun = 16, sharp = 100, short = 6 },
 		on = 2,
 		ends = 0.15,
 		cap = 160, -- (was 60)
