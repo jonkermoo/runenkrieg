@@ -58,7 +58,8 @@ local function find(n: any, id: string): any
 end
 
 local function node(id: string): any
-	return assert(find(Spec.root, id), id)
+	local n = assert(find(Spec.root, id), id)
+	return n -- (one value: assert also returns its message, which would land in a following argument)
 end
 
 local function udim(a: { number }): UDim2
