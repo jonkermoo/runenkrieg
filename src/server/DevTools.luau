@@ -474,6 +474,8 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 			humanoid.Health = 0
 		elseif action == "KnockMe" then
 			Ragdoll.knock(character, Cfg.Admin.SelfKnock, -root.CFrame.LookVector)
+		elseif action == "KnockMeLong" then
+			Ragdoll.knock(character, Cfg.Admin.SelfKnock, -root.CFrame.LookVector, nil, Cfg.Admin.LongKnockDamage)
 		elseif action == "HelmetOff" then
 			Helmets.knockOff(character, -root.CFrame.LookVector)
 		elseif action == "HelmetShot" then

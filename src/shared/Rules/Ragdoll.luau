@@ -63,4 +63,28 @@ function Ragdoll.getUpWay(look: Vec, up: Vec): (string, number, number)
 	return if back then "Back" else "Front", fx / m, fz / m
 end
 
+export type DownView = { state: string, left: number?, fill: number }
+
+-- What a knocked-down, living player's own prompt shows (src/client/DownHud; user 2026-11-06: "a hold space to stay
+-- down indicator"). `upAt`: when the get-up wait ends (server time, the "UpAt" attribute; nil while still settling),
+-- `holding` the stay-down key, `dragged` by a teammate. States: "dragged" (the key breaks free instead), "held" (down
+-- until let go, at most `max` s past the wait: `left` s of that, `fill` its share), "rising" (up in `left` s unless the
+-- key is held), "settling" (no wait yet: `left` nil).
+function Ragdoll.downView(now: number, upAt: number?, holding: boolean, dragged: boolean, cfg: StayDown): DownView
+	if dragged then
+		return { state = "dragged", fill = 0 }
+	end
+	if holding then
+		if not upAt then
+			return { state = "held", fill = 1 }
+		end
+		local left = math.max(upAt + cfg.max - now, 0)
+		return { state = "held", left = left, fill = math.clamp(left / cfg.max, 0, 1) }
+	end
+	if not upAt then
+		return { state = "settling", fill = 0 }
+	end
+	return { state = "rising", left = math.max(upAt - now, 0), fill = 0 }
+end
+
 return Ragdoll

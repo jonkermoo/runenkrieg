@@ -11,7 +11,8 @@
 -- breaks free (Ragdoll.served: only once its knock's own stand-up time is over; the drag doesn't stop that clock).
 -- Players knock themselves through Net "KnockSelf" (Config/Ragdoll.SelfKnocks: the staff's recoil, the float fall).
 -- A living player holding the stay-down key (Net "StayDown", the "StayDown" attribute) stays down past the get-up wait
--- until let go (Config/Ragdoll.StayDown, Rules/Ragdoll.rises). Getting up, "GetUp" names the get-up animation (lying on
+-- until let go (Config/Ragdoll.StayDown, Rules/Ragdoll.rises); the get-up wait's end (server time) is on the character
+-- as "UpAt" for that player's prompt (Config/Ragdoll.DownHud, src/client/DownHud). Getting up, "GetUp" names the get-up animation (lying on
 -- the back or the front, Config/Ragdoll.GetUp) for its length: the body's owner plays it, and nobody moves meanwhile.
 
 local Players = game:GetService("Players")
@@ -25,6 +26,8 @@ local StaffNet = require(Shared.Rules.StaffNet)
 local Concussion = require(script.Parent.Concussion)
 
 local Ragdoll = {}
+
+local UP_AT = Cfg.DownHud.upAtAttribute
 
 -- fired on the server with (character, knock, direction, scale) on every knock: src/server/DevDummies throws its target
 -- dummies with it (they have no client of their own)
@@ -234,6 +237,7 @@ local function stand(character: Model, made: Down)
 	down[character] = nil
 	character:SetAttribute("Ragdolled", nil)
 	character:SetAttribute("StayDown", nil)
+	character:SetAttribute(UP_AT, nil)
 end
 
 -- Knocks `character` with the Config/Ragdoll.Knocks entry `name`, thrown along `direction` (flat; it also tumbles that
@@ -254,6 +258,7 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 		-- already down: thrown again, and the settle wait starts over (the longer of the two get-up waits)
 		d.since, d.getUp = os.clock(), math.max(d.getUp, getUp)
 		d.knockAt, d.settledAt = d.since, nil
+		character:SetAttribute(UP_AT, nil)
 		Net.event("Knock"):FireAllClients(character, name, direction, k)
 		Ragdoll.knocked:Fire(character, name, direction, k)
 		serverThrow(character, knock, direction, k)
@@ -300,9 +305,14 @@ function Ragdoll.knock(character: Model, name: string, direction: Vector3, scale
 			end
 			if dragged then
 				made.since = now -- dragged (src/server/Dragging): not up until let go, then the wait starts over
+				if character:GetAttribute(UP_AT) ~= nil then
+					character:SetAttribute(UP_AT, nil)
+				end
 			end
 			if RagdollRules.settled(now - made.since, speed, false, Cfg) then
 				local since = made.since
+				-- when the wait ends, for the player's own prompt (src/client/DownHud)
+				character:SetAttribute(UP_AT, workspace:GetServerTimeNow() + made.getUp)
 				task.wait(made.getUp)
 				if down[character] ~= made then
 					return

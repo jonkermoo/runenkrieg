@@ -30,6 +30,7 @@ local PLAIN = table.freeze({
 	Kill = true,
 	Respawn = true,
 	KnockMe = true,
+	KnockMeLong = true,
 	HelmetOff = true,
 	HelmetShot = true,
 	HealDummies = true,

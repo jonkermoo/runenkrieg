@@ -32,6 +32,7 @@ local ModeCfg = require(Shared.Config.Modes)
 local SectorCfg = require(Shared.Config.Sectors)
 local TeamCfg = require(Shared.Config.Teams)
 local TeamOutlineCfg = require(Shared.Config.TeamOutline)
+local RagdollCfg = require(Shared.Config.Ragdoll)
 local EnvCfg = require(Shared.Config.Environment)
 local GrenadeCfg = require(Shared.Config.Grenades)
 local W = require(Shared.Config.Weapons)
@@ -755,6 +756,13 @@ local function build(player: Player): DevPanel.Panel
 				on = true,
 			},
 			{ id = "TeamOutlineSelf", label = "Outline me too", attribute = TeamOutlineCfg.SelfAttribute, on = true },
+			-- the knocked-down marker over you too (src/client/DownHud), to see it without a teammate
+			{
+				id = "DownMarkSelf",
+				label = "Down marker on me too",
+				attribute = RagdollCfg.DownHud.selfAttribute,
+				on = true,
+			},
 		}
 	do
 		local b = DevPanel.button(p.panel, t.id, "", order + i)
@@ -770,7 +778,7 @@ local function build(player: Player): DevPanel.Panel
 		player:GetAttributeChangedSignal(t.attribute):Connect(show)
 		show()
 	end
-	order += 3
+	order += 4
 
 	-- You (src/server/DevTools): health steps, death, respawn, god mode, a knock, the helmet off, unlimited ammo
 	DevPanel.heading(p.panel, "You", order + 1)
@@ -781,6 +789,9 @@ local function build(player: Player): DevPanel.Panel
 	row("Kill", "Kill me", "Kill")
 	row("Respawn", "Respawn now", "Respawn")
 	row("KnockMe", "Knock me", "KnockMe")
+	-- down as long as a heavy hit keeps you (Config/DevTools.Admin.LongKnockDamage, no health lost): time to try the
+	-- stay-down key and its prompt (src/client/DownHud)
+	row("KnockMeLong", "Knock me down (long)", "KnockMeLong")
 	row("HelmetOff", "Helmet off", "HelmetOff")
 	order += 1
 	local god = DevPanel.button(p.panel, "God", "", order)
