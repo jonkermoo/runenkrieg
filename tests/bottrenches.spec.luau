@@ -466,6 +466,15 @@ return {
 		assert(legs[1].bz > 0 and legs[2].bz < legs[1].bz, "one way, then back")
 		assert(#R.zigzag(run, 30, 0) == 1, "no legs: straight")
 	end,
+	["clampBend: a run turned back toward the last one's way, its length kept, a gentle one untouched"] = function()
+		-- (the last ran +x; one at 30 degrees stays, one at 150 to the left turns to 95, one straight back too)
+		local x, z = R.clampBend(1, 0, 0, 0, math.cos(math.rad(30)) * 16, math.sin(math.rad(30)) * 16, 95)
+		assert(near(x, math.cos(math.rad(30)) * 16) and near(z, math.sin(math.rad(30)) * 16), "gentle: as it was")
+		x, z = R.clampBend(1, 0, 0, 0, math.cos(math.rad(150)) * 16, math.sin(math.rad(150)) * 16, 95)
+		assert(near(math.deg(math.atan2(z, x)), 95) and near(math.sqrt(x * x + z * z), 16), "sharp left: 95, 16 long")
+		x, z = R.clampBend(1, 0, 0, 0, math.cos(math.rad(-150)) * 16, math.sin(math.rad(-150)) * 16, 95)
+		assert(near(math.deg(math.atan2(z, x)), -95), "sharp right: -95")
+	end,
 	["zigzag: no stub at the end, the last leg a leg or longer (user 2026-11-06: no abnormal trenches)"] = function()
 		for _, d in { 33, 40, 47, 60, 75, 90 } do
 			local legs = R.zigzag({ kind = "Comm", ax = 0, az = 0, bx = d, bz = 0 }, T.Zigzag.angle.max, T.Zigzag.leg)

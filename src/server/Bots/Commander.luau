@@ -393,7 +393,10 @@ local function sapTick(
 			sap.digs = keep
 			if #open == 0 then
 				r.open = false
+				local was = Vector3.new(j.x, 0, j.z)
 				sap.head = Vector3.new(j.ex :: number, sap.head.Y, j.ez :: number)
+				local went = Vector3.new(j.ex :: number, 0, j.ez :: number) - was
+				sap.dir = if went.Magnitude > 1e-3 then went.Unit else sap.dir
 				sap.run = nil
 				sap.dugAt = now
 				stats.sapRuns += 1
@@ -453,6 +456,11 @@ local function sapTick(
 				endSap(sqs, members, d, now)
 				return
 			end
+		end
+		-- (a run on from the head bends off the last no more than Trenches.Shape.maxBend: near its objective the way to it
+		-- swings, and a sharper run is refused, user 2026-11-06: "make sure bots dont build abnormal trenches")
+		if sap.dir and not sap.parallel then
+			bx, bz = BotTrenches.clampBend(sap.dir.X, sap.dir.Z, ax, az, bx, bz, TR.Shape.maxBend - 5)
 		end
 		local to = flat(goalAt - sap.head)
 		to = if to.Magnitude > 1e-3 then to.Unit else Vector3.xAxis

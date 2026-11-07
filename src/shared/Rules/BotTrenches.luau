@@ -745,6 +745,33 @@ function BotTrenches.zigzag(run: Run, angle: number, leg: number): { Run }
 	return legs
 end
 
+-- A run from A to B turned toward the way (dx, dz) (a flat unit: the run before it, ending at A) until it bends off
+-- that way by no more than `most` degrees, its length kept: the end it gets (Config/Bots.Trenches.Shape)
+function BotTrenches.clampBend(
+	dx: number,
+	dz: number,
+	ax: number,
+	az: number,
+	bx: number,
+	bz: number,
+	most: number
+): (number, number)
+	local vx, vz = bx - ax, bz - az
+	local len = math.sqrt(vx * vx + vz * vz)
+	if len < 1e-6 then
+		return bx, bz
+	end
+	local bend = math.deg(math.acos(math.clamp((vx * dx + vz * dz) / len, -1, 1)))
+	if bend <= most then
+		return bx, bz
+	end
+	-- (the side it turns to: the sign of the cross product, straight back counted to the right)
+	local side = if dx * vz - dz * vx >= 0 then 1 else -1
+	local a = math.rad(most) * side
+	local rx, rz = dx * math.cos(a) - dz * math.sin(a), dx * math.sin(a) + dz * math.cos(a)
+	return ax + rx * len, az + rz * len
+end
+
 -- How a soldier at (px, pz) died, for the trench stats (Config/Bots.Trenches.Stats `cfg`): in a dug trench square
 -- (`squares`, any side's: inSquare within `cfg.floor`), and by a shell (`blasts`: { x, z, at, kg }, one of `shell` kg or
 -- more within `cfg.shellNear` studs in the last `cfg.shellAge` seconds before `now`)
