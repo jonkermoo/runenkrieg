@@ -826,11 +826,12 @@ local Buildings = {
 		-- barn's barn along the back (+Z), a two-storey brick farmhouse along the front (-Z, doors front and back),
 		-- open cart sheds and sties along the two gate walls (the same both sides: the point stays fair), a bottle kiln
 		-- behind the barn and brick stacks outside on the flanks. The yard walls stand 3 high (low cover you can't hop),
-		-- a cart gate through each side wall. Its footprint takes the stacks and the kiln in.
+		-- a cart gate through each side wall. Its footprint is the walled yard (the copy stands on that ground; the kiln
+		-- and stacks just outside it, the kiln on its own foundation, the stacks on the ground).
 		BrickfieldFarm = {
 			folder = "Landmarks",
-			width = 132,
-			depth = 136,
+			width = 80,
+			depth = 84,
 			stories = 2,
 			storyHeight = 10,
 			roofPitch = 24,
@@ -913,7 +914,7 @@ local Buildings = {
 				{ kind = "Wall", a = { 36, -40 }, b = { 36, -6 }, height = 3, thick = 1.4, swatch = "Brick" },
 				{ kind = "Wall", a = { 36, 6 }, b = { 36, 40 }, height = 3, thick = 1.4, swatch = "Brick" },
 				-- the bottle kiln behind the barn on the flag's line, and brick stacks on the flanks (thick low walls)
-				{ kind = "BottleKiln", x = 0, z = 60, radius = 6, height = 24 },
+				{ kind = "BottleKiln", x = 0, z = 60, radius = 6.5, height = 32 },
 				{ kind = "Wall", a = { -66, 52 }, b = { -54, 52 }, height = 2.4, thick = 5, swatch = "RedBrick" },
 				{ kind = "Wall", a = { 54, 52 }, b = { 66, 52 }, height = 2.4, thick = 5, swatch = "RedBrick" },
 			},
