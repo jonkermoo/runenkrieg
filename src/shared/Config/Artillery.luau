@@ -185,6 +185,14 @@ export type Gun = {
 		boom: any,
 		vary: number,
 		jingle: any,
+		-- heard by everyone else (src/client/ShotAudio): its far report (variants) and the thud under it, a bullet's
+		-- crack going by and the zip under it, how far off its path that's heard (`radius`, Config/Audio.Heard.pass) and
+		-- how loud at that edge
+		far: any,
+		farBody: any,
+		pass: any,
+		passBody: any,
+		passBy: { radius: number, edge: number },
 		-- the report's pitch and tone, as a rifle's (Config/Weapons `report`), heard as a rifle's (src/client/ShotAudio)
 		report: { pitch: number, eq: { number } },
 		-- each of the gunner's own shots kicks their camera `shake` degrees, nothing past `shakeReach` studs from the
@@ -1332,11 +1340,71 @@ local Artillery = {
 				-- the report (Pro Sound Effects "Rifle Single Shots 1", a heavy single shot, its crack and first boom: one
 				-- a round, 7.5 a second, so the tail is cut short before the take's metal clink at 0.6 s (Studio: loud
 				-- to 0.06 s, mostly gone by 0.45); was the rifles' shot as a placeholder)
-				shot = { id = 9118173739, volume = 1.6, stop = 0.5, fade = 0.25, profile = "Gunshot" },
+				-- 4 (was 1.6: its file is ~9 dB under the rifles', so a round came ~13 dB under a rifle's shot beside it;
+				-- user 2026-11-06: "the machine gun firing should sound extremely threatening")
+				shot = { id = 9118173739, volume = 4, stop = 0.5, fade = 0.25, profile = "Gunshot" },
 				-- (user 2026-10-29: "find better sound effects for the machine gun"): the shot above is a Barrett M82's,
 				-- a real .50; under it a huge 12-gauge blast pitched well down for the heavy gun's thump (Pro Sound Effects
-				-- "Gun Live Ammunition 5", Remington 870), each round a little different
-				boom = { id = 9114724430, volume = 0.8, pitch = 0.6, stop = 0.45, fade = 0.2, profile = "Gunshot" },
+				-- "Gun Live Ammunition 5", Remington 870), each round a little different. The blast is 1.72 s into the file
+				-- (measured 2026-11-06: 0-0.45 s, what played before, is the handling before it, -42..-70 dB, so the boom
+				-- was never heard)
+				boom = {
+					id = 9114724430,
+					volume = 1.2,
+					pitch = 0.6,
+					start = 1.72,
+					stop = 2.2,
+					fade = 0.2,
+					profile = "Gunshot",
+				},
+				-- heard far off (src/client/ShotAudio; user 2026-11-06: "i can especially barely hear the machine gun"):
+				-- not the rifles' long retort (7.5 a second ran into one wash, no rhythm, and was a rifle's), but each
+				-- round its own short heavy report, the retort cut to its crack and first boom and pitched down, over a
+				-- deep thud (`FarBody`: "Gun Live Ammunition 1", a 12 gauge heard distant, almost all lows, which the air
+				-- keeps), so a sector off it beats "dug-dug-dug" well over the rifles. Played with the report's share.
+				far = {
+					{
+						id = 9114725082,
+						volume = 3,
+						pitch = 0.85,
+						start = 2.14,
+						stop = 2.7,
+						fade = 0.3,
+						profile = "Report",
+					},
+					{
+						id = 9114725318,
+						volume = 3,
+						pitch = 0.85,
+						start = 0.86,
+						stop = 1.4,
+						fade = 0.3,
+						profile = "Report",
+					},
+					{
+						id = 9114725314,
+						volume = 2.6,
+						pitch = 0.85,
+						start = 1.1,
+						stop = 1.65,
+						fade = 0.3,
+						profile = "Report",
+					},
+				},
+				farBody = { id = 9114710159, volume = 2.6, pitch = 0.7, stop = 0.55, fade = 0.3, profile = "Report" },
+				-- its rounds going by (user 2026-11-06: "someone getting shot at by an MG would know it's an mg and to be
+				-- worried"): a loud supersonic snap ("Whip Cracks 2", the sharp one) over a heavy zip ("Bullet Whiz 2"
+				-- pitched down), heard from twice as far off the path as a rifle's (`passBy`: radius, volume at its edge)
+				pass = { id = 9120660382, volume = 2.6, pitch = 0.9, start = 0.3, lead = 0.08, profile = "Gunshot" },
+				passBody = {
+					id = 9113634444,
+					volume = 1.6,
+					pitch = 0.85,
+					start = 0.1,
+					lead = 0.18,
+					profile = "Gunshot",
+				},
+				passBy = { radius = 30, edge = 0.45 },
 				vary = 0.04,
 				-- (user 2026-10-29: "make the ammo box have a jingle sound"): a quick rattle of the can as each round
 				-- goes in (Pro Sound Effects "Ammo Box Movement 1")

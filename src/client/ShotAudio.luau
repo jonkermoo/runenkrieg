@@ -23,9 +23,16 @@ local H = A.Heard
 
 local ShotAudio = {}
 
--- What a gun is heard by: its own `sounds` (over Config/Firing's), `report` (pitch and tone) and whether it fires
--- `pellets`; a Config/Weapons entry is one, as is a machine gun's (Config/Artillery `mg`).
-export type Source = { sounds: { [string]: any }?, report: { pitch: number, eq: { number } }?, pellets: any? }
+-- What a gun is heard by: its own `sounds` (over Config/Firing's; `FarBody` / `PassBody`, if it has them, play under
+-- its far report / its pass), `report` (pitch and tone), whether it fires `pellets` and how far off its path a bullet is
+-- heard going by (`passBy`, else Config/Audio.Heard.pass); a Config/Weapons entry is one, as is a machine gun's
+-- (Config/Artillery `mg`).
+export type Source = {
+	sounds: { [string]: any }?,
+	report: { pitch: number, eq: { number } }?,
+	pellets: any?,
+	passBy: { radius: number, edge: number }?,
+}
 
 -- a gun's sound `name` (its own over Config/Firing's), as SoundFx entries on falloff `profile`, made once per `weapon`
 local entries: { [string]: { { [string]: any } } } = {}
@@ -98,26 +105,32 @@ function ShotAudio.heardAs(shooter: Model, weapon: string, w: Source?, origin: V
 	end
 	local far = sounds(weapon, w, "Far", "Report")
 	if farShare > H.min then
-		SoundFx.play(any(far), origin, nil, { volume = farShare, eq = { lo, mid, hi }, delay = late, pitch = pitch })
+		local mods = { volume = farShare, eq = { lo, mid, hi }, delay = late, pitch = pitch }
+		SoundFx.play(any(far), origin, nil, mods)
+		SoundFx.play(any(sounds(weapon, w, "FarBody", "Report")), origin, nil, mods)
 	end
 
 	-- the bullet (or the nearest pellet) going by
 	local bullet = if w and w.pellets then H.pass.pellet else H.pass.bullet
+	local by = (w and w.passBy) or H.pass
 	local best: R.Pass? = nil
 	for _, hit in hits do
-		local p = R.pass(point(origin), point(hit), point(listener), H.pass.radius, H.pass.clear)
+		local p = R.pass(point(origin), point(hit), point(listener), by.radius, H.pass.clear)
 		if p and (not best or p.off < best.off) then
 			best = p
 		end
 	end
 	ScreenBlur.shot(origin, hits, bullet) -- blurs the screen as it passes the soldier (src/client/ScreenBlur)
-	local pass = any(sounds(weapon, w, "Pass", "Gunshot"))
-	if best and pass then
+	if best then
 		local at = Vector3.new(best.point[1], best.point[2], best.point[3])
-		SoundFx.play(pass, at, nil, {
-			volume = R.passGain(best.off, H.pass.radius, H.pass.edge),
-			delay = math.max(0, R.passTime(best.along, best.off, bullet, H.speed) - (pass.lead or 0)),
-		})
+		local gain = R.passGain(best.off, by.radius, by.edge)
+		local arrive = R.passTime(best.along, best.off, bullet, H.speed)
+		for _, name in { "Pass", "PassBody" } do
+			local pass = any(sounds(weapon, w, name, "Gunshot"))
+			if pass then
+				SoundFx.play(pass, at, nil, { volume = gain, delay = math.max(0, arrive - (pass.lead or 0)) })
+			end
+		end
 	end
 
 	-- echoes off what stands around the listener, only once the shot is some way off

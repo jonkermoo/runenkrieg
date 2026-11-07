@@ -201,11 +201,12 @@ local Firing = {
 		-- Heard by everyone else (src/client/ShotAudio, Config/Audio.Heard), Pro Sound Effects; a list is variants, one
 		-- picked per shot. `start` skips each file's lead-in silence (measured 2026-10-16), `lead` is seconds from
 		-- `start` to the sound's peak (a pass is timed on its peak).
-		-- the far report: "Gun Retort 1 / 2 / 3" ("Distant, Present Decay")
+		-- the far report: "Gun Retort 1 / 2 / 3" ("Distant, Present Decay"); 2.2 (was 1.5, user 2026-11-06: barely
+		-- heard a sector off; with Config/Audio.Profiles.Report's ref, +8 dB from 140 studs out)
 		Far = {
-			{ id = 9114725082, volume = 1.5, start = 2.14, stop = 6.4, fade = 1.5 },
-			{ id = 9114725318, volume = 1.5, start = 0.86, stop = 4.8, fade = 1.5 },
-			{ id = 9114725314, volume = 1.5, start = 1.1, stop = 4.2, fade = 1.2 },
+			{ id = 9114725082, volume = 2.2, start = 2.14, stop = 6.4, fade = 1.5 },
+			{ id = 9114725318, volume = 2.2, start = 0.86, stop = 4.8, fade = 1.5 },
+			{ id = 9114725314, volume = 2.2, start = 1.1, stop = 4.2, fade = 1.2 },
 		},
 		-- a rifle bullet's supersonic crack going by: "Whip Cracks 1 / 2" (a whip's crack is a small sonic boom)
 		Pass = {

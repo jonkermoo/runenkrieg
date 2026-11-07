@@ -8,8 +8,11 @@
 
 local Audio = {
 	Profiles = {
-		-- a rifle shot: full inside ~7 m, 1/d beyond; carries far past the fog (600) as a faint report
-		Gunshot = { ref = 20, max = 2400 },
+		-- a rifle shot: full inside ~14 m, 1/d beyond; carries far past the fog (600) as a faint report. (Was 20, ~7 m:
+		-- with the far reports raised (Report below, user 2026-11-06) a shot 250 studs off came louder than one 100 off,
+		-- the shot's own sound falling away before the report took over; the shooter's own shot, heard from the camera
+		-- within 10 studs, is as it was)
+		Gunshot = { ref = 40, max = 2400 },
 		-- the action worked by hand (bolt, clip, an empty click): full within ~0.7 m, heard to ~20 m
 		Mechanism = { ref = 2, max = 60 },
 		-- the same from this player's own gun (src/client/GunFx): heard from the camera, which in third person sits 3.5 to
@@ -36,8 +39,11 @@ local Audio = {
 		Hum = { ref = 3, max = 60 },
 		-- a grenade going off (Config/Grenades.Sound): full within ~7 m, then 1/d, heard right across the map
 		Explosion = { ref = 20, max = 2400 },
-		-- a far report (Config/Firing.Sounds.Far): the recording already sounds far off, so it plays fuller for longer
-		Report = { ref = 80, max = 2400 },
+		-- a far report (Config/Firing.Sounds.Far): the recording already sounds far off, so it plays fuller for longer.
+		-- (user 2026-11-06: "from here i can barely hear the guns from the people on the hill", a sector off, ~420
+		-- studs): ref 80 had every gun ~22 dB under a rifle beside you at 500 studs; 140 with the reports' volume up
+		-- (Config/Firing.Sounds.Far) puts them ~14 dB under, a fight a sector off plainly heard)
+		Report = { ref = 140, max = 2400 },
 	},
 
 	-- Someone else's shot as this listener hears it (src/client/ShotAudio, Rules/ShotAudio). Studs and seconds.
@@ -53,6 +59,7 @@ local Audio = {
 		-- a bullet passing close by: heard within `radius` of its path, not within `clear` of the muzzle (the report
 		-- covers it there); rifles crack (~700 m/s), a shotgun's pellets whiz (~400 m/s). Volume from 1 on the path to
 		-- `edge` at the radius.
+		-- (a gun may widen it with its own `pass`: the machine gun's, src/client/ShotAudio)
 		pass = { radius = 15, clear = 40, bullet = 1960, pellet = 1120, edge = 0.3 },
 		-- echoes: `rays` level rays from the listener out to `range` find walls and hillsides; the strongest `count`
 		-- reflections at least `extra` studs longer than the direct path (0.1 s later: closer ones only thicken the shot, the
