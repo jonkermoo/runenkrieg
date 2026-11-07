@@ -1369,15 +1369,25 @@ end
 -- every live square of `team` (nil: every team's): its model, team, middle, HP and whether it was dug full once
 -- (src/server/Build.worksOf)
 -- (`hp` up to its max; a reinforced square's HP past it is `extra`)
-function Trenches.squares(
-	team: string?
-): { { model: Model, team: string, at: Vector3, hp: number, extra: number, built: boolean } }
+function Trenches.squares(team: string?): {
+	{
+		model: Model,
+		team: string,
+		owner: number?,
+		at: Vector3,
+		hp: number,
+		extra: number,
+		built: boolean,
+	}
+}
 	local out = {}
 	for _, blk in blocks do
 		if live(blk) and blk.model and (team == nil or blk.team == team) then
+			local o = blk.model:GetAttribute("Owner")
 			table.insert(out, {
 				model = blk.model,
 				team = blk.team,
+				owner = if type(o) == "number" then o else nil,
 				at = (blk.a + blk.b) / 2,
 				hp = math.min(blk.hp, T.hp.max),
 				extra = math.max(blk.hp - T.hp.max, 0),

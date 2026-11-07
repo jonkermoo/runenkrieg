@@ -200,7 +200,9 @@ local function build(player: Player): ScreenGui
 	-- until it is safe to dig: the bot labels show "going", "waiting" or "Build"), the nearest bot knocked down there (its
 	-- teammates guard it until they may drag or heal it: "covering"), the trench there shelled (Config/DevTools.Admin.Shell:
 	-- the holders near it go down into its dugouts, the Bot dugouts readout says who and why), the nearest bots walk
-	-- through the house there (its indoor spots and back out: the admin panel's "Bots through a house" readout)
+	-- through the house there (its indoor spots and back out: the admin panel's "Bots through a house" readout), a
+	-- player's trench plan laid there for the nearest soldier's side (Config/DevTools.Admin.PlayerPlan: the bots dig it
+	-- first; the Bot trench stats' "plans" line)
 	local botRows = {
 		{ action = "BotPush", label = "Nearest squad pushes here" },
 		{ action = "BotStrike", label = "Nearest bot butt-strokes here" },
@@ -209,6 +211,7 @@ local function build(player: Player): ScreenGui
 		{ action = "BotDown", label = "Nearest bot knocked down here (teammates guard it)" },
 		{ action = "BotShellHere", label = "Shell the trench here (bots take to its dugouts)" },
 		{ action = "BotHouse", label = "Nearest bots walk through the house here" },
+		{ action = "PlayerPlan", label = "Plan a player's trench here (bots dig it)" },
 	}
 	for _, r in botRows do
 		order += 1

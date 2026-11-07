@@ -2078,7 +2078,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		if Kinds.gun[w.key] then
 			sbs.guns += 1
 		end
-		if w.owner and (w.owner :: number) < 0 then
+		if w.owner and (w.owner :: number) < 0 and w.key ~= "Trench" then
 			mine += 1
 			ofKey[w.key] = (ofKey[w.key] or 0) + 1
 		end
@@ -2531,18 +2531,46 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	-- (its trench squares from further off: its lines at the sectors it holds and its forward lines, Trenches.digReach)
 	-- (its dug squares by what each is worth, Care.Score: those wanting repair first, the best first, then the base's
 	-- squares not dug yet, then the rest; its dugouts with them, kept healthy as its trenches' critical points)
-	local others, squaresOnly, baseOnly = {}, {}, {}
+	-- (a player's plan is its side's first trench job, Trenches.Plans: dug under fire, on shelled ground and while its
+	-- offensive goes in, from further off; user 2026-11-06: "they are beiong shelled and shot and wont even dig my pre
+	-- plan")
+	local others, squaresOnly, baseOnly, plansOnly = {}, {}, {}, {}
+	local plansWaiting = 0
+	local seen = sbs.planSeen or {}
+	sbs.planSeen = seen
+	for _, w in works do
+		local theirs = w.key == "Trench" and w.owner ~= nil and (w.owner :: number) > 0
+		if theirs and not w.built and not seen[w.model] then
+			seen[w.model] = now
+		elseif theirs and w.built and seen[w.model] then
+			local times = ByTrench.planTimes[side] or {}
+			ByTrench.planTimes[side] = times
+			table.insert(times, now - seen[w.model])
+			seen[w.model] = nil
+		end
+	end
+	for model in seen do
+		if not model.Parent then
+			seen[model] = nil
+		end
+	end
 	for i, p in pieces do
 		local square = p.key == "Trench"
 		local none = { key = p.key, x = p.x, z = p.z, left = 0 }
 		local w = works[i]
-		local new = square and not w.built and not pushNow and not hotAt(p.x, p.z)
+		local byPlayer = square and not w.built and w.owner ~= nil and (w.owner :: number) > 0
+		local new = square and not w.built and not byPlayer and not pushNow and not hotAt(p.x, p.z)
 		local line = if new then onLine[w.model] else nil
 		local base = line ~= nil and (line.kind == "Support" or line.kind == "Rear")
 		others[i] = if square or p.key == "Dugout" then none else p
 		squaresOnly[i] = if new and not base then p else none
 		baseOnly[i] = if new and base then p else none
+		plansOnly[i] = if byPlayer then p else none
+		if byPlayer then
+			plansWaiting += 1
+		end
 	end
+	care.plansWaiting = plansWaiting
 	local near = BotBuild.repairs(others, zone, BD.repair, #pieces)
 	-- (near its front zone first, then near each other sector it holds with a trench system: lines left behind as the
 	-- front moved on are dug too, a measured match's front moving on left 19 planned squares out of reach)
@@ -2554,9 +2582,9 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		end
 	end
 	local listed: { [number]: boolean } = {}
-	local function dig(list: { BotBuild.Piece })
-		for _, z in digZones do
-			for _, i in BotBuild.repairs(list, z, TR.digReach, TR.digs) do
+	local function dig(list: { BotBuild.Piece }, zones: { BotBuild.Zone }?, within: number?)
+		for _, z in zones or digZones do
+			for _, i in BotBuild.repairs(list, z, within or TR.digReach, TR.digs) do
 				if not listed[i] then
 					listed[i] = true
 					table.insert(near, i)
@@ -2622,18 +2650,45 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			table.insert(near, wt.i)
 		end
 	end
-	dig(baseOnly)
-	dig(squaresOnly)
-	if #near == before + fixes then
-		local extra = 0
-		for _, wt in wanted do
-			if not wt.hp and extra < SC.repairs then
-				extra += 1
-				listed[wt.i] = true
-				table.insert(near, wt.i)
-			end
+	-- (players' plans near its front, the sectors it holds and the enemy's next one first, Trenches.Plans)
+	local nextS, nextD = nil, math.huge
+	for i, sec in Map.sectors do
+		local dx = (sec.x - zone.x) * tx + (sec.z - zone.z) * tz
+		if owner[i] ~= side and dx > 0 and dx < nextD then
+			nextS, nextD = i, dx
 		end
 	end
+	local newFrom = #near
+	dig(plansOnly, digZones, TR.Plans.reach)
+	if nextS then
+		local sec = Map.sectors[nextS]
+		dig(plansOnly, { { x = sec.x, z = sec.z, radius = sec.radius } }, TR.Plans.ahead)
+	end
+	dig(baseOnly)
+	dig(squaresOnly)
+	-- (reinforcing doesn't wait for every new square: `Care.Reinforce.share` of the slots left go to it while new
+	-- squares wait, all of them once none waits; user 2026-11-06: "a built trench should now always be prioritized to
+	-- be reinforced unless for a realistic reason")
+	local slots = math.max(TR.digs - fixes, 0)
+	local newCount = #near - newFrom
+	local strong = {}
+	for _, wt in wanted do
+		if not wt.hp and not listed[wt.i] then
+			table.insert(strong, wt.i)
+		end
+	end
+	local rSlots = if newCount == 0
+		then math.min(#strong, SC.repairs, slots)
+		else math.min(#strong, math.ceil(slots * CA.Reinforce.share))
+	for k = #near, newFrom + math.max(slots - rSlots, 0) + 1, -1 do
+		listed[near[k]] = nil
+		table.remove(near, k)
+	end
+	for k = 1, rSlots do
+		listed[strong[k]] = true
+		table.insert(near, strong[k])
+	end
+	care.reinforceSlots = rSlots
 	for k = #near, before + TR.digs + 1, -1 do
 		table.remove(near, k)
 	end
@@ -2659,6 +2714,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			local rr = r :: BuildJob
 			rr.at, rr.left, rr.open, rr.fix = w.at, swings[i] or w.left, true, fix[i] == true
 			rr.buried = square and w.built and w.hp < w.max
+			rr.plan = square and not w.built and w.owner ~= nil and (w.owner :: number) > 0
 			rr.reinforce = reinforcing[i] == true -- (a plain dig job at a full square swings no more: Act.doBuild)
 			rr.decision = decided[i]
 			rr.care = if decided[i] then scoreOf[i] else nil
@@ -2754,16 +2810,18 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			end
 		end
 	end
-	-- (a fire-trench square that hot gets dugouts too: "especially in trenches highly contested or often shelled")
+	-- (fire-trench squares get dugouts too, the hot ones first: "especially in trenches highly contested or often shelled")
 	local sites = table.clone(support)
 	for _, list in { support, fireSquares } do
 		for _, sq in list do
 			sq.heat = BotTrenches.heat(now, sq.x, sq.z, side, Tactics.dug.heat, sbs.enemies, HT, HT.memory)
 			if (sq.heat :: number) >= HT.build then
 				sbs.shelledOnce = true
-				if list == fireSquares then
-					table.insert(sites, sq)
-				end
+			end
+			-- (a fire-trench square takes one in its rear wall too, hot or not: a 32-stud support line holds one
+			-- dugout at Dugouts.spacing, the rest of Dugouts.perBays went undug, a Lantern Meadows match 2026-11-06)
+			if list == fireSquares then
+				table.insert(sites, sq)
 			end
 		end
 	end

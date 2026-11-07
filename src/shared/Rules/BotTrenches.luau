@@ -542,11 +542,19 @@ end
 -- How many dugouts a side wants (user 2026-11-02: "whenever they need one but dont make bots abuse it"): none until its
 -- trenches have been shelled or fought over (Config/Bots.Dugouts.Heat.build), then room (`cfg.room` each) for its holders but its sentries ("1 per fire bay", one
 -- each of `bays`).
-function BotTrenches.dugoutsWanted(shelledOnce: boolean, holders: number, bays: number, cfg: { room: number }): number
+function BotTrenches.dugoutsWanted(
+	shelledOnce: boolean,
+	holders: number,
+	bays: number,
+	cfg: { room: number, perBays: number? }
+): number
+	-- (before any shelling: one for every `perBays` fire bays, as a line is dug in; user 2026-11-06: "a lot of the bot
+	-- built trenches end up laying waste because reinforcement, dugouts ... is not being used")
+	local early = if cfg.perBays then math.ceil(bays / cfg.perBays) else 0
 	if not shelledOnce then
-		return 0
+		return early
 	end
-	return math.ceil(math.max(holders - bays, 0) / cfg.room)
+	return math.max(math.ceil(math.max(holders - bays, 0) / cfg.room), early)
 end
 
 -- Where a side's next dugouts go: up to `want` of its support line's squares (`squares`, each dug `share` of its HP,

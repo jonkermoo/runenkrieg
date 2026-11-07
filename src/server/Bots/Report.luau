@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Stats = game:GetService("Stats")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Bots)
+local Build = require(Shared.Config.Build)
 local DevCfg = require(Shared.Config.DevTools)
 local FrontCfg = require(Shared.Config.Frontline)
 local W = require(Shared.Config.Weapons)
@@ -736,6 +737,23 @@ local function trenchStats()
 			)} held off shelled ground; {k("routes")} ways up dug; base {k("baseUp")}/{k("baseAll")} standing; {#lives} lost (median {math.floor(
 				median + 0.5
 			)} s), {k("lost")} left; {n("joins")} joins; gates {if #gates > 0 then table.concat(gates, ", ") else "-"}`
+		)
+		-- (players' plans waiting and dug, how long each took; reinforcing: squares at the full extra of those dug, the
+		-- slots it had this time; dugouts standing; Config/Bots.Trenches.Plans, Care.Reinforce, Dugouts.perBays)
+		local times = table.clone(State.ByTrench.planTimes[side] or {})
+		table.sort(times)
+		local mid = if #times > 0 then math.floor(times[math.ceil(#times / 2)] + 0.5) else 0
+		local full = 0
+		for _, t in (if sb then sb.trench else {}) do
+			if t.built and t.extra >= Build.Trench.hp.extra - 1e-3 then
+				full += 1
+			end
+		end
+		table.insert(
+			lines,
+			`  plans: {k("plansWaiting")} players' squares waiting, {#times} dug (median {mid} s); reinforced to the full extra {full} of {dug}, {k(
+				"reinforceSlots"
+			)} slots now; {#(if sb then sb.rooms else {})} dugouts standing`
 		)
 	end
 	-- (minutes since a sector last changed hands, or since the match began: how stale the fighting is)

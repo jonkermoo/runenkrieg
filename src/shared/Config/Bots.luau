@@ -620,6 +620,11 @@ local Bots = {
 		More = { per = 4, max = 8 },
 		Chain = { off = 4, past = 0.25 },
 		Redig = { keep = 300, tries = 2 },
+		-- players' plans (a square planned by a player, not dug yet): the side's first trench job, within `reach` studs of
+		-- its front zone and the sectors it holds, and `ahead` studs of the enemy's next one (its approaches, not deep in
+		-- the enemy's ground), dug under fire, on shelled ground and while its offensive goes in (user 2026-11-06: "they
+		-- are beiong shelled and shot and wont even dig my pre plan")
+		Plans = { reach = 400, ahead = 150 },
 		pioneerTake = 600, -- (was 400: Map 1 sectors stand ~420 apart, a held system behind the front out of reach)
 		-- a run refused for a tree in its way (Config/Bots.Build.Trees: the pioneers and Engineers fell it) waits `wait` s
 		-- for it to come down, up to `waits` times, before it swings aside as for any other refusal (a measured match:
@@ -726,7 +731,15 @@ local Bots = {
 				reinforce = 3,
 				steps = { 3, 4.5, 6 },
 				repairs = 6,
+				-- (every dug square reinforced to the full extra unless out ahead and unused, or shelled just now; the
+				-- score orders them; user 2026-11-06: "a built trench should now always be prioritized to be reinforced
+				-- unless for a realistic reason", Rules/BotTrenchCare.decide)
+				always = true,
 			},
+			-- `share` of the trench slots (Trenches.digs, after repairs) reinforce while new squares wait to be dug (all
+			-- of them once none waits; was none until every new square was dug: "a lot of the bot built trenches end up
+			-- laying waste because reinforcement ... is not being used", user 2026-11-06)
+			Reinforce = { share = 1 / 3 },
 			repairers = 2,
 			Gate = { dug = 0.8, extra = 25, share = 0.8, wait = 240, dugout = 12 },
 			Join = { touch = 5, reach = 48, min = 3, every = 5, short = 1 }, -- (48: within Trench.maxPlan, zig-zagged)
@@ -815,6 +828,9 @@ local Bots = {
 		spacing = 16, -- (as Config/Build.Dugout.spacing: a dugout there is refused nearer)
 		recheck = 60, -- (a square refused one, Build.dugoutFor: no ground round its room, left out this many seconds)
 		engineers = 2, -- (was 1: forward lines mostly went on without their dugout, user 2026-11-05)
+		-- one dugout for every `perBays` fire bays before the line is ever shelled (was none until then, user 2026-11-06:
+		-- "reinforcement, dugouts ... is not being used"; Rules/BotTrenches.dugoutsWanted)
+		perBays = 3,
 		Bomb = { inside = 6, min = 6, max = 25 },
 		Fox = { trench = 30, apart = 5, keep = 120 },
 		-- (a bot down in a dugout's steps or room that isn't sheltering there walks straight up to its foot; still
