@@ -167,6 +167,7 @@ function Greybox.audit(mapName: string): string
 		Front = fresh(Shared.Config.Frontline),
 		M = fresh(Shared.Config.Metrics),
 		FrontRules = fresh(Shared.Rules.Frontline),
+		MT = fresh(Shared.Rules.MapTerrain),
 		map = fresh(Shared.Config.Maps:FindFirstChild(mapName) :: Instance),
 	})
 end

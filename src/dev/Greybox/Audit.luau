@@ -166,9 +166,15 @@ function Audit.run(mapName: string, deps: any): string
 			local l = math.sqrt(x * x + z * z)
 			return x / l, z / l
 		end
+		-- (a map with the leg pattern: the line at the sector's rally, Rules/MapTerrain.rally; none where it has none)
 		local function line(side: string, i: number, rows: number): { Vector3 }
 			local cx, cz
-			if i == (if side == "West" then 1 else #S) then
+			if Map.legs then
+				cx, cz = deps.MT.rally(Map, i, side)
+				if not cx then
+					return {}
+				end
+			elseif i == (if side == "West" then 1 else #S) then
 				local r = Map.spawnZones[side]
 				cx, cz = (r.minX + r.maxX) / 2, (r.minZ + r.maxZ) / 2
 			else
@@ -210,7 +216,7 @@ function Audit.run(mapName: string, deps: any): string
 		water.FilterDescendantsInstances = { workspace.Terrain }
 		local c = Front.Line.clear
 		local shut, slots, where = 0, 0, {}
-		for i = 2, #S - 1 do
+		for i = if Map.legs then 1 else 2, if Map.legs then #S else #S - 1 do
 			for _, side in { "West", "East" } do
 				for _, p in line(side, i, math.ceil(Front.Line.tries / Front.Line.perRow)) do
 					slots += 1

@@ -67,11 +67,12 @@ for i, s in PTS do
 	end
 end
 
--- The festival ground's lantern poles: a ring round S3's point (open to the north, where the stage stands) and a pair
--- flanking the stage.
+-- The festival ground's lantern poles: a ring round S3's point (open to the north, where the stage stands, and along
+-- the two legs, where each side's spawn stands while S3 is its front sector) and a pair flanking the stage.
 local features = {}
 for deg = 0, 330, 30 do
-	if deg < 60 or deg > 120 then
+	local legs = math.abs(deg - 352) < 30 or deg < 22 or math.abs(deg - 188) < 30
+	if (deg < 60 or deg > 120) and not legs then
 		local a = math.rad(deg)
 		table.insert(
 			features,
@@ -317,7 +318,8 @@ local LanternMeadows = {
 			{ id = "Ferry", style = "FerryHouse", x = 1716, z = CZ + 100, front = { -1, 0 } },
 		},
 		hedgerows = laneHedges,
-		trees = { cell = 18, density = 0.05, roadClear = 5, buildingClear = 6 },
+		-- (no garden trees until the town is built: they'd stand in the open ground)
+		trees = { cell = 18, density = 0, roadClear = 5, buildingClear = 6 },
 		cars = 0,
 		features = features,
 	},

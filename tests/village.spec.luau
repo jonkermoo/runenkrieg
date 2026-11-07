@@ -136,7 +136,7 @@ return Maps.each(function(map: any, name: string)
 			if name == "Map1" then
 				assert(#layout.poles >= 10 and #layout.signs >= 3 and #layout.cars >= 2 and #layout.fences > 10)
 			else
-				assert(#layout.fences >= 10 and #layout.yard >= 10, "Lantern Meadows: its hedgerows and lantern poles")
+				assert(#layout.fences >= 10 and #layout.yard >= 8, "Lantern Meadows: its hedgerows and lantern poles")
 			end
 		end,
 		["boundaries use real prop kinds, never sit on roads, and leave every door's gate open"] = function()
