@@ -270,8 +270,12 @@ function MapTerrain.legPieces(map: any): Legs
 			local dx, dz = MapTerrain.legWay(map, i, side)
 			if dx and dz then
 				local enemy = if side == "West" then "East" else "West"
-				local cx, cz = outAlong(s.x, s.z, dx, dz, C.crest.u, 0)
-				table.insert(L.crests, { sector = i, side = side, cx = cx, cz = cz, dx = dx, dz = dz })
+				-- (a town sector, `crest = false`, has none: its outer houses are its defence line, and a house can't stand
+				-- on a crest's slope)
+				if s.crest ~= false then
+					local cx, cz = outAlong(s.x, s.z, dx, dz, C.crest.u, 0)
+					table.insert(L.crests, { sector = i, side = side, cx = cx, cz = cz, dx = dx, dz = dz })
+				end
 				local fx, fz = outAlong(s.x, s.z, dx, dz, C.fold.u, 0)
 				table.insert(L.folds, { sector = i, side = enemy, cx = fx, cz = fz, dx = dx, dz = dz })
 				for _, sgn in { -1, 1 } do

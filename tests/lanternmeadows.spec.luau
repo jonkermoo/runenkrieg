@@ -94,6 +94,9 @@ return {
 		for i = 1, #sectors - 1 do
 			for _, p in { { "West", i, "East", i + 1 }, { "East", i + 1, "West", i } } do
 				local side, own, foe, from = p[1] :: string, p[2] :: number, p[3] :: string, p[4] :: number
+				if sectors[own].crest == false then
+					continue -- (a town: its houses hide its spawns, checked by the Studio audit with the buildings)
+				end
 				local viewers = waveLine(foe, from, 1)
 				table.insert(viewers, { sectors[from].x, sectors[from].z })
 				-- the enemy on its own crest facing us, in the lane it attacks us from, halfway across the open ground
@@ -119,6 +122,9 @@ return {
 		for i = 2, #sectors - 1 do
 			for _, side in { "West", "East" } do
 				local back = if side == "West" then i - 1 else i + 1
+				if sectors[back].crest == false then
+					continue -- (a town: its houses hide its spawns, checked by the Studio audit with the buildings)
+				end
 				local viewers = {}
 				for k = 0, 15 do
 					local a = k * math.pi / 8
@@ -152,7 +158,7 @@ return {
 		for i, s in sectors do
 			for _, side in { "West", "East" } do
 				local o = sectors[if side == "West" then i + 1 else i - 1]
-				if o then
+				if o and s.crest ~= false then
 					local top = h(at(i, side, C.crest.u, 0))
 					local base = h({ s.x, s.z })
 					assert(top - base > 4 or s.isHQ, `{s.id}'s {side} crest stands {top - base} over its point`)

@@ -916,8 +916,6 @@ local Buildings = {
 				{ kind = "BottleKiln", x = 0, z = 60, radius = 6, height = 24 },
 				{ kind = "Wall", a = { -66, 52 }, b = { -54, 52 }, height = 2.4, thick = 5, swatch = "RedBrick" },
 				{ kind = "Wall", a = { 54, 52 }, b = { 66, 52 }, height = 2.4, thick = 5, swatch = "RedBrick" },
-				{ kind = "Wall", a = { -64, -36 }, b = { -64, -24 }, height = 2.4, thick = 5, swatch = "RedBrick" },
-				{ kind = "Wall", a = { 64, -36 }, b = { 64, -24 }, height = 2.4, thick = 5, swatch = "RedBrick" },
 			},
 			description = "The brickfield farm: a walled brick yard with a barn, farmhouse, cart sheds, sties and a bottle kiln.",
 		},

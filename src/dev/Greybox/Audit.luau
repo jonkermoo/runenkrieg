@@ -59,16 +59,29 @@ function Audit.run(mapName: string, deps: any): string
 					end
 				end
 			end
-			-- walls
+			-- walls (a landmark of blocks: each block round its own walls, on its own ground; its yard is open ground)
 			if t then
-				local at = b:GetPivot()
-				local hw, hd = t.width / 2 + A.wallReach, t.depth / 2 + A.wallReach
-				for u = -hw, hw, A.step do
-					for v = -hd, hd, A.step do
-						local q = at * CFrame.new(u, 0, v)
-						local g = ground(q.X, q.Z, at.Y)
-						if g and g - at.Y > B.Foundation + A.slack and not table.find(wallsBad, b.Name) then
-							table.insert(wallsBad, b.Name)
+				local boxes = {}
+				if t.blocks then
+					for _, k in t.blocks do
+						local sub = b:FindFirstChild(k.name or "")
+						if sub and sub:IsA("Model") then
+							table.insert(boxes, { at = sub:GetPivot(), width = k.width, depth = k.depth })
+						end
+					end
+				else
+					table.insert(boxes, { at = b:GetPivot(), width = t.width, depth = t.depth })
+				end
+				for _, x in boxes do
+					local at = x.at
+					local hw, hd = x.width / 2 + A.wallReach, x.depth / 2 + A.wallReach
+					for u = -hw, hw, A.step do
+						for v = -hd, hd, A.step do
+							local q = at * CFrame.new(u, 0, v)
+							local g = ground(q.X, q.Z, at.Y)
+							if g and g - at.Y > B.Foundation + A.slack and not table.find(wallsBad, b.Name) then
+								table.insert(wallsBad, b.Name)
+							end
 						end
 					end
 				end

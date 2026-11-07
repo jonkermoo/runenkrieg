@@ -119,7 +119,9 @@ local LanternMeadows = {
 		-- (S2's spawns stand a little further out, clear of the farm's sties and sheds)
 		{ id = "S2", name = "S2", x = PTS[2][1], z = CZ + PTS[2][2], radius = 55, startOwner = "West", rally = 72 },
 		{ id = "S3", name = "S3", x = PTS[3][1], z = CZ + PTS[3][2], radius = 45, startOwner = "Neutral" },
-		{ id = "S4", name = "S4", x = PTS[4][1], z = CZ + PTS[4][2], radius = 60, startOwner = "East" },
+		-- (S4 is Borgo Aurel: no earth crests, its outer houses are the line; Studio's audit checks its spawns' cover
+		-- with the buildings)
+		{ id = "S4", name = "S4", x = PTS[4][1], z = CZ + PTS[4][2], radius = 60, startOwner = "East", crest = false },
 		{ id = "S5", name = "S5", x = PTS[5][1], z = CZ + PTS[5][2], radius = 55, startOwner = "East", isHQ = true },
 	},
 	-- Where the sprint times to the two points are equal (solved over the real ground by tests/solvedividers.luau, on
