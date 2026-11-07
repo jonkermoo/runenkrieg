@@ -82,6 +82,7 @@ local Cutscenes = {
 		LanternHall = "The lantern-makers' hall",
 		Watchtower = "The watchtower",
 		FieldBarn = "The field barn",
+		BrickfieldFarm = "The brickfield farm",
 		Cascina = "The cascina",
 		Ferry = "The ferry house",
 	},

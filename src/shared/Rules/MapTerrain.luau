@@ -291,14 +291,15 @@ function MapTerrain.legPieces(map: any): Legs
 end
 
 -- Where `side` spawns while sector `i` is its front sector and no attack is building there: `legs.rally` out from the
--- point toward the enemy, behind that approach's crest; and the way it faces. Nil at the enemy's end of the chain.
+-- point toward the enemy (the sector's own `rally` where it has one: a strongpoint's buildings fill the ground nearer
+-- in), behind that approach's crest; and the way it faces. Nil at the enemy's end of the chain.
 function MapTerrain.rally(map: any, i: number, side: string): (number?, number?, number?, number?)
 	local dx, dz = MapTerrain.legWay(map, i, side)
 	if not dx or not dz then
 		return nil, nil, nil, nil
 	end
 	local s = map.sectors[i]
-	local x, z = outAlong(s.x, s.z, dx, dz, map.legs.rally, 0)
+	local x, z = outAlong(s.x, s.z, dx, dz, s.rally or map.legs.rally, 0)
 	return x, z, dx, dz
 end
 

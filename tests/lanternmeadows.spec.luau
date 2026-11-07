@@ -67,10 +67,8 @@ return {
 				if MT.legWay(Map, i, side) then
 					local cx, cz = MT.rally(Map, i, side)
 					local d = dist({ x = cx :: number, z = cz :: number }, s)
-					assert(
-						math.abs(d - Map.legs.rally) < 1e-6 and Map.legs.rally < Map.legs.crest.u - 20,
-						"behind the crest"
-					)
+					local want = s.rally or Map.legs.rally
+					assert(math.abs(d - want) < 1e-6 and want < Map.legs.crest.u - 20, "behind the crest")
 					for _, p in waveLine(side, i, rows) do
 						local id = Sec.sectorAt(Map, MT, p[1], p[2], SecCfg.Divider.RiverSegments)
 						assert(id == s.id, `{side}'s line at {s.id} reaches into {id}`)

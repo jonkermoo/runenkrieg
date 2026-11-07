@@ -83,9 +83,9 @@ end
 for _, q in { { 1400, 174 }, { 1440, 174 } } do
 	table.insert(features, { kind = "LanternPole", x = q[1], z = CZ + q[2] })
 end
--- the field barn's haystacks at S2, one either side of it
+-- haystacks on the brickfield farm's north side, one either side of its kiln
 for _, x in { 868, 932 } do
-	table.insert(features, { kind = "Haystack", x = x, z = CZ + 118, yaw = 15 })
+	table.insert(features, { kind = "Haystack", x = x, z = CZ + 132, yaw = 15 })
 end
 
 local LanternMeadows = {
@@ -116,7 +116,8 @@ local LanternMeadows = {
 	-- have bigger zones (user 2026-11-06: "the building should take up a good portion of the sector").
 	sectors = {
 		{ id = "S1", name = "S1", x = PTS[1][1], z = CZ + PTS[1][2], radius = 45, startOwner = "West", isHQ = true },
-		{ id = "S2", name = "S2", x = PTS[2][1], z = CZ + PTS[2][2], radius = 55, startOwner = "West" },
+		-- (S2's spawns stand a little further out, clear of the farm's sties and sheds)
+		{ id = "S2", name = "S2", x = PTS[2][1], z = CZ + PTS[2][2], radius = 55, startOwner = "West", rally = 72 },
 		{ id = "S3", name = "S3", x = PTS[3][1], z = CZ + PTS[3][2], radius = 45, startOwner = "Neutral" },
 		{ id = "S4", name = "S4", x = PTS[4][1], z = CZ + PTS[4][2], radius = 60, startOwner = "East" },
 		{ id = "S5", name = "S5", x = PTS[5][1], z = CZ + PTS[5][2], radius = 55, startOwner = "East", isHQ = true },
@@ -296,7 +297,6 @@ local LanternMeadows = {
 		buildingGap = 6,
 		keepClear = {
 			{ x = PTS[1][1], z = CZ + PTS[1][2], r = 50 },
-			{ x = PTS[2][1], z = CZ + PTS[2][2], r = 20 },
 			{ x = PTS[3][1], z = CZ + PTS[3][2], r = 50 },
 			{ x = PTS[4][1], z = CZ + PTS[4][2], r = 20 },
 			{ x = PTS[5][1], z = CZ + PTS[5][2], r = 20 },
@@ -310,8 +310,8 @@ local LanternMeadows = {
 			{ id = "LanternHall", style = "LanternHall", x = S3[1], z = CZ + 262, front = { 0, -1 } },
 			-- the old watchtower behind S1's point on its north side, Katzmark's camp round it
 			{ id = "Watchtower", style = "Watchtower", x = 340, z = CZ - 84, front = { 1, 0 } },
-			-- the field barn on S2's point, its north side, facing the flag (until the brickfield farm replaces it)
-			{ id = "FieldBarn", style = "FieldBarn", x = PTS[2][1], z = CZ + 82, front = { 0, -1 } },
+			-- the brickfield farm on S2's point, the flag in its yard (user approved 2026-11-06)
+			{ id = "BrickfieldFarm", style = "BrickfieldFarm", x = PTS[2][1], z = CZ + PTS[2][2], front = { 0, -1 } },
 			-- the cascina on S5's point, its south side, facing the flag; Selvara's camp
 			{ id = "Cascina", style = "Cascina", x = PTS[5][1], z = CZ - 228, front = { 0, 1 } },
 			-- the ferry house on the east bank above the festival ford, facing the river

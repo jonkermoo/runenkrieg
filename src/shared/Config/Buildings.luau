@@ -115,6 +115,18 @@ local Buildings = {
 		hayRoof = "Thatch",
 	},
 	YardWall = { height = 2, thick = 1.2, piece = 6, sink = 0.5 }, -- hoppable (Metrics.Cover.HopableLedgeMax)
+	-- a brickworks' bottle kiln (Lantern Meadows' brickfield farm): the drum `drum` of its height, `tiers` shoulders
+	-- narrowing to a neck `neckRadius` of its foot's radius, the neck `neck` of its height; its opening (width, height);
+	-- colours (Palette.Buildings.Walls keys)
+	BottleKiln = {
+		drum = 0.4,
+		tiers = 3,
+		neck = 0.18,
+		neckRadius = 0.35,
+		mouth = { 4, 5.5 },
+		wall = "RedBrick",
+		dark = "TarBoard",
+	},
 	-- a waterwheel: rim pieces round it, spokes across each face, a paddle's reach past the rim, the axle's length
 	Waterwheel = { pieces = 14, spokes = 4, paddle = 1.6, axle = 7 },
 	-- the railway halt's pieces: a canopy post every `posts`, its roof rising `rise` to the wall; colours (Palette keys)
@@ -809,6 +821,105 @@ local Buildings = {
 				{ kind = "Lattice", x = 8, z = 7.2, y = 15.6, yaw = 180, width = 7.2, height = 5.4 },
 			},
 			description = "The field barn: a two-storey brick hay barn under terracotta, three wide doors, brick lattice vents.",
+		},
+		-- The brickfield farm at S2 (map rework, user approved 2026-11-06): the point's yard in the middle, walled; the field
+		-- barn's barn along the back (+Z), a two-storey brick farmhouse along the front (-Z, doors front and back),
+		-- open cart sheds and sties along the two gate walls (the same both sides: the point stays fair), a bottle kiln
+		-- behind the barn and brick stacks outside on the flanks. The yard walls stand 3 high (low cover you can't hop),
+		-- a cart gate through each side wall. Its footprint takes the stacks and the kiln in.
+		BrickfieldFarm = {
+			folder = "Landmarks",
+			width = 132,
+			depth = 136,
+			stories = 2,
+			storyHeight = 10,
+			roofPitch = 24,
+			class = "Brick",
+			wallThickness = 1.4,
+			walls = { "Brick", "RedBrick" },
+			roofs = { "Terracotta", "RedTile" },
+			blocks = {
+				{
+					name = "Barn",
+					x = 0,
+					z = 31,
+					width = 32,
+					depth = 14,
+					stories = 2,
+					storyHeight = 10,
+					roofPitch = 24,
+					roofStyle = "Tile",
+					quoins = true,
+					windows = 2,
+					doors = { { center = -10, w = 6, h = 7 }, { center = 10, w = 6, h = 7 } },
+					leftDoor = true,
+					rightDoor = true,
+				},
+				{
+					name = "Farmhouse",
+					x = 0,
+					z = -34,
+					width = 30,
+					depth = 12,
+					stories = 2,
+					storyHeight = 10,
+					roofPitch = 30,
+					roofStyle = "Tile",
+					quoins = true,
+					gableChimney = 1,
+					doors = { { center = 0 } },
+					backDoor = { { center = -6 }, { center = 6 } },
+				},
+				{
+					name = "StyWest",
+					x = -31,
+					z = -20,
+					yaw = -90,
+					width = 18,
+					depth = 8,
+					stories = 1,
+					storyHeight = 7,
+					roofPitch = 20,
+					roofStyle = "Tile",
+					windows = 0,
+					doors = { { center = -4 }, { center = 4 } },
+				},
+				{
+					name = "StyEast",
+					x = 31,
+					z = -20,
+					yaw = 90,
+					width = 18,
+					depth = 8,
+					stories = 1,
+					storyHeight = 7,
+					roofPitch = 20,
+					roofStyle = "Tile",
+					windows = 0,
+					doors = { { center = -4 }, { center = 4 } },
+				},
+			},
+			features = {
+				-- open cart sheds along the gate walls, north of the gates
+				{ kind = "HayBarn", x = -30, z = 20, yaw = 90, length = 22, span = 9, height = 7 },
+				{ kind = "HayBarn", x = 30, z = 20, yaw = 90, length = 22, span = 9, height = 7 },
+				-- the yard walls: the back one behind the barn, the front ones either side of the farmhouse, the side ones
+				-- either side of their cart gates (z -6..6)
+				{ kind = "Wall", a = { -36, 40 }, b = { 36, 40 }, height = 3, thick = 1.4, swatch = "Brick" },
+				{ kind = "Wall", a = { -36, -40 }, b = { -15, -40 }, height = 3, thick = 1.4, swatch = "Brick" },
+				{ kind = "Wall", a = { 15, -40 }, b = { 36, -40 }, height = 3, thick = 1.4, swatch = "Brick" },
+				{ kind = "Wall", a = { -36, -40 }, b = { -36, -6 }, height = 3, thick = 1.4, swatch = "Brick" },
+				{ kind = "Wall", a = { -36, 6 }, b = { -36, 40 }, height = 3, thick = 1.4, swatch = "Brick" },
+				{ kind = "Wall", a = { 36, -40 }, b = { 36, -6 }, height = 3, thick = 1.4, swatch = "Brick" },
+				{ kind = "Wall", a = { 36, 6 }, b = { 36, 40 }, height = 3, thick = 1.4, swatch = "Brick" },
+				-- the bottle kiln behind the barn on the flag's line, and brick stacks on the flanks (thick low walls)
+				{ kind = "BottleKiln", x = 0, z = 60, radius = 6, height = 24 },
+				{ kind = "Wall", a = { -66, 52 }, b = { -54, 52 }, height = 2.4, thick = 5, swatch = "RedBrick" },
+				{ kind = "Wall", a = { 54, 52 }, b = { 66, 52 }, height = 2.4, thick = 5, swatch = "RedBrick" },
+				{ kind = "Wall", a = { -64, -36 }, b = { -64, -24 }, height = 2.4, thick = 5, swatch = "RedBrick" },
+				{ kind = "Wall", a = { 64, -36 }, b = { 64, -24 }, height = 2.4, thick = 5, swatch = "RedBrick" },
+			},
+			description = "The brickfield farm: a walled brick yard with a barn, farmhouse, cart sheds, sties and a bottle kiln.",
 		},
 		-- The cascina at S5, south of the point on its x between it and the river, facing it: a two-storey ochre farmhouse
 		-- under terracotta with a portico below and an open loggia above, an arched gateway through to the courtyard
