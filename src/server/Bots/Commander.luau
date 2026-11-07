@@ -2810,16 +2810,18 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 			end
 		end
 	end
-	-- (a fire-trench square that hot gets dugouts too: "especially in trenches highly contested or often shelled")
+	-- (fire-trench squares get dugouts too, the hot ones first: "especially in trenches highly contested or often shelled")
 	local sites = table.clone(support)
 	for _, list in { support, fireSquares } do
 		for _, sq in list do
 			sq.heat = BotTrenches.heat(now, sq.x, sq.z, side, Tactics.dug.heat, sbs.enemies, HT, HT.memory)
 			if (sq.heat :: number) >= HT.build then
 				sbs.shelledOnce = true
-				if list == fireSquares then
-					table.insert(sites, sq)
-				end
+			end
+			-- (a fire-trench square takes one in its rear wall too, hot or not: a 32-stud support line holds one
+			-- dugout at Dugouts.spacing, the rest of Dugouts.perBays went undug, a Lantern Meadows match 2026-11-06)
+			if list == fireSquares then
+				table.insert(sites, sq)
 			end
 		end
 	end
