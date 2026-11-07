@@ -58,6 +58,7 @@ local BarrelHeat = require(script.Parent.BarrelHeat)
 local CameraShake = require(script.Parent.CameraShake)
 local CaseDrop = require(script.Parent.CaseDrop)
 local GunFx = require(script.Parent.GunFx)
+local Impacts = require(script.Parent.Impacts)
 local ArtillerySheet = require(script.Parent.ArtillerySheet)
 local GunnerKick = require(script.Parent.GunnerKick)
 local Settings = require(script.Parent.Settings)
@@ -1665,6 +1666,8 @@ function Artillery.start()
 			if part then
 				GunFx.hole(hit, normal, part)
 			end
+			-- what it throws up where it lands, as a rifle's (and by your head, more: Config/Suppression.Dirt)
+			Impacts.shot(origin, hit, normal, part)
 		end)
 
 	-- a shell's blast

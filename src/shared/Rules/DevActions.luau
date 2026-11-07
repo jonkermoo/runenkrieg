@@ -146,6 +146,8 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 		return table.find(cfg.Admin.Points, value) ~= nil
 	elseif action == "Grenade" then
 		return table.find(cfg.Admin.Grenades, value) ~= nil
+	elseif action == "MGBurst" then
+		return type(value) == "number" and cfg.Admin.MGBurst.Bursts[value] ~= nil
 	elseif action == "ShockAt" then
 		if type(value) ~= "table" or table.find(cfg.Admin.Shock.Distances, value.distance) == nil then
 			return false
