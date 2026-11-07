@@ -9,6 +9,7 @@ local Cfg = require(Shared.Config.Bots)
 local FrontCfg = require(Shared.Config.Frontline)
 local BuildCfg = require(Shared.Config.Build)
 local Map = require(Shared.LiveMap).map -- (the match's map)
+local MapTerrain = require(Shared.Rules.MapTerrain)
 local ArtCfg = require(Shared.Config.Artillery)
 local ArtRules = require(Shared.Rules.Artillery)
 local FrontRules = require(Shared.Rules.Frontline)
@@ -515,7 +516,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 	local enemyOff = (fronts.sides[enemy] or {} :: any).off
 	local mayDig = fronts.initiative == nil or (offence ~= nil and offence.phase == "Gather")
 	local strong = fronts.strong[side] or {}
-	front.gathered, front.attackers = 0, 0
+	front.gathered, front.attackers, front.dueDists = 0, 0, {}
 	local groups: { [string]: { Bot } } = {}
 	local order: { string } = {}
 	for _, b in bots do
@@ -700,7 +701,21 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 						table.insert(dug, t)
 					end
 				end
+				-- (none across the river from the squad: the next best on its own bank, Config/Bots.Routes.wet)
+				local W = RT.wet
 				local i = BotTrenches.jumpOff(dug, mid.X, mid.Z, c.X, c.Z, s.radius, TM.Jump)
+				for _ = 1, W.tries do
+					local t = i and dug[i :: number]
+					if not t or not MapTerrain.wetSpan(Map, mid.X, mid.Z, t.at.X, t.at.Z, W.step, W.pad) then
+						break
+					end
+					table.remove(dug, i :: number)
+					i = BotTrenches.jumpOff(dug, mid.X, mid.Z, c.X, c.Z, s.radius, TM.Jump)
+				end
+				local t0 = i and dug[i :: number]
+				if t0 and MapTerrain.wetSpan(Map, mid.X, mid.Z, t0.at.X, t0.at.Z, W.step, W.pad) then
+					i = nil
+				end
 				if i then
 					local t = dug[i]
 					local a, e = t.model:GetAttribute("BlockA"), t.model:GetAttribute("BlockB")
@@ -780,8 +795,24 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				gatheredHere = there
 			end
 			if inOff then
-				front.gathered = (front.gathered :: number) + math.min(gatheredHere, living)
-				front.attackers = (front.attackers :: number) + living
+				-- (only its members within Offensive.gatherNear of where it gathers count: one still walking up from
+				-- the spawn after a respawn never makes the share, Config/Bots.Offensive)
+				local gatherAt: Vector3? = sqs.jump or sqs.approach
+				local nearUp = living
+				if gatherAt then
+					nearUp = 0
+					for _, b in members do
+						if b.root and alive(b) then
+							local d = flat((gatherAt :: Vector3) - (b.root :: BasePart).Position).Magnitude
+							if d <= OF.gatherNear then
+								nearUp += 1
+								table.insert(front.dueDists :: { number }, d)
+							end
+						end
+					end
+				end
+				front.gathered = (front.gathered :: number) + math.min(gatheredHere, nearUp)
+				front.attackers = (front.attackers :: number) + nearUp
 			end
 			Squads.step(sqs.sq, {
 				now = now,
@@ -2951,6 +2982,7 @@ local function initiativeTick(owner: { string }, counts: { { West: number, East:
 			ours = (c :: any)[holder],
 			theirs = (c :: any)[enemy],
 			waveEvery = FrontCfg.Waves.every,
+			due = Orders.due(hs.dueDists or {}, OF.ready, OF.pace),
 		}, OF)
 		if off.phase == "Go" and was1 ~= "Go" and was1 ~= "Exploit" then
 			fronts.tally[`go{holder}`] = (fronts.tally[`go{holder}`] or 0) + 1

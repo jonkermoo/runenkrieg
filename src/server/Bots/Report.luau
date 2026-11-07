@@ -404,13 +404,27 @@ local function squadLines()
 	local lines = {}
 	for _, sq in squads do
 		local members, alive2, order = 0, 0, "Attack"
+		local sum = Vector3.zero
 		for _, b in bots do
 			if b.squad and squads[b.squad :: string] == sq then
 				members += 1
 				order = b.order or order
-				if alive(b) then
+				if alive(b) and b.root then
 					alive2 += 1
+					sum += (b.root :: BasePart).Position
 				end
+			end
+		end
+		-- where it is and where it gathers (its jump-off, else its approach spot), x and z, and how far apart
+		local where = ""
+		local gather: Vector3? = sq.jump or sq.approach
+		if alive2 > 0 then
+			local m = sum / alive2
+			where = ` at {math.floor(m.X)},{math.floor(m.Z)}`
+			if gather then
+				local g = gather :: Vector3
+				local off = Vector3.new(g.X - m.X, 0, g.Z - m.Z).Magnitude
+				where ..= `, gathers at {math.floor(g.X)},{math.floor(g.Z)} ({math.floor(off)} studs)`
 			end
 		end
 		if members > 0 then
@@ -428,7 +442,7 @@ local function squadLines()
 				lines,
 				`{sq.side} {order} S{sq.sector}: {string.lower(sq.sq.phase)}, {doing}, still {still}s{if shot
 					then ", SHOT AT"
-					else ""}, cover {sq.inCover or 0}/{alive2}`
+					else ""}, cover {sq.inCover or 0}/{alive2}{where}`
 			)
 		end
 	end
@@ -783,6 +797,27 @@ local function houseLine()
 	workspace:SetAttribute(H.attribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
 
+-- where a bot is going, for its label: studs to its squad's goal, to the step it walks to now, or its wait
+local function goalWord(b: Bot): string?
+	local root = b.root
+	if not root then
+		return nil
+	end
+	local p = (root :: BasePart).Position
+	local parts = {}
+	if b.goal then
+		table.insert(parts, `goal {math.floor(Vector3.new(b.goal.X - p.X, 0, b.goal.Z - p.Z).Magnitude)}`)
+	end
+	local g = b.nav and b.nav.goal
+	if g then
+		table.insert(parts, `walk {math.floor(Vector3.new(g.X - p.X, 0, g.Z - p.Z).Magnitude)}`)
+	end
+	if b.wait then
+		table.insert(parts, `wait {b.wait.kind}/{b.wait.why}`)
+	end
+	return if #parts > 0 then table.concat(parts, " ") else nil
+end
+
 local function label()
 	trenchStats()
 	dugoutLines()
@@ -830,6 +865,7 @@ local function label()
 					gun = if b.gun then (b.gun :: Model).Name elseif Artillery.gunOf(m) then "on" else nil,
 					danger = b.danger,
 					sight = b.sight,
+					goal = goalWord(b),
 				})
 			end
 			m:SetAttribute(S.label, text)

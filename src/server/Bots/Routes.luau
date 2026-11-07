@@ -19,6 +19,7 @@ local Map = require(Shared.LiveMap).map -- (the match's map)
 local BotBuild = require(Shared.Rules.BotBuild)
 local Squads = require(Shared.Rules.BotSquads)
 local Rules = require(Shared.Rules.Bots)
+local MapTerrain = require(Shared.Rules.MapTerrain)
 
 local Routes = {}
 
@@ -129,6 +130,9 @@ local function build(i: number, side: string, hold: boolean, gen: number): { Spo
 			table.insert(radii, s.radius + r)
 		end
 	end
+	-- (approaching: the side's own sector behind, the way back to it; a spot across the river from it slides back to the
+	-- side's own bank, Config/Bots.Routes.wet)
+	local back = Map.sectors[if side == "West" then i - 1 else i + 1]
 	local perRing = if hold then RT.holdPerRing else RT.perRing
 	local done = 0
 	for _, r in radii do
@@ -141,6 +145,14 @@ local function build(i: number, side: string, hold: boolean, gen: number): { Spo
 				then Vector3.new(math.cos(a), 0, math.sin(a))
 				else (CFrame.fromAxisAngle(Vector3.yAxis, a) * home)
 			local at = c + dir * r
+			if not hold and back then
+				local W = RT.wet
+				local _, last = MapTerrain.wetSpan(Map, at.X, at.Z, back.x, back.z, W.step, W.pad)
+				if last then
+					local way = Vector3.new(back.x - at.X, 0, back.z - at.Z)
+					at += way * last + way.Unit * W.bank
+				end
+			end
 			local pos = standable(at.X, at.Z, skip)
 			if pos then
 				local chest = (pos :: Vector3) + Vector3.yAxis * RT.chest
@@ -163,7 +175,9 @@ local function build(i: number, side: string, hold: boolean, gen: number): { Spo
 					pos = pos :: Vector3,
 					hidden = hidden,
 					near = #around,
-					distance = if hold then flat((pos :: Vector3) - c).Magnitude else r - s.radius,
+					distance = if hold
+						then flat((pos :: Vector3) - c).Magnitude
+						else math.max(flat((pos :: Vector3) - c).Magnitude - s.radius, 0),
 					lane = Squads.lane(homeX, homeZ, c.X, c.Z, pos.X, pos.Z, RT.laneWithin),
 					sees = sees,
 				})

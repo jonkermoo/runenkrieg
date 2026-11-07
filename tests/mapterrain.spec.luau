@@ -16,7 +16,33 @@ end
 
 local trees = T.trees(Map1)
 
+local Meadows = require("../src/shared/Config/Maps/LanternMeadows")
+local RT = require("../src/shared/Config/Bots").Routes
+
 return {
+	["wetSpan: a line over the river is wet where it crosses, one on a bank dry (both kinds of river)"] = function()
+		local W = RT.wet
+		-- Map 1: the river runs north-south near x 1450; S4's point (1660) to S3's (1240) crosses it
+		local f, l = T.wetSpan(Map1, 1660, -40, 1240, -30, W.step, W.pad)
+		assert(f and l and f > 0.3 and l < 0.7 and l >= f, "S4 to S3 crosses the river mid-way")
+		assert(T.wetSpan(Map1, 1660, -40, 1560, -40, W.step, W.pad) == nil, "on S4's own bank: dry")
+		-- Lantern Meadows: the Aurel's path between S3 and S4
+		local s3, s4 = Meadows.sectors[3], Meadows.sectors[4]
+		local f2, l2 = T.wetSpan(Meadows, s4.x - 60, s4.z, s3.x, s3.z, W.step, W.pad)
+		assert(f2 and l2, "S4's approach ring to S3: across the Aurel")
+		-- the far end of the water: past it, the West's own bank, dry back to S3
+		local x = s4.x - 60 + (s3.x - (s4.x - 60)) * (l2 :: number)
+		local z = s4.z + (s3.z - s4.z) * (l2 :: number)
+		local ux, uz = s3.x - x, s3.z - z
+		local n = math.sqrt(ux * ux + uz * uz)
+		assert(
+			T.wetSpan(Meadows, x + ux / n * W.bank, z + uz / n * W.bank, s3.x, s3.z, W.step, W.pad) == nil,
+			"a spot slid past the water is on the home bank"
+		)
+		assert(T.wetSpan(Meadows, s3.x, s3.z, s3.x - 300, s3.z, W.step, W.pad) == nil, "S3 back to S2: dry")
+		-- no river: never wet
+		assert(T.wetSpan({}, 0, 0, 100, 0, W.step, W.pad) == nil)
+	end,
 	["deterministic: same input, same terrain and trees"] = function()
 		assert(T.heightAt(Map1, 123.4, -56.7) == T.heightAt(Map1, 123.4, -56.7))
 		local again = T.trees(Map1)

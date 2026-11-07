@@ -327,6 +327,7 @@ local fronts = {
 			note: string?,
 			gathered: number?,
 			attackers: number?,
+			dueDists: { number }?, -- its attack squads' studs to their jump-offs this look (Offensive.pace)
 		},
 	},
 	owners = nil :: { string }?,

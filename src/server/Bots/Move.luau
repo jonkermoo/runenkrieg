@@ -553,6 +553,18 @@ local function mateNear(b: Bot, at: Vector3, within: number): Vector3?
 	return bestAt
 end
 
+-- whether another bot took a cover spot within `within` studs of `at` (still on its way there, or in it): taken
+-- (user 2026-11-06 play test: a dozen bots shot at from the same street all picked the cover spots of one building and
+-- stood packed inside it; a teammate only counted once it stood there)
+local function coverClaimed(b: Bot, at: Vector3, within: number): boolean
+	for _, o in bots do
+		if o ~= b and o.cover and o.side == b.side and flat((o.cover :: Vector3) - at).Magnitude < within then
+			return true
+		end
+	end
+	return false
+end
+
 -- the search's next ring, when the frame has the rays for it
 local function coverStep(b: Bot)
 	local job = b.coverJob :: CoverJob
@@ -575,7 +587,7 @@ local function coverStep(b: Bot)
 				distance = r,
 				hidden = hidden(job.threat, g, exclude),
 				threat = flat(g - job.threat).Magnitude,
-				crowded = mateNear(b, g, brainCfg.SpreadMin) ~= nil,
+				crowded = mateNear(b, g, brainCfg.SpreadMin) ~= nil or coverClaimed(b, g, brainCfg.SpreadMin),
 			})
 		end
 	end
@@ -601,7 +613,7 @@ local function coverStep(b: Bot)
 				distance = flat(g - p).Magnitude,
 				hidden = hidden(job.threat, g, exclude),
 				threat = flat(g - job.threat).Magnitude,
-				crowded = mateNear(b, g, brainCfg.SpreadMin) ~= nil,
+				crowded = mateNear(b, g, brainCfg.SpreadMin) ~= nil or coverClaimed(b, g, brainCfg.SpreadMin),
 			})
 		end
 	end
