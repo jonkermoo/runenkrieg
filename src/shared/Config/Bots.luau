@@ -656,7 +656,16 @@ local Bots = {
 		-- next sector, Map 1's are some 420 apart) within `cone` degrees of the run's line, or above it by `plunge` degrees of elevation, that a ray from its eye over the
 		-- ground reaches; then legs `leg` studs long, each turned off the line by `angle.min` degrees plus `angle.perStud`
 		-- for each stud the threat stands above the run (up to `angle.max`), alternately. Safe: straight.
-		Zigzag = { cone = 20, plunge = 10, range = 500, leg = 12, angle = { min = 25, perStud = 1, max = 45 } },
+		-- (leg 12 to 16 and max 45 to 35, user 2026-11-06: "make sure bots dont build abnormal trenches. they should follow
+		-- player trench rules as well": 12-stud legs were a block and a half and turned up to 90 degrees at each joint, a
+		-- saw tooth; now two blocks a leg, at most 70 degrees a joint, and no short leg left at the end)
+		Zigzag = { cone = 20, plunge = 10, range = 500, leg = 16, angle = { min = 25, perStud = 1, max = 35 } },
+		-- the shape of a bot's runs (src/server/Trenches.plan for a bot's plan; Act's runs planned part way): it joins a
+		-- free end at no more than `maxBend` degrees off straight (a player may turn 135; 100 lets a communication trench
+		-- meet a fire bay's end square on, 75 refused 7 of those in a Lantern Meadows match), and a run planned part way goes
+		-- in whole blocks of at least `minRun`, leaving at least that much to plan (no stubs). The admin
+		-- bot runs readout counts joints turning more than `sharp` and squares shorter than `short` (Trenches.shapes).
+		Shape = { maxBend = 100, minRun = 16, sharp = 100, short = 6 },
 		on = 2,
 		ends = 0.15,
 		cap = 160, -- (was 60)
@@ -665,7 +674,9 @@ local Bots = {
 		digReach = 220,
 		digs = 12,
 		standHp = 60,
-		rise = 3.4, -- (6.3 from the line in the 4.25 floor trench, 5.05 in the slimmer 3 floor one)
+		-- (4.4: the feet 2.1 under the ground line, eyes 2.4 over it, as 3.4 was in the 5.5-deep trench; Config/Build.Trench
+		-- depth 6.5 since 2026-11-06)
+		rise = 4.4,
 		alarm = 60,
 		keep = 0.5,
 		fallback = 30,

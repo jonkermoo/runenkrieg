@@ -719,8 +719,8 @@ function BotTrenches.zigAngle(height: number, cfg: { min: number, perStud: numbe
 end
 
 -- A run from A to B dug as a zig-zag: legs `leg` studs long, each turned `angle` degrees off the line to B, one way
--- then the other, the last straight onto B (each leg's line ends off the next one's: no straight sight down it). The
--- legs, of the run's kind.
+-- then the other, the last onto B (each leg's line ends off the next one's: no straight sight down it). The last leg
+-- takes what is left over, at least a leg's way on toward B (no stub). The legs, of the run's kind.
 function BotTrenches.zigzag(run: Run, angle: number, leg: number): { Run }
 	local dx, dz = run.bx - run.ax, run.bz - run.az
 	local d = math.sqrt(dx * dx + dz * dz)
@@ -733,7 +733,8 @@ function BotTrenches.zigzag(run: Run, angle: number, leg: number): { Run }
 	local fwd, side = math.cos(a) * leg, math.sin(a) * leg
 	local legs: { Run } = {}
 	local px, pz, done, sign = run.ax, run.az, 0, 1
-	while d - done > fwd + 1e-6 do
+	-- (zig while more than two legs' way on is left: the last leg runs on to B from there, at least a leg's way on)
+	while d - done > fwd * 2 + 1e-6 do
 		local nx = px + ux * fwd + cx * side * sign
 		local nz = pz + uz * fwd + cz * side * sign
 		table.insert(legs, { kind = run.kind, ax = px, az = pz, bx = nx, bz = nz, route = run.route })
@@ -742,6 +743,33 @@ function BotTrenches.zigzag(run: Run, angle: number, leg: number): { Run }
 	end
 	table.insert(legs, { kind = run.kind, ax = px, az = pz, bx = run.bx, bz = run.bz, route = run.route })
 	return legs
+end
+
+-- A run from A to B turned toward the way (dx, dz) (a flat unit: the run before it, ending at A) until it bends off
+-- that way by no more than `most` degrees, its length kept: the end it gets (Config/Bots.Trenches.Shape)
+function BotTrenches.clampBend(
+	dx: number,
+	dz: number,
+	ax: number,
+	az: number,
+	bx: number,
+	bz: number,
+	most: number
+): (number, number)
+	local vx, vz = bx - ax, bz - az
+	local len = math.sqrt(vx * vx + vz * vz)
+	if len < 1e-6 then
+		return bx, bz
+	end
+	local bend = math.deg(math.acos(math.clamp((vx * dx + vz * dz) / len, -1, 1)))
+	if bend <= most then
+		return bx, bz
+	end
+	-- (the side it turns to: the sign of the cross product, straight back counted to the right)
+	local side = if dx * vz - dz * vx >= 0 then 1 else -1
+	local a = math.rad(most) * side
+	local rx, rz = dx * math.cos(a) - dz * math.sin(a), dx * math.sin(a) + dz * math.cos(a)
+	return ax + rx * len, az + rz * len
 end
 
 -- How a soldier at (px, pz) died, for the trench stats (Config/Bots.Trenches.Stats `cfg`): in a dug trench square

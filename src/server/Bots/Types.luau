@@ -83,6 +83,7 @@ export type Sap = {
 	parallel: boolean?, -- its last run the parallel across (Config/Bots.Front): dug, it is over and the squad goes over
 	dugAt: number, -- when it began, or its last run was dug (Config/Bots.Sap.dig)
 	began: number?, -- when it began (Config/Bots.Sap.maxSeconds)
+	dir: Vector3?, -- the way its last dug run ran (flat unit): the next one bends off it no more than Trenches.Shape.maxBend
 }
 export type TrenchSquare = {
 	x: number,

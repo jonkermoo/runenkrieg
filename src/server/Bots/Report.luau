@@ -458,6 +458,22 @@ local function runLines()
 		if sb and #sb.runNotes > 0 then
 			table.insert(lines, `{side}: {table.concat(sb.runNotes, "; ")}`)
 		end
+		-- (the shape of its trenches: joints, sharp joints and short squares, bots' and players'; bot plans refused for
+		-- a sharp bend; Config/Bots.Trenches.Shape)
+		local SH = Cfg.Trenches.Shape
+		local kit: string? = nil
+		for _, b in bots do
+			if b.side == side and b.kit then
+				kit = b.kit
+				break
+			end
+		end
+		local sh = Trenches.shapes(kit or side, SH.sharp, SH.short)
+		local bent = State.ByTrench.runs[`{side} refused: Too sharp a bend`] or 0
+		table.insert(
+			lines,
+			`{side} shape: bots {sh.bots.joints} joints, {sh.bots.sharp} sharp, {sh.bots.short} short; players {sh.players.joints}/{sh.players.sharp}/{sh.players.short}; bot plans refused sharp {bent}`
+		)
 	end
 	workspace:SetAttribute(DevCfg.Admin.BotRunsAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
