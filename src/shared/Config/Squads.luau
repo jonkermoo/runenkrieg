@@ -34,13 +34,23 @@ local Squads = {
 
 	-- The panel (src/client/SquadPanel): opened by the loadout menu's Squad button or the Squad key (Config/Settings
 	-- Key_Squad); refreshed every `Refresh` seconds while open.
-	Panel = { DisplayOrder = 11, Refresh = 0.5 }, -- (over the loadout menu and the HUD, beside the settings menu)
+	Panel = { DisplayOrder = 11, Refresh = 0.5, RuneStroke = { min = 1.5, share = 0.11 } }, -- (over the loadout menu and the HUD, beside the settings menu)
 
 	-- The marker over each squadmate (src/client/SquadMarkers): a BillboardGui drawn over everything (AlwaysOnTop, no
 	-- distance limit), `Above` studs over the head, the same size at any range: a diamond `Diamond` px square with an
 	-- ink edge (`Edge` px) in the squad colour (Palette.UI.Squad: `mate`, `down` when knocked down), the name in `TextSize`
 	-- px over it. Hidden for the fallen, during the match cutscenes and while the admin panel hides the game HUD.
-	Marker = { Above = 2.2, Diamond = 13, Edge = 2, TextSize = 14, Width = 160, Height = 40 },
+	-- (`Refresh`: seconds between redraws; `NameStroke`: the name's ink edge transparency)
+	Marker = {
+		Above = 2.2,
+		Diamond = 13,
+		Edge = 2,
+		TextSize = 14,
+		Width = 160,
+		Height = 40,
+		Refresh = 0.2,
+		NameStroke = 0.3,
+	},
 
 	-- Admin panel (Config/DevTools, game rule 8): "Fill squad" makes up to Max - 1 of your team's nearest bot soldiers
 	-- (or dummies) test mates of your squad for markers and statuses (shown, never ordered); "Clear test mates" drops them.

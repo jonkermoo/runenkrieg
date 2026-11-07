@@ -45,7 +45,7 @@ local function newMarker(parent: Instance): Marker
 	name.TextSize = M.TextSize
 	name.TextColor3 = rgb(P.name)
 	name.TextStrokeColor3 = rgb(P.edge)
-	name.TextStrokeTransparency = 0.3
+	name.TextStrokeTransparency = M.NameStroke
 	name.Parent = gui
 	local diamond = Instance.new("Frame")
 	diamond.Name = "Diamond"
@@ -106,7 +106,7 @@ function SquadMarkers.start()
 	local acc = 0
 	RunService.Heartbeat:Connect(function(dt)
 		acc += dt
-		if acc < 0.2 then
+		if acc < M.Refresh then
 			return
 		end
 		acc = 0

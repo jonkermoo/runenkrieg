@@ -141,7 +141,16 @@ end
 local function glyph(parent: Instance, n: any, rune: string): Frame
 	local f = frame(parent, n)
 	Ink.draw(f, function(holder, w, h)
-		Ink.rune(holder, rune, 0, 0, w, h, math.max(1.5, h * 0.11), rgb("text"))
+		Ink.rune(
+			holder,
+			rune,
+			0,
+			0,
+			w,
+			h,
+			math.max(Cfg.Panel.RuneStroke.min, h * Cfg.Panel.RuneStroke.share),
+			rgb("text")
+		)
 	end)
 	return f
 end
@@ -346,7 +355,16 @@ function SquadPanel.start()
 			squadName.Text = `{own.name} squad`
 			squadCount.Text = `{#own.members} of {Cfg.Max} soldiers`
 			Ink.draw(mineRune, function(holder, w, h)
-				Ink.rune(holder, Cfg.Names[own.n], 0, 0, w, h, math.max(1.5, h * 0.11), rgb("text"))
+				Ink.rune(
+					holder,
+					Cfg.Names[own.n],
+					0,
+					0,
+					w,
+					h,
+					math.max(Cfg.Panel.RuneStroke.min, h * Cfg.Panel.RuneStroke.share),
+					rgb("text")
+				)
 			end)
 			for i, s in slots do
 				local m = own.members[i] :: any
