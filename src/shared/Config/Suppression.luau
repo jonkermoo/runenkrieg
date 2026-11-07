@@ -10,8 +10,9 @@ return table.freeze({
 	-- an enemy bullet passing within `radius` studs of your head: `add` on its path, nothing at the radius, `curve` the
 	-- falloff's steepness (1 = straight); not within `clear` studs of the muzzle. A shotgun counts its nearest pellet.
 	Pass = { radius = 6, add = 0.35, curve = 1.5, clear = 2 },
-	-- an enemy bullet ending within `radius` studs of your head (each bullet counts the stronger of its pass and this)
-	Impact = { radius = 5, add = 0.25, curve = 1.5 },
+	-- an enemy bullet ending within `radius` studs of your body, feet to head (each bullet counts the stronger of its pass
+	-- and this; a machine gun stitching the dirt round your feet pins you too)
+	Impact = { radius = 6, add = 0.3, curve = 1.5 },
 	-- an explosion of `kg` of TNT: `add` at the blast, nothing `reach` x the charge's cube root studs away (at most
 	-- `maxReach`), `curve` the falloff. A Mills (71 g) reaches ~35 studs: ~0.8 at 5, ~0.2 at 20; a 2.5 kg shell ~115.
 	Blast = { add = 1.1, reach = 85, maxReach = 250, curve = 2 },
@@ -72,7 +73,7 @@ return table.freeze({
 	-- muffle the stronger one wins, src/client/Audio)
 	Muffle = { high = -4, mid = -1, pinnedHigh = -10, pinnedMid = -3 },
 
-	-- dirt (src/client/Impacts): a bullet landing within `near` studs of your head throws `count` x the dirt, `size` x
+	-- dirt (src/client/Impacts): a bullet landing within `near` studs of your body (feet to head) throws `count` x the dirt, `size` x
 	-- bigger, and a dust puff (`Dust`); within `face` studs a few specks hit the screen (`Specks`). Not a bullet fired
 	-- from within `own` studs of the head (your own).
 	Dirt = {

@@ -111,4 +111,11 @@ return {
 		assert(Sc.pinnedDark > Sc.dark and Sc.pinnedDepth > Sc.depth and Sc.pinnedDark + Sc.pulse <= 0.8)
 		assert(Mu.pinnedHigh < Mu.high and Mu.high <= 0)
 	end,
+	["what lands round the body counts from the nearest point, feet to head"] = function()
+		local feet, head = { 0, 0, 0 }, { 0, 5, 0 }
+		assert(near(S.toLine({ 3, 0, 0 }, feet, head), 3), "beside the feet")
+		assert(near(S.toLine({ 0, 9, 0 }, feet, head), 4), "over the head")
+		assert(near(S.toLine({ 0, 2, 2 }, feet, head), 2), "beside the hips")
+		assert(near(S.toLine({ 1, 1, 1 }, head, head), math.sqrt(1 + 16 + 1)), "a point body")
+	end,
 }

@@ -19,6 +19,7 @@ local Trees = require(Shared.Rules.Trees)
 local Net = require(Shared.Net)
 local TreeSway = require(script.Parent.TreeSway)
 local Flagpoles = require(script.Parent.Flagpoles)
+local Suppression = require(script.Parent.Suppression)
 local SuppressionScreen = require(script.Parent.SuppressionScreen)
 local Dirt = require(Shared.Config.Suppression).Dirt
 
@@ -151,18 +152,16 @@ function Impacts.leaves(at: Vector3, color: Color3, count: number)
 end
 
 -- one bullet's line from `from` to where it landed (`hit`, the surface's `normal`, the `part` it hit)
--- how far `hit` landed from the own soldier's head, when within Dirt.near (not from a gun at the head: your own)
+-- how far `hit` landed from the own soldier's body (feet to head), when within Dirt.near (not from a gun at the head:
+-- your own)
 local function nearHead(from: Vector3?, hit: Vector3): number?
 	local character = Players.LocalPlayer.Character
 	local head = character and character:FindFirstChild("Head") :: BasePart?
-	if not head then
+	if not head or (from and (from - head.Position).Magnitude < Dirt.own) then
 		return nil
 	end
-	local d = (hit - head.Position).Magnitude
-	if d > Dirt.near or (from and (from - head.Position).Magnitude < Dirt.own) then
-		return nil
-	end
-	return d
+	local d = Suppression.fromBody(hit)
+	return if d and d <= Dirt.near then d else nil
 end
 
 function Impacts.shot(from: Vector3?, hit: Vector3, normal: Vector3?, part: Instance?)

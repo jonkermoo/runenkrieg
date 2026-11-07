@@ -41,6 +41,10 @@ local function current(): number
 	return level
 end
 
+local function point(v: Vector3): { number }
+	return { v.X, v.Y, v.Z }
+end
+
 local function head(): Vector3?
 	local character = Players.LocalPlayer.Character
 	local h = character and character:FindFirstChild("Head") :: BasePart?
@@ -49,6 +53,27 @@ local function head(): Vector3?
 		return nil
 	end
 	return h.Position
+end
+
+-- the own soldier's feet (below the root by the hips and legs), for what lands round the body
+local function feet(): Vector3?
+	local character = Players.LocalPlayer.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = humanoid and humanoid.RootPart
+	if not root or not humanoid then
+		return nil
+	end
+	return root.Position - Vector3.new(0, root.Size.Y / 2 + humanoid.HipHeight, 0)
+end
+
+-- how far `p` is from the own soldier's body (feet to head), or from the head alone
+function Suppression.fromBody(p: Vector3): number?
+	local h = head()
+	if not h then
+		return nil
+	end
+	local f = feet()
+	return if f then Rules.toLine(point(p), point(f), point(h)) else (p - h).Magnitude
 end
 
 -- smooth noise, about -1..1
@@ -174,10 +199,6 @@ local function kitOf(shooter: Model): any
 	return nil
 end
 
-local function point(v: Vector3): { number }
-	return { v.X, v.Y, v.Z }
-end
-
 -- `shooter` (someone else) fired from `origin`; `hits`: where each bullet or pellet ended.
 function Suppression.shot(shooter: Model, origin: Vector3, hits: { Vector3 })
 	local me = Players.LocalPlayer.Character
@@ -192,7 +213,7 @@ function Suppression.shot(shooter: Model, origin: Vector3, hits: { Vector3 })
 	local best = 0
 	for _, hit in hits do
 		local p = ShotRules.pass(point(origin), point(hit), point(h), P.radius, P.clear)
-		local s = Rules.impact((hit - h).Magnitude, I)
+		local s = Rules.impact(Suppression.fromBody(hit) or (hit - h).Magnitude, I) -- (round the body: feet too)
 		best = math.max(best, s, if p then Rules.pass(p.off, P) else 0)
 	end
 	if best <= 0 then
