@@ -22,6 +22,7 @@ local SupCfg = require(Shared.Config.Suppression)
 local U = require(Shared.Config.Uniforms)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Buildings = require(Shared.Rules.BotBuildings)
+local BotTrenches = require(Shared.Rules.BotTrenches)
 local Callouts = require(Shared.Rules.BotCallouts)
 local Rules = require(Shared.Rules.Bots)
 local ShotRules = require(Shared.Rules.ShotAudio)
@@ -322,10 +323,11 @@ local function sense(b: Bot, d: Rules.Difficulty, now: number): boolean
 		any = any or t.visible
 		table.insert(out, t)
 		table.insert(list, { id = t.model, distance = t.distance, visible = t.visible })
-		-- an enemy in sight looking its way has spotted it
-		if t.visible and other.look.Magnitude > 0 then
+		-- an enemy in sight has spotted it (Config/Bots.Brain.SeenSpots: seen is not safe), else one in sight looking
+		-- its way
+		if t.visible and (brainCfg.SeenSpots or other.look.Magnitude > 0) then
 			local off = other.pos - from
-			if Rules.lookingAt(off.X, off.Z, other.look.X, other.look.Z, brainCfg.LookCone) then
+			if brainCfg.SeenSpots or Rules.lookingAt(off.X, off.Z, other.look.X, other.look.Z, brainCfg.LookCone) then
 				b.spotted = true
 				if not b.threatFrom or now - (b.threatAt or -math.huge) > brainCfg.ThreatMemory then
 					b.threatFrom = other.pos + Vector3.yAxis * Cfg.Eye
@@ -445,10 +447,14 @@ local function findCover(b: Bot, now: number)
 		b.cover, b.coverFrom, b.coverJob = b.post, threat, nil
 		return
 	end
-	-- shot at by its own dug trench: down into it (Config/Bots.TrenchMove.cover)
+	-- shot at, shelled or seen by its own dug trench: down into it (Config/Bots.TrenchMove.cover, shellCover; seen is
+	-- not safe, Brain.SeenSpots)
 	local sb = b.side and buildLists[b.side :: string]
-	if sb and b.threatAt and now - (b.threatAt :: number) < brainCfg.ThreatMemory then
-		local best, bestD, hole = nil, TM.cover, false
+	local shot = b.threatAt ~= nil and now - (b.threatAt :: number) < brainCfg.ThreatMemory
+	if sb and (shot or b.spotted) then
+		local shelled =
+			BotTrenches.shelled(now, ByTrench.blasts, { { x = root.Position.X, z = root.Position.Z } }, Cfg.Dugouts)
+		local best, bestD, hole = nil, if shelled then TM.shellCover else TM.cover, false
 		for _, t in sb.trench do
 			local d = flat(t.at - root.Position).Magnitude
 			if t.built and d < bestD then

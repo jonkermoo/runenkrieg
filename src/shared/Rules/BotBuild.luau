@@ -356,6 +356,20 @@ function BotBuild.pinned(
 		and sinceLast >= cfg.every
 end
 
+-- Whether a bot seen in the open digs in where it stands (Config/Bots.Build.Exposed; user 2026-11-06: "just being
+-- able to see an enemy is considered not safe"): seen from the open `exposedFor` s, `after` or more, no cover near, not
+-- in a trench, not pressing on, and its last foxhole or pile `sinceLast` s ago, `every` or more
+function BotBuild.exposedDig(
+	exposedFor: number,
+	hasCover: boolean,
+	inTrench: boolean,
+	pressing: boolean,
+	sinceLast: number,
+	cfg: { after: number, every: number }
+): boolean
+	return exposedFor >= cfg.after and not hasCover and not inTrench and not pressing and sinceLast >= cfg.every
+end
+
 -- how far (x, z) is from the segment (ax, az)-(bx, bz)
 local function offSegment(x: number, z: number, ax: number, az: number, bx: number, bz: number): number
 	local dx, dz = bx - ax, bz - az

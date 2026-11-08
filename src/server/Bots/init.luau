@@ -1021,6 +1021,45 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	local target = b.target
 	-- in sight: its last look's ray found it, and that look is fresh (between looks the target can step behind a wall)
 	local seeing = target ~= nil and target.visible and now - b.sightAt <= 1 / b.senseHz + Cfg.Sight.stale
+	-- seen from the open or from cover (Config/Bots.Build.Exposed; the trench stats' exposure line): cover reached,
+	-- its fire step, a dug square of its side's or one of its foxholes count as cover
+	if b.mode == "Normal" and b.side then
+		local covered = coverState == "at"
+			or (floor ~= nil and flat((floor :: Vector3) - root.Position).Magnitude <= STEP + 3)
+		local sb = buildLists[b.side :: string]
+		if not covered and sb then
+			covered = BotTrenches.inSquare(root.Position.X, root.Position.Z, sb.trench, TR.Stats.floor) ~= nil
+		end
+		if not covered then
+			for _, h in Tactics.dug.holes do
+				if flat(h.floor - root.Position).Magnitude <= CV.at then
+					covered = true
+					break
+				end
+			end
+		end
+		b.exposedSince = if seeing and not covered then b.exposedSince or now else nil
+		local ex = ByTrench.exposure[b.side :: string]
+		if not ex then
+			ex = { open = 0, covered = 0, shelledOpen = 0 }
+			ByTrench.exposure[b.side :: string] = ex
+		end
+		local dt = math.min(now - (b.exposureAt or now), 2)
+		b.exposureAt = now
+		if seeing then
+			if covered then
+				ex.covered += dt
+			else
+				ex.open += dt
+			end
+		end
+		if
+			not covered
+			and BotTrenches.shelled(now, ByTrench.blasts, { { x = root.Position.X, z = root.Position.Z } }, Cfg.Dugouts)
+		then
+			ex.shelledOpen += dt
+		end
+	end
 	-- a covering-fire spot: not one whose line it found blocked lately (no aiming into a hill or a wall)
 	local spot = if b.role == "Support" or staff then knownSpot(b, now) else nil
 	if

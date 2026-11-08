@@ -738,6 +738,16 @@ local function trenchStats()
 				median + 0.5
 			)} s), {k("lost")} left; {n("joins")} joins; gates {if #gates > 0 then table.concat(gates, ", ") else "-"}`
 		)
+		-- (seeing an enemy: from the open and from cover, bot-seconds; in the open by fresh shells; foxholes dug seen in
+		-- the open, both sides; Config/Bots.Brain.SeenSpots, Build.Exposed)
+		local ex = State.ByTrench.exposure[side] or { open = 0, covered = 0, shelledOpen = 0 }
+		local seenAll = ex.open + ex.covered
+		table.insert(
+			lines,
+			`  exposure: seeing an enemy {math.floor(seenAll)} bot-s, {if seenAll > 0
+				then math.floor(100 * ex.covered / seenAll + 0.5)
+				else 0}% from cover; {math.floor(ex.shelledOpen)} bot-s in the open by fresh shells; {stats.exposedHoles} foxholes dug exposed (both sides)`
+		)
 		-- (players' plans waiting and dug, how long each took; reinforcing: squares at the full extra of those dug, the
 		-- slots it had this time; dugouts standing; Config/Bots.Trenches.Plans, Care.Reinforce, Dugouts.perBays)
 		local times = table.clone(State.ByTrench.planTimes[side] or {})

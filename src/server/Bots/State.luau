@@ -67,6 +67,10 @@ local ByTrench = {
 	runs = {} :: { [string]: number },
 	-- how long each side's lost trench squares stood, seconds (dug to buried under Trenches.standHp or gone; Care)
 	lives = {} :: { [string]: { number } },
+	-- each side's bot-seconds seeing an enemy: from the open, from cover (a cover point reached, a trench square, its
+	-- fire step, a foxhole, a building's spot), and in the open within Dugouts.near of a fresh shell (the trench stats'
+	-- exposure line; Config/Bots.Brain.SeenSpots)
+	exposure = {} :: { [string]: { open: number, covered: number, shelledOpen: number } },
 	-- each side's players' planned squares dug this match: seconds from first listed to dug (Config/Bots.Trenches.Plans)
 	planTimes = {} :: { [string]: { number } },
 }
@@ -266,6 +270,7 @@ local stats = {
 	bombed = 0, -- grenades down an enemy dugout's steps
 	holes = 0, -- foxholes dug
 	pinnedHoles = 0, -- foxholes begun pinned down in the open
+	exposedHoles = 0, -- foxholes begun seen from the open with no cover near (Config/Bots.Build.Exposed)
 	intoHole = 0, -- shot at in the open, down into a foxhole nearby
 	lost = 0, -- fire trenches lost (the holders fell back)
 	covering = 0, -- shots of covering fire

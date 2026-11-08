@@ -162,6 +162,16 @@ return {
 		end
 		assert(math.abs(jobs[1].z - jobs[2].z) == W.spread, "side by side")
 	end,
+	["exposedDig: seen from the open a while, no cover, not in a trench, not pressing on (user 2026-11-06)"] = function()
+		local E = { after = B.Exposed.after, every = B.Pinned.every }
+		assert(R.exposedDig(E.after, false, false, false, E.every, E))
+		assert(not R.exposedDig(E.after - 0.1, false, false, false, E.every, E), "only just seen")
+		assert(not R.exposedDig(E.after, true, false, false, E.every, E), "cover near")
+		assert(not R.exposedDig(E.after, false, true, false, E.every, E), "in a trench")
+		assert(not R.exposedDig(E.after, false, false, true, E.every, E), "pressing on")
+		assert(not R.exposedDig(E.after, false, false, false, E.every - 1, E), "dug one just now")
+		assert(Cfg.Brain.SeenSpots, "an enemy in sight counts as having spotted it")
+	end,
 	["pinned: shot at, shaken, no cover and not in a trench"] = function()
 		local P = B.Pinned
 		assert(R.pinned(0, P.shaken, false, false, P.every, P))
