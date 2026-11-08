@@ -1224,8 +1224,17 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	end
 	-- nothing to do where it is (engaging in the open, in its zone, at its stop, stuck short of its goal): a wait spot
 	-- in a trench or cover near, spread out from the rest, held, firing at what it sees (Rules/BotWait)
-	local waits, waitGoal =
-		waitStep(b, now, move, goal, zone, radius, coverState ~= "at", toWork or b.guard ~= nil or b.devHouse ~= nil)
+	-- (a holder off to a job it took isn't waiting at its post: a wait spot there held it until it lost the job)
+	local waits, waitGoal = waitStep(
+		b,
+		now,
+		move,
+		goal,
+		zone,
+		radius,
+		coverState ~= "at",
+		toWork or b.guard ~= nil or b.devHouse ~= nil or (b.work ~= nil and move == "Hold")
+	)
 	if waits then
 		goal = waitGoal
 	end

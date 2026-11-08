@@ -75,6 +75,7 @@ local ByTrench = {
 	-- doing"), and bot-seconds with an enemy in sight by what the gun did
 	activity = {} :: { [string]: { [string]: number } },
 	inSight = {} :: { [string]: { [string]: number } },
+	idleWhy = {} :: { [string]: { [string]: number } }, -- its samples of idle bots, by why
 	-- each side's players' planned squares dug this match: seconds from first listed to dug (Config/Bots.Trenches.Plans)
 	planTimes = {} :: { [string]: { number } },
 }

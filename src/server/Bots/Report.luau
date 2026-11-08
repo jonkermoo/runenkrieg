@@ -480,8 +480,21 @@ local function runLines()
 end
 
 -- what a bot is doing now (the admin panel's "What bots are doing"), and why, when it is doing nothing
-local DOING =
-	{ "fighting", "digging", "reinforcing", "building", "crewing", "tending", "moving", "holding", "waiting", "idle" }
+local DOING = {
+	"fighting",
+	"digging",
+	"reinforcing",
+	"building",
+	"crewing",
+	"tending",
+	"moving",
+	"stood to",
+	"assaulting",
+	"on guard",
+	"holding",
+	"waiting",
+	"idle",
+}
 local function doing(b: Bot, now: number): (string, string?)
 	local m = b.m :: Model
 	if m:GetAttribute(FrontCfg.HoldAttribute) ~= nil then
@@ -491,14 +504,18 @@ local function doing(b: Bot, now: number): (string, string?)
 		return "crewing"
 	end
 	local a = b.act
-	if a and a.kind == "Build" then
-		local r = a.job :: any
-		local key = if r then r.job.key else ""
+	-- (at its job, between swings too)
+	local r: any = if a and a.kind == "Build"
+		then a.job
+		elseif not a and b.work and b.workState == "working" then b.work.job
+		else nil
+	if r then
+		local key = r.job.key
 		if key == "Trench" or key == "Foxhole" then
 			return if r.reinforce or r.care then "reinforcing" else "digging"
 		end
 		return "building"
-	elseif a then
+	elseif a and a.kind ~= "Build" then
 		return "tending"
 	end
 	local state = b.brain.state
@@ -517,8 +534,20 @@ local function doing(b: Bot, now: number): (string, string?)
 	end
 	local still = if b.stillSince then now - b.stillSince :: number else 0
 	local sb = b.side and buildLists[b.side :: string]
-	if still < Cfg.Build.Duty.after or (sb and sb.standTo and b.postFloor ~= nil) then
+	if sb and sb.standTo and b.postFloor ~= nil then
+		return "stood to"
+	end
+	if still < Cfg.Build.Duty.after then
 		return "holding"
+	end
+	if b.work then
+		return "idle", `at a stop on its way to its job ({b.workState or "?"})`
+	end
+	if b.buildWhy == "pushing" then
+		return "assaulting" -- (its squad's assault, stopped where it got to)
+	end
+	if b.role == "Hold" and b.buildWhy and string.sub(b.buildWhy, 1, 12) == "none within " then
+		return "on guard" -- (a digger or Engineer on hold, no work within its reach)
 	end
 	return "idle", b.buildWhy or "no job looked for"
 end
@@ -540,6 +569,12 @@ local function activityLines(now: number)
 				tally[what] = (tally[what] or 0) + 1
 				if what == "idle" then
 					nowIdle += 1
+					local whys = ByTrench.idleWhy[side]
+					if not whys then
+						whys = {}
+						ByTrench.idleWhy[side] = whys
+					end
+					whys[why :: string] = (whys[why :: string] or 0) + 1
 					if #idle < 6 then
 						table.insert(idle, `{b.name} ({b.role or "-"}): {why}`)
 					end
@@ -557,6 +592,21 @@ local function activityLines(now: number)
 		table.insert(lines, `{side}: {table.concat(parts, ", ")}`)
 		if nowIdle > 0 then
 			table.insert(lines, `  idle now {nowIdle}: {table.concat(idle, "; ")}`)
+		end
+		local whys = ByTrench.idleWhy[side]
+		if whys then
+			local list = {}
+			for why, n in whys do
+				table.insert(list, { why = why, n = n })
+			end
+			table.sort(list, function(x, y)
+				return x.n > y.n
+			end)
+			local top = {}
+			for k = 1, math.min(4, #list) do
+				table.insert(top, `{list[k].why} {list[k].n}`)
+			end
+			table.insert(lines, `  idle why: {table.concat(top, "; ")}`)
 		end
 		local seen = ByTrench.inSight[side]
 		if seen then
