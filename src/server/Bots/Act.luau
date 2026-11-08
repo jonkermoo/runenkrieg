@@ -174,8 +174,40 @@ local function pickFrom(
 	if not far and engineer and not any and b.order == "Attack" then
 		reach = BD.attackTake -- (attacking: jobs near where it is, not back at its side's front)
 	end
+	-- (an Engineer's own trade first, what no other class can build: dugouts, then guns, nests and wire)
+	if engineer and not any then
+		for _, dugout in { true, false } do
+			local notOwn: { [number]: boolean } = {}
+			for k, r in open do
+				notOwn[k] = taken[k] or Kinds.small[r.job.key] == true or (r.job.key == "Dugout") ~= dugout
+			end
+			local e = BotBuild.pick(list, root.X, root.Z, reach, notOwn, {}, nil)
+			if e then
+				return open[e]
+			end
+		end
+	end
 	local k = BotBuild.pick(list, root.X, root.Z, reach, taken, {}, nil)
 	return if k then open[k] else nil
+end
+
+-- a soldier with nothing to do (Config/Bots.Build.Duty): the nearest of a player's planned squares, else a square to
+-- repair or reinforce, else any small job, within Duty.take of it
+local function pickDuty(b: Bot, open: { BuildJob }): BuildJob?
+	local plans, care, rest = {}, {}, {}
+	for _, r in open do
+		if Kinds.small[r.job.key] then
+			local into = if r.plan then plans elseif r.care or r.reinforce or r.buried then care else rest
+			table.insert(into, r)
+		end
+	end
+	for _, list in { plans, care, rest } do
+		local r = if #list > 0 then pickFrom(b, list, false, false, BD.Duty.take, true) else nil
+		if r then
+			return r
+		end
+	end
+	return nil
 end
 
 -- the build job a bot takes on its side's list: an Engineer any; a digger (half a holding squad, any class) a trench
@@ -190,11 +222,18 @@ local function pickJob(b: Bot): (BuildJob?, string?)
 		return nil, "no jobs open"
 	end
 	if not b.digger and Loadouts.classOf(b.m :: Model) ~= "Engineer" then
-		-- a defender (who would crew it: src/server/Bots/Crew) fixes a gun of its side out of service, nothing else
-		if b.order == "Defend" then
-			return pickFrom(b, sb.open, true, true), nil
+		-- a defender (who would crew it: src/server/Bots/Crew) fixes a gun of its side out of service first
+		local fix = if b.order == "Defend" then pickFrom(b, sb.open, true, true) else nil
+		if fix then
+			return fix, nil
 		end
-		return nil, "not a builder"
+		-- then, with nothing to do, any small job near it (Config/Bots.Build.Duty)
+		local stillFor = if b.stillSince then os.clock() - b.stillSince :: number else 0
+		if not BotBuild.onDuty(b.role, b.wait ~= nil, stillFor, sb.standTo and b.postFloor ~= nil, BD.Duty) then
+			return nil, "not idle yet"
+		end
+		local r = pickDuty(b, sb.open)
+		return r, if r then nil else `no work within {BD.Duty.take} studs`
 	end
 	local r = pickFrom(b, sb.open, false)
 	local reach = if Loadouts.classOf(b.m :: Model) ~= "Engineer"
@@ -706,19 +745,15 @@ local function weigh(b: Bot, now: number)
 		end
 	end
 	-- (an Engineer's job, or why it has none: the admin panel's readout)
-	if Loadouts.classOf(m) == "Engineer" then
-		b.buildWhy = if w
-			then "on its job"
-			elseif pushing then "pushing"
-			elseif seen then "enemy in sight"
-			elseif not Actions.calm(sinceThreat, sinceHurt, BD.calm) then "under fire"
-			else nil
-	end
+	b.buildWhy = if w
+		then "on its job"
+		elseif pushing then "pushing"
+		elseif seen then "enemy in sight"
+		elseif not Actions.calm(sinceThreat, sinceHurt, BD.calm) then "under fire"
+		else nil
 	if not pushing and not seen and not w and b.side and Actions.calm(sinceThreat, sinceHurt, BD.calm) then
 		local r, why = pickJob(b)
-		if Loadouts.classOf(m) == "Engineer" then
-			b.buildWhy = if r then r.job.key else why
-		end
+		b.buildWhy = if r then r.job.key else why
 		if r then
 			takeJob(b, r, now)
 			return

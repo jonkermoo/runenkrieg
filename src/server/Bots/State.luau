@@ -71,6 +71,11 @@ local ByTrench = {
 	-- fire step, a foxhole, a building's spot), and in the open within Dugouts.near of a fresh shell (the trench stats'
 	-- exposure line; Config/Bots.Brain.SeenSpots)
 	exposure = {} :: { [string]: { open: number, covered: number, shelledOpen: number } },
+	-- each side's samples of what its bots are doing (one per bot per commander tick; the admin panel's "What bots are
+	-- doing"), and bot-seconds with an enemy in sight by what the gun did
+	activity = {} :: { [string]: { [string]: number } },
+	inSight = {} :: { [string]: { [string]: number } },
+	idleWhy = {} :: { [string]: { [string]: number } }, -- its samples of idle bots, by why
 	-- each side's players' planned squares dug this match: seconds from first listed to dug (Config/Bots.Trenches.Plans)
 	planTimes = {} :: { [string]: { number } },
 }

@@ -141,6 +141,9 @@ export type Bot = {
 	-- since when it has seen an enemy from the open: no cover reached, not in a trench (Config/Bots.Build.Exposed)
 	exposedSince: number?,
 	exposureAt: number?, -- when its exposure was last tallied (State.ByTrench.exposure)
+	-- where it has stood, and since when (Config/Bots.Build.Duty)
+	stillAt: Vector3?,
+	stillSince: number?,
 	hurtAt: number?,
 	threatAt: number?,
 	danger: boolean?, -- Normal: it knows there's danger (Rules/BotTrenches.danger): its paths keep to trenches
@@ -222,7 +225,7 @@ export type Bot = {
 	prog: { key: { x: number, z: number }?, best: number, at: number }?,
 	-- Normal: a downed or hurt teammate it guards, gun out, until it may drag or heal them (Config/Bots.Actions.Guard)
 	guard: { who: Model, since: number }?,
-	buildWhy: string?, -- Normal, an Engineer: its build job's key, or why it has none (the admin panel's readout)
+	buildWhy: string?, -- Normal: its build job's key, or why it has none (the admin panel's readouts)
 	actAt: number, -- when it next weighs one (Config/Bots.Actions.every)
 	grenades: Tool?, -- a Grenadier's grenades, out of its hands until a throw
 	threwAt: number,
