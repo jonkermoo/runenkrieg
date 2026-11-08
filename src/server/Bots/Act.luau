@@ -657,7 +657,8 @@ local function weigh(b: Bot, now: number)
 			if b.exposedSince then now - (b.exposedSince :: number) else 0,
 			hasCover,
 			b.postFloor ~= nil,
-			b.role == "Move" or b.role == "Assault",
+			-- (pressing on: its squad's assault, not a squad on the move, which is nearly every bot walking up)
+			pushing or b.role == "Assault",
 			now - (b.pileAt or -math.huge),
 			{ after = BD.Exposed.after, every = PN.every }
 		)
