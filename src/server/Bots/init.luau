@@ -1023,6 +1023,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	local seeing = target ~= nil and target.visible and now - b.sightAt <= 1 / b.senseHz + Cfg.Sight.stale
 	-- seen from the open or from cover (Config/Bots.Build.Exposed; the trench stats' exposure line): cover reached,
 	-- its fire step, a dug square of its side's or one of its foxholes count as cover
+	local sightDt = 0
 	if b.mode == "Normal" and b.side then
 		local covered = coverState == "at"
 			or (floor ~= nil and flat((floor :: Vector3) - root.Position).Magnitude <= STEP + 3)
@@ -1039,6 +1040,9 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			end
 		end
 		b.exposedSince = if seeing and not covered then b.exposedSince or now else nil
+		if not b.stillAt or flat(root.Position - b.stillAt :: Vector3).Magnitude > Cfg.Build.Duty.studs then
+			b.stillAt, b.stillSince = root.Position, now
+		end
 		local ex = ByTrench.exposure[b.side :: string]
 		if not ex then
 			ex = { open = 0, covered = 0, shelledOpen = 0 }
@@ -1046,6 +1050,7 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		end
 		local dt = math.min(now - (b.exposureAt or now), 2)
 		b.exposureAt = now
+		sightDt = if seeing then dt else 0
 		if seeing then
 			if covered then
 				ex.covered += dt
@@ -1369,7 +1374,10 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 	if struck then
 		return -- (the stroke is under way: no shot, bolt or reload until the gun is back)
 	end
+	-- (with an enemy in sight: what became of the shot, for the admin panel's "What bots are doing")
+	local shot: string? = nil
 	if staff then
+		shot = "fired"
 		staffFire(b, intent.fire, target, suppressAt, facing, d, now)
 	elseif intent.stopLoad then
 		Firing.actAs(m, "StopLoad")
@@ -1407,8 +1415,10 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 			stats.rays += 1
 			if hit and not hit.Instance:IsDescendantOf(target.model) then
 				stats.blocked += 1
+				shot = "blocked"
 			elseif Firing.fireAs(m, origin, dir, random:NextInteger(1, 2147483646)) then
 				stats.shots += 1
+				shot = "fired"
 			end
 		end
 	elseif intent.fire and facing and suppressAt then
@@ -1435,6 +1445,21 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 				stats.covering += 1
 			end
 		end
+	end
+	if sightDt > 0 then
+		local why = shot
+			or if not intent.aim
+				then "not aiming"
+				elseif b.brain.reloading or kitNow.busy or kitNow.loading or not kitNow.chambered then "loading"
+				elseif not facing then "turning"
+				elseif now - b.brain.seenAt < d.reaction then "reacting"
+				else "between shots"
+		local tally = ByTrench.inSight[b.side :: string]
+		if not tally then
+			tally = {}
+			ByTrench.inSight[b.side :: string] = tally
+		end
+		tally[why] = (tally[why] or 0) + sightDt
 	end
 end
 

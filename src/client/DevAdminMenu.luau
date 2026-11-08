@@ -561,6 +561,18 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.BotRunsAttribute):Connect(showRuns)
 	showRuns()
+	-- what each side's bots are doing, who is idle and why, what the gun did with an enemy in sight
+	order += 1
+	local activity = DevPanel.heading(p.panel, "", order)
+	activity.Size = UDim2.new(1, -8, 0, 110)
+	activity.TextWrapped = true
+	activity.TextYAlignment = Enum.TextYAlignment.Top
+	local function showActivity()
+		local s = workspace:GetAttribute(A.BotActivityAttribute)
+		activity.Text = `What bots are doing:\n{if type(s) == "string" then s else "none yet"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotActivityAttribute):Connect(showActivity)
+	showActivity()
 	-- each side's trench stats (Config/DevTools.Admin.BotTrenchStatsAttribute): squares, fire steps, deaths
 	order += 1
 	local trenchStats = DevPanel.heading(p.panel, "", order)

@@ -82,6 +82,24 @@ return {
 		local i = R.step(b, senses({ now = 5, threatAt = 4.8, cover = "going", target = enemy() }), brainCfg, D, 0)
 		assert(b.state == "Cover" and i.move == "Cover" and not i.fire and not i.aim)
 	end,
+	["at its cover with an enemy in sight: fights from there, unless pinned or just hit"] = function()
+		local function atCover(over: any)
+			local b = R.new()
+			R.step(b, senses({ now = 5, threatAt = 4.8, cover = "going", target = enemy() }), brainCfg, D, 0)
+			local s = senses({ now = 5 + D.reaction + 0.1, threatAt = 5, cover = "at", target = enemy() })
+			for k, v in over or {} do
+				s[k] = v
+			end
+			local i = R.step(b, s, brainCfg, D, 0)
+			assert(b.state == "Cover" and i.move == "Cover", "stays at its cover")
+			return i
+		end
+		local i = atCover()
+		assert(i.aim and i.fire, "fires from its cover")
+		assert(not atCover({ suppressed = brainCfg.SuppressedCover }).aim, "pinned: head down")
+		assert(not atCover({ hurtAt = 5 + D.reaction }).aim, "just hit: head down")
+		assert(not atCover({ cover = "going" }).aim, "not on the way there")
+	end,
 	["shot at with no cover: fights on in the open, moving"] = function()
 		local b = R.new()
 		local i = R.step(b, senses({ now = 5, threatAt = 4.8, cover = "none", target = enemy() }), brainCfg, D, 0)

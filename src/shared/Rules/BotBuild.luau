@@ -370,6 +370,18 @@ function BotBuild.exposedDig(
 	return exposedFor >= cfg.after and not hasCover and not inTrench and not pressing and sinceLast >= cfg.every
 end
 
+-- Whether a soldier with nothing to do looks for work (Config/Bots.Build.Duty): on hold or at a wait spot, stood still
+-- `stillFor` s, `after` or more, and not on a fire step while its side stands to
+function BotBuild.onDuty(
+	role: string?,
+	atWait: boolean,
+	stillFor: number,
+	stoodTo: boolean,
+	cfg: { after: number }
+): boolean
+	return (role == "Hold" or atWait) and stillFor >= cfg.after and not stoodTo
+end
+
 -- how far (x, z) is from the segment (ax, az)-(bx, bz)
 local function offSegment(x: number, z: number, ax: number, az: number, bx: number, bz: number): number
 	local dx, dz = bx - ax, bz - az

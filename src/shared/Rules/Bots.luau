@@ -413,6 +413,12 @@ function Bots.step(b: Brain, s: Senses, cfg: any, d: Difficulty, roll: number): 
 		intent.aim = suppressing
 	elseif st == "Cover" then
 		intent.move = "Cover"
+		-- (at its cover with an enemy in sight: it fights from there, Config/Bots.Brain.FireFromCover)
+		intent.aim = cfg.FireFromCover == true
+			and visible
+			and s.cover == "at"
+			and (s.suppressed or 0) < cfg.SuppressedCover
+			and not (s.hurtAt ~= nil and now - s.hurtAt < cfg.PeekQuiet)
 	elseif st == "Peek" then
 		intent.move = "Peek"
 		intent.aim = true

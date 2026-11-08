@@ -172,6 +172,15 @@ return {
 		assert(not R.exposedDig(E.after, false, false, false, E.every - 1, E), "dug one just now")
 		assert(Cfg.Brain.SeenSpots, "an enemy in sight counts as having spotted it")
 	end,
+	["onDuty: on hold or at a wait spot, stood still long enough, not stood to (user 2026-11-06)"] = function()
+		local D = B.Duty
+		assert(R.onDuty("Hold", false, D.after, false, D))
+		assert(R.onDuty("Move", true, D.after, false, D), "at a wait spot")
+		assert(not R.onDuty("Hold", false, D.after - 0.1, false, D), "only just stopped")
+		assert(not R.onDuty("Move", false, D.after, false, D), "on the move")
+		assert(not R.onDuty("Assault", false, D.after, false, D), "in the assault")
+		assert(not R.onDuty("Hold", false, D.after, true, D), "on a fire step, its side stood to")
+	end,
 	["pinned: shot at, shaken, no cover and not in a trench"] = function()
 		local P = B.Pinned
 		assert(R.pinned(0, P.shaken, false, false, P.every, P))

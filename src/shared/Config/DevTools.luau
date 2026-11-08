@@ -371,6 +371,9 @@ local DevTools = {
 		House = { attribute = "DevBotHouse", bots = 3, spots = 3, within = 40, seconds = 60, arrive = 2.5, keep = 6 },
 		-- the readout of each side's latest runs toward the enemy, straight or zig-zag and why (src/server/Bots)
 		BotRunsAttribute = "DevBotRuns",
+		-- the readout of what each side's bots are doing (shares this match; who is idle now and why; what the gun did with
+		-- an enemy in sight; src/server/Bots, every commander tick)
+		BotActivityAttribute = "DevBotActivity",
 		-- the admin panel's "Plan a player's trench here": a run `length` studs long across the way to the nearest sector's
 		-- point, through the aim point, planned as this player (its UserId the owner) for the side of the nearest other soldier
 		-- within `near` studs (user 2026-11-06: bots must dig the player's trench plans)

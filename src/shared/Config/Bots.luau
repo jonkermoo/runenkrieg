@@ -416,9 +416,14 @@ local Bots = {
 		Pinned = { threat = 1.5, shaken = 0.5, every = 45, ahead = 2.5, near = 20 },
 		-- - Exposed (user 2026-11-06: "just being able to see an enemy is considered not safe because the enemy can see
 		--   you"; "ai's still dont use trenches in the open"): a bot that has seen an enemy from the open (no cover
-		--   reached, not in a trench) for `after` s, not pressing on (Move / Assault), with no cover found within
+		--   reached, not in a trench) for `after` s, not in its squad's assault, with no cover found within
 		--   Pinned.near studs, digs a foxhole at its feet facing the enemy (at most every Pinned.every s).
 		Exposed = { after = 4 },
+		-- Duty (Rules/BotBuild.onDuty; user 2026-11-06: idle bots should repair, join a group or build): a soldier of any
+		-- class on hold (or at a wait spot) that has stood within `studs` of one place for `after` s, sees no enemy and
+		-- is calm takes the nearest small job within `take` studs of it: a player's planned square, then a square to
+		-- repair or reinforce, then any trench, sandbag pile or barrier. On a fire step while its side stands to it stays.
+		Duty = { after = 6, studs = 3, take = 60 },
 		-- Gun crews (Rules/BotBuild.crewWanted / gunSpots; user 2026-11-02: "if artillery has been unlocked for a side and
 		-- not a lot of any has been placed, some bots should take priority in getting engineer and start building it in
 		-- strategic places"; "Up to 2, if they can pay"): while a side has fewer than `enough` guns standing (anyone's
@@ -1080,6 +1085,9 @@ local Bots = {
 		-- can see you"): any enemy in sight counts as having spotted it (was only one looking its way, within LookCone):
 		-- it takes cover or drops into its trench, then fights from there (Rules/Bots fight; not while pressing on)
 		SeenSpots = true,
+		-- fights from its cover (user 2026-11-06, the bots that aim and don't fire): at its cover with an enemy in sight it
+		-- aims and fires instead of waiting out CoverFor, unless pinned (SuppressedCover) or hit within PeekQuiet s
+		FireFromCover = true,
 	},
 
 	-- At ease (Rules/Bots.calm; user 2026-11-04: "make AI not hold weapons if they know for a FACT that theres no enemies

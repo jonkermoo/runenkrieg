@@ -479,6 +479,101 @@ local function runLines()
 	workspace:SetAttribute(DevCfg.Admin.BotRunsAttribute, if #lines > 0 then table.concat(lines, "\n") else nil)
 end
 
+-- what a bot is doing now (the admin panel's "What bots are doing"), and why, when it is doing nothing
+local DOING =
+	{ "fighting", "digging", "reinforcing", "building", "crewing", "tending", "moving", "holding", "waiting", "idle" }
+local function doing(b: Bot, now: number): (string, string?)
+	local m = b.m :: Model
+	if m:GetAttribute(FrontCfg.HoldAttribute) ~= nil then
+		return "waiting" -- (the wave line)
+	end
+	if b.gun or Artillery.gunOf(m) then
+		return "crewing"
+	end
+	local a = b.act
+	if a and a.kind == "Build" then
+		local r = a.job :: any
+		local key = if r then r.job.key else ""
+		if key == "Trench" or key == "Foxhole" then
+			return if r.reinforce or r.care then "reinforcing" else "digging"
+		end
+		return "building"
+	elseif a then
+		return "tending"
+	end
+	local state = b.brain.state
+	if
+		b.sight == "sees"
+		or state == "Cover"
+		or state == "Peek"
+		or state == "Retreat"
+		or now - (b.threatAt or -math.huge) < Cfg.Build.calm
+	then
+		return "fighting"
+	end
+	local root = b.root :: BasePart
+	if flat(root.AssemblyLinearVelocity).Magnitude > 2 then
+		return "moving"
+	end
+	local still = if b.stillSince then now - b.stillSince :: number else 0
+	local sb = b.side and buildLists[b.side :: string]
+	if still < Cfg.Build.Duty.after or (sb and sb.standTo and b.postFloor ~= nil) then
+		return "holding"
+	end
+	return "idle", b.buildWhy or "no job looked for"
+end
+
+local function activityLines(now: number)
+	local lines = {}
+	local ByTrench = State.ByTrench
+	for _, side in DevCfg.Admin.Sides do
+		local tally = ByTrench.activity[side]
+		if not tally then
+			tally = {}
+			ByTrench.activity[side] = tally
+		end
+		local idle = {}
+		local nowIdle = 0
+		for _, b in bots do
+			if b.side == side and alive(b) then
+				local what, why = doing(b, now)
+				tally[what] = (tally[what] or 0) + 1
+				if what == "idle" then
+					nowIdle += 1
+					if #idle < 6 then
+						table.insert(idle, `{b.name} ({b.role or "-"}): {why}`)
+					end
+				end
+			end
+		end
+		local all = 0
+		for _, n in tally do
+			all += n
+		end
+		local parts = {}
+		for _, what in DOING do
+			table.insert(parts, `{what} {math.floor(100 * (tally[what] or 0) / math.max(all, 1) + 0.5)}%`)
+		end
+		table.insert(lines, `{side}: {table.concat(parts, ", ")}`)
+		if nowIdle > 0 then
+			table.insert(lines, `  idle now {nowIdle}: {table.concat(idle, "; ")}`)
+		end
+		local seen = ByTrench.inSight[side]
+		if seen then
+			local total = 0
+			for _, s in seen do
+				total += s
+			end
+			local bits = {}
+			for _, what in { "fired", "between shots", "loading", "reacting", "turning", "blocked", "not aiming" } do
+				table.insert(bits, `{what} {math.floor(100 * (seen[what] or 0) / math.max(total, 1) + 0.5)}%`)
+			end
+			table.insert(lines, `  enemy in sight {math.floor(total)} bot-s: {table.concat(bits, ", ")}`)
+		end
+	end
+	workspace:SetAttribute(DevCfg.Admin.BotActivityAttribute, table.concat(lines, "\n"))
+end
+
 -- the bots standing still (Config/DevTools.Admin.BotStuckAttribute): alive, not on a gun, at work or on a post, none
 -- moved `stuckFor` s
 -- (studs over the ground), with what they are doing; where each last moved and when
@@ -863,6 +958,7 @@ local function goalWord(b: Bot): string?
 end
 
 local function label()
+	activityLines(os.clock())
 	trenchStats()
 	dugoutLines()
 	squadLines()
