@@ -181,6 +181,33 @@ return {
 		assert(not R.onDuty("Assault", false, D.after, false, D), "in the assault")
 		assert(not R.onDuty("Hold", false, D.after, true, D), "on a fire step, its side stood to")
 	end,
+	["marked spots: by side, ahead of the point, nearest with room (user 2026-11-06: off the point)"] = function()
+		local list = {
+			{ x = 10, z = 0, side = "West" },
+			{ x = -40, z = 0, side = "West" },
+			{ x = 30, z = 0, side = "East", n = 1 },
+			{ x = 5, z = 5 },
+		}
+		assert(#R.serving(list, "West") == 2 and #R.serving(list, nil) == 1 and #R.serving(nil, "West") == 0)
+		local ahead = R.aheadOf(R.serving(list, "West"), 0, 0, 1, 0)
+		assert(#ahead == 1 and ahead[1].x == 10, "the one on the rear approach dropped")
+		assert(R.pickMarked(list, { 0, 0, 0, 0 }, 28, 0, 2) == 3, "the nearest")
+		assert(R.pickMarked(list, { 0, 0, 1, 0 }, 28, 0, 2) == 1, "its n is full: the next")
+		assert(R.pickMarked(list, { 2, 2, 1, 2 }, 28, 0, 2) == nil, "none with room")
+		local fx, fz = R.bearingWay(90)
+		assert(math.abs(fx - 1) < 1e-6 and math.abs(fz) < 1e-6, "90 is +x")
+		assert(B and Cfg.OffPoint.clear >= 25 and Cfg.OffPoint.inZone == 4, "a squad of 4 stays in the zone")
+	end,
+	["gunSpots: spots given are kept and kept clear of"] = function()
+		local zone = { x = 0, z = 0, radius = 40 }
+		local C = { back = { 30 }, across = { 0, 40 } }
+		local seed = { { key = "FieldGun", x = -70, z = 0, fx = 1, fz = 0 } }
+		local jobs = R.gunSpots(zone, 1, 0, { { key = "FieldGun", count = 1 } }, C, { FieldGun = 20 }, function()
+			return true
+		end, seed)
+		assert(#jobs == 2 and jobs[1] == seed[1], "the given one first")
+		assert(jobs[2].z == 40, "the scored one clear of it")
+	end,
 	["pinned: shot at, shaken, no cover and not in a trench"] = function()
 		local P = B.Pinned
 		assert(R.pinned(0, P.shaken, false, false, P.every, P))

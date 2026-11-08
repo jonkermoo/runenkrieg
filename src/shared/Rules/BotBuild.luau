@@ -155,10 +155,12 @@ function BotBuild.gunSpots(
 	want: { { key: string, count: number } },
 	cfg: any,
 	spacing: { [string]: number },
-	fits: (string, number, number) -> boolean
+	fits: (string, number, number) -> boolean,
+	seed: { Job }?
 ): { Job }
 	local ax, az = -tz, tx
-	local jobs: { Job } = {}
+	-- (`seed`: spots placed already, the map's marked ones, kept clear of)
+	local jobs: { Job } = seed or {}
 	-- (every `flank.every`-th spot at least `flank.gunFrom` studs across, shelling the front from an angle, where one
 	-- fits: Config/Bots.Front.Flank)
 	local flank = cfg.flank
@@ -380,6 +382,48 @@ function BotBuild.onDuty(
 	cfg: { after: number }
 ): boolean
 	return (role == "Hold" or atWait) and stillFor >= cfg.after and not stoodTo
+end
+
+-- The map's marked spots (its `tactics`) of `list` naming `side` exactly (nil: those naming no side)
+function BotBuild.serving(list: { any }?, side: string?): { any }
+	local out = {}
+	for _, spot in list or {} do
+		if spot.side == side then
+			table.insert(out, spot)
+		end
+	end
+	return out
+end
+
+-- Those of `list` ahead of (cx, cz) on the way (tx, tz) (a defender's spots: not the ones on the rear approach)
+function BotBuild.aheadOf(list: { any }, cx: number, cz: number, tx: number, tz: number): { any }
+	local out = {}
+	for _, spot in list do
+		if (spot.x - cx) * tx + (spot.z - cz) * tz > 0 then
+			table.insert(out, spot)
+		end
+	end
+	return out
+end
+
+-- The nearest to (x, z) of `list` with room (`used[k]` soldiers on it, under its `n` or else `room`), its index or nil
+function BotBuild.pickMarked(list: { any }, used: { number }, x: number, z: number, room: number): number?
+	local best, bestD = nil, math.huge
+	for k, spot in list do
+		if used[k] < (spot.n or room) then
+			local d = (spot.x - x) ^ 2 + (spot.z - z) ^ 2
+			if d < bestD then
+				best, bestD = k, d
+			end
+		end
+	end
+	return best
+end
+
+-- The unit way (x, z) of a bearing in degrees (0 = +z, 90 = +x)
+function BotBuild.bearingWay(degrees: number): (number, number)
+	local a = math.rad(degrees)
+	return math.sin(a), math.cos(a)
 end
 
 -- how far (x, z) is from the segment (ax, az)-(bx, bz)

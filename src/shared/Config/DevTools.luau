@@ -311,6 +311,23 @@ local DevTools = {
 			clear = { 90, 220, 110 },
 			blocked = { 230, 70, 60 },
 		},
+		-- - Spots: the map's marked spots drawn as balls (`colors` by kind) in a Workspace folder `folder` while Workspace has
+		--   `attribute`; `readout`: where each side's holders, nests and guns are (Config/Bots.OffPoint)
+		Spots = {
+			attribute = "DevBotSpotsDrawn",
+			folder = "DevBotSpots",
+			readout = "DevBotSpots",
+			size = 5,
+			colors = {
+				cover = { 90, 220, 110 },
+				support = { 80, 150, 240 },
+				mg = { 230, 70, 60 },
+				guns = { 240, 160, 50 },
+				gather = { 240, 230, 80 },
+				trench = { 200, 120, 240 },
+			},
+		},
+
 		-- - Captured: a label over each enemy-built gun on a side's ground with what that side's bots do with it ("use",
 		--   "wreck" or "ignore": Config/Bots.Crew `captured`), in a Workspace folder `folder` while Workspace has
 		--   `attribute`, redrawn each commander tick

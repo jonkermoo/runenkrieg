@@ -166,6 +166,13 @@ local Bots = {
 	-- and the squad outnumber the enemy's by more than `margin`. An enemy a member saw within `knownFor` seconds and
 	-- `contact` studs of the squad is contact: the squad bounds (each half runs at most `boundMax` seconds, a stop
 	-- `hop` studs on along the route, reached within `arrive`). Members stand `spread` studs apart at a spot.
+	-- Off the point (user 2026-11-06: "bots shouldn't sit on the point"; the point gets shelled). A defended sector keeps
+	-- `inZone` holders in its zone so it stays held (a squad of 4), on the zone's marked spots (the map's `tactics`, else
+	-- hold spots); the rest take trench posts or the marked cover and support spots ahead of the point. No hold spot and no
+	-- MG nest within `clear` studs of the flag. A marked spot holds `room` soldiers unless it says (`n`); a holder's post
+	-- within `held` studs of a spot is on it; a nest within `nestGap` studs of a marked spot has it.
+	OffPoint = { clear = 25, inZone = 4, room = 2, held = 3, nestGap = 12 },
+
 	Squads = {
 		size = 4,
 		least = 2,

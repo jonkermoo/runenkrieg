@@ -107,14 +107,59 @@ local function standPoint(i: number): Vector3
 	return Vector3.new(x, if hit then hit.Position.Y else sectorPoint(i).Y, z)
 end
 
--- a defender's hold spot in sector `i`: the best one fewest of the side's defenders stand on
+-- the map's marked spots per sector (Rules/MapTerrain.tactics on a map with the leg pattern, else its own `tactics`)
+local OP = Cfg.OffPoint
+local Marks: { [number]: any } = (if (Map :: any).legs then MapTerrain.tactics(Map) else (Map :: any).tactics) or {}
+
+-- a holder's marked spot in sector `i` nearest `p` with room, or nil: the zone's own (`inZone`), else the cover and
+-- support spots naming its side ahead of the point
+local function markedPost(side: string, i: number, p: Vector3, inZone: boolean): Vector3?
+	local t = Marks[i]
+	if not t then
+		return nil
+	end
+	local list = BotBuild.serving(t.cover, nil)
+	if not inZone then
+		local s = Map.sectors[i]
+		local tx, tz = BotBuild.toward(Map.sectors, i, side)
+		list = BotBuild.serving(t.cover, side)
+		for _, sp in BotBuild.serving(t.support, side) do
+			table.insert(list, sp)
+		end
+		list = BotBuild.aheadOf(list, s.x, s.z, tx, tz)
+	end
+	local used = {}
+	for k, sp in list do
+		local n, at = 0, Vector3.new(sp.x, 0, sp.z)
+		for _, b in bots do
+			if b.side == side and b.role == "Hold" and b.post and flat(b.post :: Vector3 - at).Magnitude <= OP.held then
+				n += 1
+			end
+		end
+		used[k] = n
+	end
+	local k = BotBuild.pickMarked(list, used, p.X, p.Z, OP.room)
+	return if k then Routes.ground(list[k].x, list[k].z) else nil
+end
+
+-- a defender's hold spot in sector `i`: the best one fewest of the side's defenders stand on, off the flag
+-- (Config/Bots.OffPoint) where any is
 local function holdSpot(side: string, i: number, taken: { [Vector3]: number }): Vector3?
 	local spots = Routes.spots(i, side, true)
 	if not spots or #spots == 0 then
 		return nil
 	end
+	local s = Map.sectors[i]
+	local flag = Vector3.new(s.x, 0, s.z)
+	local anyOff = false
+	for _, sp in spots :: { Routes.Spot } do
+		anyOff = anyOff or flat(sp.pos - flag).Magnitude >= OP.clear
+	end
 	local best, bestAt = -math.huge, nil
 	for _, sp in spots :: { Routes.Spot } do
+		if anyOff and flat(sp.pos - flag).Magnitude < OP.clear then
+			continue
+		end
 		local v = Squads.scoreSpot(sp, taken[sp.pos] or 0, random:NextNumber(), RT.weights, RT.nearCap)
 		if v > best then
 			best, bestAt = v, sp.pos
@@ -575,6 +620,26 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 		end
 	end
 	local sb = buildLists[side]
+	-- (its holders' posts in each sector's zone: Config/Bots.OffPoint)
+	local zoneHeld: { [number]: number } = {}
+	local function postInZone(b: Bot, i: number): boolean
+		local c = Map.sectors[i]
+		return b.postKind == "open"
+			and b.post ~= nil
+			and b.postSector == i
+			and flat(b.post :: Vector3 - Vector3.new(c.x, 0, c.z)).Magnitude <= c.radius
+	end
+	for _, b in bots do
+		if
+			b.side == side
+			and not b.deadAt
+			and b.role == "Hold"
+			and b.postSector
+			and postInZone(b, b.postSector :: number)
+		then
+			zoneHeld[b.postSector :: number] = (zoneHeld[b.postSector :: number] or 0) + 1
+		end
+	end
 	local enemyLines = buildLists[enemy]
 	-- under shelling (Config/Bots.Dugouts): the places left in each dugout, the sentries kept up so far
 	local free: { { x: number, z: number, free: number } } = {}
@@ -1039,6 +1104,14 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					local inZoneHold = took ~= nil
 						and took.sector == sector
 						and Orders.digIn(holdN, now - took.at, OF.dig)
+					-- (a defended sector keeps its few in the zone, so it stays held: Config/Bots.OffPoint)
+					local inZoneNow = postInZone(b, sector)
+					local zoneN = zoneHeld[sector] or 0
+					local keepsZone = defend and (if inZoneNow then zoneN <= OP.inZone else zoneN < OP.inZone)
+					if inZoneNow and not keepsZone then
+						zoneHeld[sector] = zoneN - 1
+					end
+					inZoneHold = inZoneHold or keepsZone
 					if inZoneHold then
 						want = "zone"
 					elseif lines then
@@ -1094,7 +1167,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 						end
 					end
 					local again = not b.post or b.postSector ~= sector or b.roleWas ~= "Hold"
-					if want == "zone" and b.postKind ~= "open" then
+					if want == "zone" and not inZoneNow then
 						again = true
 					end
 					if b.postKind == "dugout" and want ~= "dugout" then
@@ -1121,10 +1194,15 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 							indoorHeld += 1
 							b.post, b.postFace, b.postKind = sp.at, sp.face, "window"
 						else
-							b.post, b.postFace, b.postKind = holdSpot(side, sector, taken) or b.stand, nil, "open"
+							local marked = markedPost(side, sector, p, want == "zone")
+							b.post, b.postFace, b.postKind =
+								marked or holdSpot(side, sector, taken) or b.stand, nil, "open"
 						end
 						b.postFloor = nil
 						b.postSector = sector
+						if want == "zone" and not inZoneNow then
+							zoneHeld[sector] = (zoneHeld[sector] or 0) + 1
+						end
 					end
 					b.goal = b.post
 				elseif role == "Assault" then
@@ -1399,7 +1477,7 @@ function Guns.spots(
 		w[why] = (w[why] or 0) + 1
 		return false
 	end
-	return BotBuild.gunSpots(zone, tx, tz, want, C, Guns.spacing, function(key, x, z)
+	local function fits(key: string, x: number, z: number): boolean
 		local gun = ArtCfg.Guns[Guns.asset[key]]
 		local B = Map.bounds
 		if not gun or not target or x < B.minX or x > B.maxX or z < B.minZ or z > B.maxZ then
@@ -1422,7 +1500,26 @@ function Guns.spots(
 		return Guns.flyShot(gun, Guns.asset[key], at, target, "low")
 			or Guns.flyShot(gun, Guns.asset[key], at, target, "high")
 			or no(key, "shot blocked or out of reach")
-	end)
+	end
+	-- (the map's marked gun spots first, each checked as a scored one; the scored ones for the rest)
+	local seed: { BotBuild.Job } = {}
+	local marks = BotBuild.serving(Marks[front] and Marks[front].guns, side)
+	for _, w in want do
+		for _, sp in marks do
+			if w.count > 0 and (sp.kind == nil or sp.kind == w.key) then
+				local clear = true
+				for _, j in seed do
+					local gap = math.max(Guns.spacing[w.key] or 0, Guns.spacing[j.key] or 0)
+					clear = clear and (j.x - sp.x) ^ 2 + (j.z - sp.z) ^ 2 >= gap * gap
+				end
+				if clear and fits(w.key, sp.x, sp.z) then
+					table.insert(seed, { key = w.key, x = sp.x, z = sp.z, fx = tx, fz = tz })
+					w.count -= 1
+				end
+			end
+		end
+	end
+	return BotBuild.gunSpots(zone, tx, tz, want, C, Guns.spacing, fits, seed)
 end
 -- `side`'s guns and MG nests in sector `i` by Config/Build piece key: its team's own `works` there (laid or standing;
 -- `built`: standing only) and the enemy's there it judged "use" (src/server/Bots/Crew)
@@ -1911,8 +2008,16 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	local latched = fl ~= nil and fl:GetAttribute(side .. FrontCfg.LatchAttribute) == true
 	if front ~= sbs.front or fromEnd ~= sbs.held or latched ~= sbs.latched or (not sbs.holds and spots ~= nil) then
 		local holds = {}
+		-- (MG nests off the flag: Config/Bots.OffPoint, where any hold spot is)
 		for _, sp in spots or {} do
-			table.insert(holds, { x = sp.pos.X, z = sp.pos.Z, hidden = sp.hidden })
+			if (sp.pos.X - s.x) ^ 2 + (sp.pos.Z - s.z) ^ 2 >= OP.clear ^ 2 then
+				table.insert(holds, { x = sp.pos.X, z = sp.pos.Z, hidden = sp.hidden })
+			end
+		end
+		if #holds == 0 then
+			for _, sp in spots or {} do
+				table.insert(holds, { x = sp.pos.X, z = sp.pos.Z, hidden = sp.hidden })
+			end
 		end
 		local guns = {}
 		for _, key in Guns.list do
@@ -1974,8 +2079,27 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		-- there counted; one still going up gets its job again)
 		local standing = sectorGuns(side, Build.worksOf(kit), front :: number, true)
 		local missing = math.max((BD.caps.MGNest or 0) - (standing.MGNest or 0), 0)
+		-- (the nests on the map's marked MG spots first, those with no nest of its side by them yet)
+		local mgSpots = {}
+		for _, sp in BotBuild.serving(Marks[front :: number] and Marks[front :: number].mg, side) do
+			local free = true
+			for _, w in Build.worksOf(kit) do
+				free = free and not (w.key == "MGNest" and (w.at.X - sp.x) ^ 2 + (w.at.Z - sp.z) ^ 2 <= OP.nestGap ^ 2)
+			end
+			if free then
+				table.insert(mgSpots, sp)
+			end
+		end
 		for _, job in BotBuild.plan(zone, tx, tz, holds, if #spotted > 0 then unplaced else guns, Flanked.plan, missing) do
 			local keep = true
+			if job.key == "MGNest" and #mgSpots > 0 then
+				local sp = table.remove(mgSpots, 1)
+				local fx, fz = job.fx, job.fz
+				if sp.face then
+					fx, fz = BotBuild.bearingWay(sp.face)
+				end
+				job = { key = job.key, x = sp.x, z = sp.z, fx = fx, fz = fz }
+			end
 			if job.key == "Wire" then
 				local wx, wz = BotBuild.wireSpot(job.x, job.z, -tz, tx, ways, (Map.spawnZones :: any)[side], BD.Wire)
 				if wx ~= job.x or wz ~= job.z then
