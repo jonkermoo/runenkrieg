@@ -111,6 +111,56 @@ end
 local OP = Cfg.OffPoint
 local Marks: { [number]: any } = (if (Map :: any).legs then MapTerrain.tactics(Map) else (Map :: any).tactics) or {}
 
+-- Where a squad of `side` in lane `lane` at `mid` forms up for its offensive on sector `sector`
+-- (Config/Bots.Offensive.Forward): the map's marked gather spots with room, else the scored spots out from the zone, none
+-- on a point its side holds; `used`: the squads on each spot already. Nil until there are any.
+local function gatherPoint(
+	side: string,
+	sector: number,
+	mid: Vector3,
+	lane: number,
+	used: { [Vector3]: number }
+): Vector3?
+	local FW = OF.Forward
+	local function choose(list: { any }): Vector3?
+		local spots, rolls, count = {}, {}, {}
+		for _, sp in list do
+			if Orders.clearOfOwn(sp.x, sp.z, Map.sectors, fronts.owners, side, FW.ownClear) then
+				table.insert(spots, sp)
+				rolls[#spots] = random:NextNumber()
+				count[#spots] = used[sp.pos] or 0
+			end
+		end
+		local i = Orders.gatherSpot(spots, count, lane, mid.X, mid.Z, rolls, RT.weights, RT.nearCap, FW.perSpot)
+		return if i then spots[i].pos else nil
+	end
+	local s = Map.sectors[sector]
+	local tx, tz = BotBuild.toward(Map.sectors, sector, side)
+	local marked = {}
+	for _, sp in BotBuild.serving(Marks[sector] and Marks[sector].gather, side) do
+		table.insert(marked, {
+			x = sp.x,
+			z = sp.z,
+			pos = Routes.ground(sp.x, sp.z),
+			hidden = true,
+			near = RT.nearCap,
+			lane = Squads.lane(s.x - tx * 100, s.z - tz * 100, s.x, s.z, sp.x, sp.z, RT.laneWithin),
+		})
+	end
+	local at = choose(marked)
+	if at then
+		return at
+	end
+	local scored = {}
+	for _, sp in Routes.gatherSpots(sector, side) or {} do
+		table.insert(
+			scored,
+			{ x = sp.pos.X, z = sp.pos.Z, pos = sp.pos, hidden = sp.hidden, near = sp.near, lane = sp.lane }
+		)
+	end
+	return choose(scored)
+end
+
 -- a holder's marked spot in sector `i` nearest `p` with room, or nil: the zone's own (`inZone`), else the cover and
 -- support spots naming its side ahead of the point
 local function markedPost(side: string, i: number, p: Vector3, inZone: boolean): Vector3?
@@ -336,7 +386,7 @@ local function sapTick(
 				fore = math.min(fore, flat((b.root :: BasePart).Position - goalAt).Magnitude)
 			end
 		end
-		local gatherAt: Vector3? = sqs.jump or sqs.approach
+		local gatherAt: Vector3? = sqs.jump or sqs.gather or sqs.approach
 		local waiting = false
 		if allowed and gatherAt and not underFire then
 			for _, b in members do
@@ -665,6 +715,18 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 		end
 		table.insert(free, { x = rm.x, z = rm.z, free = BotTrenches.placesLeft(Cfg.Dugouts.room, bodies) })
 	end
+	-- (its squads on each gather point, the squads ready to go in, those gone in and those in the Assault phase this look:
+	-- Config/Bots.Offensive.Forward, Roll)
+	local gatherUsed: { [Vector3]: number } = {}
+	if offence then
+		for _, o in squads do
+			if o.side == side and o.gather and o.gatherOf == offence.began then
+				gatherUsed[o.gather :: Vector3] = (gatherUsed[o.gather :: Vector3] or 0) + 1
+			end
+		end
+	end
+	local rollCands: { { key: string, lane: number, there: boolean } } = {}
+	local rollingNow, assaulting = 0, 0
 	-- (exploiting: its first Offensive.exploitHold of the squads hold the zone, the rest cut the defenders' approach)
 	local offSquads, offIndex = 0, 0
 	if offence and offence.phase == "Exploit" then
@@ -683,8 +745,6 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 		local s = Map.sectors[sector]
 		local c = sectorPoint(sector)
 		local inOff = offence ~= nil and not defend and sector == offence.sector
-		local waitHere = inOff and Orders.waiting(offence)
-		local goHere = inOff and Orders.going(offence)
 		for k, members in Squads.form(list, SQ.size, SQ.least) do
 			local key = `{gkey}#{k}`
 			local st = squads[key]
@@ -733,7 +793,11 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				sqs.lane, sqs.approach, sqs.mid = sqs.flank :: number, nil, nil
 			end
 			-- the admin panel's assault: over the top now
-			if front.plan == "assault" and not defend then
+			if
+				front.plan == "assault"
+				and not defend
+				and (not OF.Roll.on or not inOff or front.forced == "assault")
+			then
 				sqs.sq.phase = "Assault"
 			end
 			sqs.seen = commandTick
@@ -821,6 +885,23 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					sqs.jumpAlong = if along.Magnitude > 1e-3 then along.Unit else nil
 				end
 			end
+			-- gone in on its offensive: its squads go by waves (Config/Bots.Offensive.Roll; the admin panel's assault: all now)
+			local began: number? = if offence then offence.began else nil
+			local released = inOff
+				and Orders.going(offence)
+				and (not OF.Roll.on or front.forced == "assault" or sqs.rollOf == began)
+			-- where it forms up for its offensive (Config/Bots.Offensive.Forward)
+			if not inOff then
+				sqs.gather, sqs.gatherOf = nil, nil
+			elseif OF.Forward.on and not released and sqs.gatherOf ~= began then
+				local at = gatherPoint(side, sector, mid, sqs.lane, gatherUsed)
+				sqs.gather = at
+				if at then
+					sqs.gatherOf = began
+					gatherUsed[at] = (gatherUsed[at] or 0) + 1
+				end
+			end
+			local gatherTo: Vector3? = if inOff and not released then sqs.gather else nil
 			-- the facts for its phase
 			local living, ready, inZone = 0, 0, 0
 			local moversThere = true
@@ -831,7 +912,9 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					if flat(p - c).Magnitude < s.radius then
 						inZone += 1
 					end
-					if sqs.approach and flat(p - sqs.approach :: Vector3).Magnitude < SQ.arrive * 2 then
+					if gatherTo then
+						ready += if flat(p - gatherTo :: Vector3).Magnitude <= OF.Forward.at then 1 else 0
+					elseif sqs.approach and flat(p - sqs.approach :: Vector3).Magnitude < SQ.arrive * 2 then
 						ready += 1
 					end
 					if b.role == "Move" and b.stop and flat(p - b.stop :: Vector3).Magnitude > SQ.arrive then
@@ -839,7 +922,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					end
 				end
 			end
-			if not sqs.approach then
+			if not sqs.approach and not gatherTo then
 				-- (no spots yet: ready once near the zone)
 				for _, b in members do
 					if b.root and alive(b) then
@@ -892,7 +975,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 			if inOff then
 				-- (only its members within Offensive.gatherNear of where it gathers count: one still walking up from
 				-- the spawn after a respawn never makes the share, Config/Bots.Offensive)
-				local gatherAt: Vector3? = sqs.jump or sqs.approach
+				local gatherAt: Vector3? = sqs.jump or gatherTo or sqs.approach
 				local nearUp = living
 				if gatherAt then
 					nearUp = 0
@@ -908,6 +991,28 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				end
 				front.gathered = (front.gathered :: number) + math.min(gatheredHere, nearUp)
 				front.attackers = (front.attackers :: number) + nearUp
+			end
+			-- shot to pieces out of the zone: it falls back, re-forms at its gather point and goes again (Offensive.Roll)
+			if
+				released
+				and OF.Roll.on
+				and front.forced ~= "assault"
+				and Orders.fellBack(living, #members, if living > 0 then inZone / living else 0, OF.Roll)
+			then
+				sqs.rollOf, sqs.rollAgain = nil, now + OF.Roll.again
+				released = false
+				gatherTo = sqs.gather
+				stats.fellBack += 1
+			end
+			local waitHere = inOff and (Orders.waiting(offence) or (Orders.going(offence) and not released))
+			local goHere = released
+			if inOff and OF.Roll.on and Orders.going(offence) then
+				if released then
+					rollingNow += if living > 0 then 1 else 0
+				elseif living > 0 and now >= (sqs.rollAgain or 0) then
+					local need = math.max(1, math.ceil(living * SQ.readyShare))
+					table.insert(rollCands, { key = key, lane = sqs.lane, there = gatheredHere >= need })
+				end
 			end
 			Squads.step(sqs.sq, {
 				now = now,
@@ -933,6 +1038,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				end
 			end
 			sqs.stoodTo = standTo
+			assaulting += if inOff and sqs.sq.phase == "Assault" and living > 0 then 1 else 0
 			if sqs.sq.phase == "Assault" and was ~= "Assault" then
 				stats.assaults += 1
 				if sqs.jump then
@@ -1084,12 +1190,14 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 			if defend or sqs.sq.phase == "Assault" or not sb then
 				sqs.jump, sqs.jumpAlong, sqs.jumpAt = nil, nil, nil
 			end
-			local route = sqs.push or sqs.jump or sqs.mid or sqs.approach or c
+			local route = sqs.push or sqs.jump or sqs.mid or gatherTo or sqs.approach or c
+			local formsAt: Vector3? = if OF.Forward.on and waitHere then sqs.jump or gatherTo else nil
 			local ahead = flat(route - mid)
 			local right = if ahead.Magnitude > 1 then ahead.Unit:Cross(Vector3.yAxis) else Vector3.xAxis
 			for idx, b in members do
 				local role = Squads.role(sqs.sq, idx)
 				b.squad, b.role = key, role
+				local gathered = false
 				local p = if b.root then (b.root :: BasePart).Position else mid
 				-- half of a squad holding the front digs (Config/Bots.Trenches.share), the rest stand guard
 				b.digger = defend and sb ~= nil and sb.front == sector and BotTrenches.digs(idx, #members, TR.share)
@@ -1216,7 +1324,16 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					-- (in the jump-off trench: spread along it)
 					local across = if sqs.jump and sqs.jumpAlong then sqs.jumpAlong :: Vector3 else right
 					local slot = route + across * ((idx - (#members + 1) / 2) * SQ.spread)
-					if sqs.sq.phase == "Bound" then
+					-- (at its place where it forms up: it holds there and fires at where enemies were seen, Offensive.Forward)
+					local keepTo = if b.roleWas == "Support" then OF.Forward.at else SQ.arrive * 2
+					if formsAt and route == formsAt and flat(slot - p).Magnitude <= keepTo then
+						gathered = true
+						role, b.role, b.stop = "Support", "Support", nil
+						if b.roleWas ~= "Support" then
+							b.post = p
+						end
+						b.goal = b.post
+					elseif sqs.sq.phase == "Bound" then
 						if b.roleWas ~= "Move" or not b.stop then
 							local way = flat(slot - p)
 							local hop = math.min(SQ.hop, way.Magnitude)
@@ -1235,7 +1352,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					stats.cameUp += 1
 				end
 				if role ~= b.roleWas then
-					if role == "Support" then
+					if role == "Support" and not gathered then
 						say(b, "Covering")
 					elseif role == "Move" and sqs.sq.phase == "Bound" then
 						say(b, "MoveUp")
@@ -1301,6 +1418,26 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				sqs.sap = nil
 			else
 				sapTick(sqs, members, mid, c, s.radius, now, front.plan, mayDig)
+			end
+		end
+	end
+	front.assaulting = assaulting
+	-- the next wave of its offensive (Config/Bots.Offensive.Roll): they go from the next look
+	if offence and OF.Roll.on and Orders.going(offence) and Orders.rollDue(offence, now, rollingNow, OF.Roll) then
+		local picks = Orders.pickWave(rollCands, OF.Roll.perWave, offence.lastLanes or {}, rollingNow <= 0)
+		if #picks > 0 then
+			local lanes = {}
+			for _, i in picks do
+				local cand = rollCands[i]
+				squads[cand.key].rollOf = offence.began
+				table.insert(lanes, cand.lane)
+			end
+			offence.lastWave, offence.lastLanes = now, lanes
+			offence.nextWave = now + random:NextNumber(OF.Roll.gap[1], OF.Roll.gap[2])
+			local A = fronts.attacks[side]
+			if A then
+				A.waves += 1
+				A.sent += #picks
 			end
 		end
 	end
@@ -3154,6 +3291,35 @@ end
 -- the initiative passed on a capture or a spent offensive, and the holder's offensive (re)started on its target
 local lives: { [string]: { [any]: any } } = {}
 local function initiativeTick(owner: { string }, counts: { { West: number, East: number } }, state: any, now: number)
+	-- (the longest with no squad attacking, with the initiative and from Go: the Bots' attacks readout)
+	for _, sd in { "West", "East" } do
+		local A = fronts.attacks[sd]
+		if not A then
+			A = {
+				goes = 0,
+				toGo = 0,
+				fill = 0,
+				gatherDist = 0,
+				gatherN = 0,
+				waves = 0,
+				sent = 0,
+				maxQuiet = 0,
+				goQuiet = 0,
+				blastMost = 0,
+				blast3 = 0,
+				lostGather = 0,
+			}
+			fronts.attacks[sd] = A
+		end
+		local a = A :: any
+		local fs0 = fronts.sides[sd]
+		local o0 = if fs0 and fronts.initiative == sd then fs0.off else nil
+		local quiet = o0 ~= nil and (fs0.assaulting or 0) <= 0
+		a.quietAt = if quiet then a.quietAt or now else nil
+		a.goQuietAt = if quiet and Orders.going(o0) then a.goQuietAt or now else nil
+		a.maxQuiet = math.max(a.maxQuiet, if a.quietAt then now - a.quietAt else 0)
+		a.goQuiet = math.max(a.goQuiet, if a.goQuietAt then now - a.goQuietAt else 0)
+	end
 	local was = fronts.owners
 	local by = Orders.capturedBy(was, owner)
 	if was then
@@ -3162,6 +3328,11 @@ local function initiativeTick(owner: { string }, counts: { { West: number, East:
 				local l = fronts.lostAt[o] or {}
 				fronts.lostAt[o] = l
 				l[i] = now
+				local fsL = fronts.sides[o]
+				local tl = fronts.attacks[o]
+				if tl and fsL and fsL.off and (fsL.off :: Orders.Offensive).phase == "Gather" then
+					tl.lostGather += 1
+				end
 			end
 		end
 	end
@@ -3198,6 +3369,21 @@ local function initiativeTick(owner: { string }, counts: { { West: number, East:
 		}, OF)
 		if off.phase == "Go" and was1 ~= "Go" and was1 ~= "Exploit" then
 			fronts.tally[`go{holder}`] = (fronts.tally[`go{holder}`] or 0) + 1
+			local A = fronts.attacks[holder]
+			local tz = Map.sectors[off.sector]
+			A.goes += 1
+			A.toGo += now - off.began
+			A.fill += if (hs.attackers or 0) > 0 then (hs.gathered or 0) / (hs.attackers :: number) else 0
+			for _, o in squads do
+				local at = o.jump or (if o.gatherOf == off.began then o.gather else nil) or o.approach
+				if o.side == holder and o.sector == off.sector and at and o.seen >= commandTick - 1 then
+					A.gatherDist += math.max(
+						flat((at :: Vector3) - Vector3.new(tz.x, 0, tz.z)).Magnitude - tz.radius,
+						0
+					)
+					A.gatherN += 1
+				end
+			end
 		end
 		if spent then
 			fronts.tally[`spent{holder}`] = (fronts.tally[`spent{holder}`] or 0) + 1
@@ -3302,6 +3488,7 @@ local function command()
 		table.clear(fronts.strong)
 		table.clear(fronts.tally)
 		table.clear(fronts.took)
+		table.clear(fronts.attacks)
 		table.clear(lives)
 	end
 	-- (a capture is contact for both sides; each side's plan: Rules/BotFront)

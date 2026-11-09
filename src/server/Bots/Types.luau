@@ -278,6 +278,10 @@ export type SquadState = {
 	markDist: number?,
 	firedAt: number?, -- when one of its members was last shot at
 	sap: Sap?, -- sapping forward (stuck under fire)
+	gather: Vector3?, -- attacking: where it forms up for its offensive (Config/Bots.Offensive.Forward)
+	gatherOf: number?, -- the offensive (its start time) that spot is for
+	rollOf: number?, -- the offensive it has gone in on (Config/Bots.Offensive.Roll)
+	rollAgain: number?, -- fallen back: it may go in again from then
 	jump: Vector3?, -- attacking: its jump-off trench square's floor (Rules/BotTrenches.jumpOff), gathered in first
 	jumpAlong: Vector3?, -- along that square
 	jumpAt: number?, -- when the first of it got there

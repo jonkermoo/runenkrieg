@@ -13,7 +13,60 @@ end
 local OWNER = { "West", "West", "Neutral", "East", "East" }
 local REST = { 1, 1, 0, -1, -1 }
 
+local W = Cfg.Routes.weights
+local CAP = Cfg.Routes.nearCap
+
 return {
+	["clearOfOwn: never on a zone the side holds, a neutral or enemy one is no bar"] = function()
+		local s = { { x = 0, z = 0, radius = 50 }, { x = 400, z = 0, radius = 50 } }
+		local owner = { "West", "East" }
+		assert(not R.clearOfOwn(60, 0, s, owner, "West", 20), "inside its zone plus the clearance")
+		assert(R.clearOfOwn(80, 0, s, owner, "West", 20))
+		assert(R.clearOfOwn(400, 0, s, owner, "West", 20), "the enemy's point is not its own")
+		assert(R.clearOfOwn(60, 0, s, nil, "West", 20), "no owners known yet")
+	end,
+	["gatherSpot: in its lane if it can, nearer the squad and hidden better, full spots out"] = function()
+		local spots = {
+			{ x = 0, z = 0, hidden = false, near = 0, lane = 0 },
+			{ x = 10, z = 0, hidden = true, near = 0, lane = 0 },
+			{ x = 500, z = 0, hidden = true, near = 0, lane = 1 },
+		}
+		assert(R.gatherSpot(spots, {}, 0, 0, 0, {}, W, CAP, 2) == 2, "hidden beats a few studs")
+		assert(R.gatherSpot(spots, { [2] = 2 }, 0, 0, 0, {}, W, CAP, 2) == 1, "a full spot is passed over")
+		assert(R.gatherSpot(spots, {}, 1, 0, 0, {}, W, CAP, 2) == 3, "its own lane first")
+		assert(R.gatherSpot(spots, { 2, 2 }, 0, 0, 0, {}, W, CAP, 2) == 3, "no room in its lane: another's")
+		assert(R.gatherSpot(spots, { 2, 2, 2 }, 0, 0, 0, {}, W, CAP, 2) == nil)
+	end,
+	["rollDue: the first wave at once, then on its time, sooner with nobody attacking"] = function()
+		local o = R.newOffensive(3, 0, false)
+		local cfg = { quiet = 3 }
+		assert(R.rollDue(o, 100, 0, cfg))
+		o.lastWave, o.nextWave = 100, 110
+		assert(not R.rollDue(o, 105, 2, cfg))
+		assert(R.rollDue(o, 110, 2, cfg))
+		assert(not R.rollDue(o, 102, 0, cfg), "just gone")
+		assert(R.rollDue(o, 103, 0, cfg))
+	end,
+	["pickWave: ready squads, lanes the last wave didn't use, the rest only when nobody attacks"] = function()
+		local c = {
+			{ lane = 0, there = true },
+			{ lane = 0, there = true },
+			{ lane = 1, there = true },
+			{ lane = -1, there = false },
+		}
+		local a = R.pickWave(c, 2, { 0 }, false)
+		assert(#a == 2 and a[1] == 3 and a[2] == 1, "a fresh lane first, then a different one")
+		a = R.pickWave(c, 2, {}, false)
+		assert(a[1] == 1 and a[2] == 3, "two lanes before two in one")
+		assert(#R.pickWave({ c[4] }, 2, {}, false) == 0, "nobody ready")
+		assert(#R.pickWave({ c[4] }, 2, {}, true) == 1, "nobody attacking: it goes as it is")
+	end,
+	["fellBack: under half left and out of the zone"] = function()
+		local cfg = { fallBelow = 0.5 }
+		assert(R.fellBack(1, 4, 0, cfg))
+		assert(not R.fellBack(2, 4, 0, cfg))
+		assert(not R.fellBack(1, 4, 1, cfg), "in the zone it stays")
+	end,
 	["plan: all attack the target while no own sector is under attack"] = function()
 		local p = R.plan("West", OWNER, REST, counts({ { 3, 0 }, { 2, 0 }, { 0, 0 }, { 0, 0 }, { 0, 0 } }), 3, 0.5)
 		assert(p.attack == 3 and p.defend == nil and p.share == 0)

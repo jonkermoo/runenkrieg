@@ -1704,6 +1704,27 @@ function Bots.start()
 		if kg >= Cfg.Dugouts.shell then
 			Tactics.dug.note("shell", pos.X, pos.Z, now)
 		end
+		-- (how many of an offensive's attackers one blast catches: the admin panel's Bots' attacks readout)
+		local caught = { West = 0, East = 0 }
+		for _, b in bots do
+			if alive(b) and b.order == "Attack" and b.root then
+				local off = (State.fronts.sides[b.side] or {} :: any).off
+				if
+					off
+					and off.sector == b.sector
+					and (b.root.Position - pos).Magnitude <= DevCfg.Admin.BotAttacks.blast
+				then
+					caught[b.side] += 1
+				end
+			end
+		end
+		for side, n in caught do
+			local A = State.fronts.attacks[side]
+			if A then
+				A.blastMost = math.max(A.blastMost, n)
+				A.blast3 += if n >= 3 then 1 else 0
+			end
+		end
 		for _, b in bots do
 			if alive(b) then
 				local amount = Sup.blast(kg, (pos - eye(b)).Magnitude, SupCfg.Blast)

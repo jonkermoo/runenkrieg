@@ -216,6 +216,8 @@ local Bots = {
 	-- studs past the zone); `weights.sees` for each it sees, `weights.blind` (negative) when it sees none.
 	Routes = {
 		rings = { 15, 35 },
+		-- (where an offensive forms up, studs out from the zone's edge: Offensive.Forward)
+		gatherRings = { 80, 115, 150 },
 		perRing = 9,
 		arc = 80,
 		holdRings = { 0.35, 0.7 },
@@ -521,7 +523,8 @@ local Bots = {
 		pace = 6,
 		dueSlack = 5,
 		gatherWaves = 2,
-		ready = 0.6,
+		-- (0.6 to 0.4 with the rolling attacks, user 2026-11-06: enough squads ready to start the roll, not everyone at once)
+		ready = 0.4,
 		counterWithin = 60,
 		-- (20 to 50, user 2026-11-04: every counter-attack retook S4 within a minute or two, so the front only swung there)
 		counterGather = 50,
@@ -529,14 +532,26 @@ local Bots = {
 		barragePoints = 3,
 		barrageSpread = 25,
 		-- (90 to 75 and spentShare 0.6 to 0.45, user 2026-11-04: "it's fine if it takes like half an hour to get a
-		-- sector. this is meant to be a pretty slow paced game": a held, dug-in sector should usually survive a push)
-		maxSeconds = 75,
+		-- sector. this is meant to be a pretty slow paced game": a held, dug-in sector should usually survive a push; 75 to
+		-- 110 with the rolling attacks: its last waves go in up to a minute after its first)
+		maxSeconds = 110,
 		exploitMore = 60,
 		spentShare = 0.45,
 		exploitAt = 2,
 		exploitHold = 0.5,
 		stuckFor = 25,
 		strong = { seen = 15, forget = 90, within = 220, reach = 90 },
+		-- Gather forward (user 2026-11-06: "gather forward, in cover, not back at the point"): an attacking squad gathers at
+		-- its side's forward trench (TrenchMove.Jump), else the map's marked `gather` spots for it, else the best scored spot
+		-- on Routes.gatherRings, up to `perSpot` squads a spot, none within `ownClear` studs of a zone its side holds. Within
+		-- `at` studs of the spot it counts as there; at its place it holds and fires at where enemies were seen.
+		Forward = { on = true, at = 20, perSpot = 2, ownClear = 20 },
+		-- Rolling attacks (user 2026-11-06: "one massive group push isn't ideal ... it gives enemies time between pushes and
+		-- it can easily be counter pushed and collapsed by explosives"): from Go, `perWave` squads ready at their gather
+		-- points go in, in lanes the last wave didn't use, the next ones `gap` s later (a random time between the two); with
+		-- nobody attacking, the next wave goes after `quiet` s, ready or not. A squad down to under `fallBelow` of its
+		-- members and out of the zone falls back, re-forms at its gather point, and may go again after `again` s.
+		Roll = { on = true, perWave = 2, gap = { 6, 14 }, quiet = 3, fallBelow = 0.5, again = 8 },
 		-- digging in where it just took a sector (user 2026-11-04: "dig in, slower counter"): for `hold` s every `every`th
 		-- holder there holds a spot inside the zone (the flag itself), the rest the fire steps on its own lines and the
 		-- enemy's squares it took over (Trenches.takeOver), the support line and hold spots as before

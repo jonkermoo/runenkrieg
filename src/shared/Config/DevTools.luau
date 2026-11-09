@@ -391,6 +391,15 @@ local DevTools = {
 		-- the readout of what each side's bots are doing (shares this match; who is idle now and why; what the gun did with
 		-- an enemy in sight; src/server/Bots, every commander tick)
 		BotActivityAttribute = "DevBotActivity",
+		-- how each side's offensives go (Config/Bots.Offensive.Forward, Roll); the gather points in use, drawn with the
+		-- marked spots; `blast`: studs from an explosion that count as caught by it
+		BotAttacks = {
+			readout = "DevBotAttacks",
+			folder = "DevBotGather",
+			color = { 255, 150, 40 },
+			size = 7,
+			blast = 15,
+		},
 		-- the admin panel's "Plan a player's trench here": a run `length` studs long across the way to the nearest sector's
 		-- point, through the aim point, planned as this player (its UserId the owner) for the side of the nearest other soldier
 		-- within `near` studs (user 2026-11-06: bots must dig the player's trench plans)

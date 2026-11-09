@@ -96,7 +96,7 @@ local function standable(x: number, z: number, skip: { Instance }): Vector3?
 end
 
 -- one sector's spots for `side`: `hold` inside its zone, else approach spots outside it toward the side's home
-local function build(i: number, side: string, hold: boolean, gen: number): { Spot }?
+local function build(i: number, side: string, hold: boolean, gen: number, far: boolean?): { Spot }?
 	local s = Map.sectors[i]
 	local c = point(i)
 	local home = homeward(i, side)
@@ -126,7 +126,7 @@ local function build(i: number, side: string, hold: boolean, gen: number): { Spo
 			table.insert(radii, s.radius * share)
 		end
 	else
-		for _, r in RT.rings do
+		for _, r in if far then RT.gatherRings else RT.rings do
 			table.insert(radii, s.radius + r)
 		end
 	end
@@ -194,9 +194,8 @@ local function build(i: number, side: string, hold: boolean, gen: number): { Spo
 	return out
 end
 
--- The spots of sector `i` for `side` (`hold`: inside the zone, else approach spots); nil until the first are worked out.
-function Routes.spots(i: number, side: string, hold: boolean): { Spot }?
-	local key = `{i}{side}{if hold then "H" else "A"}`
+local function spotsOf(i: number, side: string, hold: boolean, far: boolean): { Spot }?
+	local key = `{i}{side}{if far then "G" elseif hold then "H" else "A"}`
 	local e = cache[key]
 	local now = os.clock()
 	if not e then
@@ -208,7 +207,7 @@ function Routes.spots(i: number, side: string, hold: boolean): { Spot }?
 		entry.building = true
 		local gen = generation
 		task.spawn(function()
-			local ok, spots = pcall(build, i, side, hold, gen)
+			local ok, spots = pcall(build, i, side, hold, gen, far)
 			entry.building = false
 			if gen ~= generation then
 				return
@@ -222,6 +221,16 @@ function Routes.spots(i: number, side: string, hold: boolean): { Spot }?
 		end)
 	end
 	return entry.spots
+end
+
+-- The spots of sector `i` for `side` (`hold`: inside the zone, else approach spots); nil until the first are worked out.
+function Routes.spots(i: number, side: string, hold: boolean): { Spot }?
+	return spotsOf(i, side, hold, false)
+end
+
+-- The spots an offensive on sector `i` by `side` may form up on (Routes.gatherRings; Config/Bots.Offensive.Forward).
+function Routes.gatherSpots(i: number, side: string): { Spot }?
+	return spotsOf(i, side, false, true)
 end
 
 -- The ground under (x, z) (a terrain ray), for a waypoint off the spots; kept inside the map's walls.
