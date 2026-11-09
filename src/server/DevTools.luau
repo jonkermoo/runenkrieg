@@ -413,6 +413,8 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 		workspace:SetAttribute(Cfg.Admin.BotState.attribute, if value then true else nil)
 	elseif action == "GunArcs" then
 		workspace:SetAttribute(Cfg.Admin.GunArcs.attribute, if value then true else nil)
+	elseif action == "BotSpots" then
+		workspace:SetAttribute(Cfg.Admin.Spots.attribute, if value then true else nil)
 	elseif action == "Captured" then
 		workspace:SetAttribute(Cfg.Admin.Captured.attribute, if value then true else nil)
 	elseif action == "FreeEngineer" then

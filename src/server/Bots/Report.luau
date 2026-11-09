@@ -15,7 +15,9 @@ local Map = require(Shared.LiveMap).map -- (the match's map)
 local BotBuild = require(Shared.Rules.BotBuild)
 local BotTrenches = require(Shared.Rules.BotTrenches)
 local BotWait = require(Shared.Rules.BotWait)
+local MapTerrain = require(Shared.Rules.MapTerrain)
 local Trenches = require(script.Parent.Parent.Trenches)
+local BuildServer = require(script.Parent.Parent.Build)
 local Artillery = require(script.Parent.Parent.Artillery)
 local Damage = require(script.Parent.Parent.Damage)
 local Indoors = require(script.Parent.Parent.Indoors)
@@ -624,6 +626,100 @@ local function activityLines(now: number)
 	workspace:SetAttribute(DevCfg.Admin.BotActivityAttribute, table.concat(lines, "\n"))
 end
 
+-- where each side's holders, MG nests and guns are (Config/DevTools.Admin.Spots; Config/Bots.OffPoint), and the map's
+-- marked spots drawn while the admin panel's toggle is on
+local Marks: { [number]: any } = (if (Map :: any).legs then MapTerrain.tactics(Map) else (Map :: any).tactics) or {}
+local function nearSector(x: number, z: number): (any, number)
+	local best, bestD = nil, math.huge
+	for _, s in Map.sectors do
+		local d = math.sqrt((s.x - x) ^ 2 + (s.z - z) ^ 2)
+		if d < bestD then
+			best, bestD = s, d
+		end
+	end
+	return best, bestD
+end
+local spotsDrawn = false
+local function spotLines()
+	local OP = Cfg.OffPoint
+	local lines = {}
+	for _, side in DevCfg.Admin.Sides do
+		local h = State.ByTrench.holders[side]
+		if not h then
+			h = { all = 0, flag = 0, zone = 0 }
+			State.ByTrench.holders[side] = h
+		end
+		local kit: string? = nil
+		for _, b in bots do
+			if b.side == side and alive(b) then
+				kit = kit or b.kit
+				if b.role == "Hold" then
+					local p = (b.root :: BasePart).Position
+					local s, d = nearSector(p.X, p.Z)
+					h.all += 1
+					h.flag += if d < OP.clear then 1 else 0
+					h.zone += if d <= s.radius then 1 else 0
+				end
+			end
+		end
+		local nests, guns, onFlag, marked = 0, 0, 0, 0
+		for _, w in if kit then BuildServer.worksOf(kit) else {} do
+			if w.built and (w.key == "MGNest" or w.key == "FieldGun" or w.key == "Howitzer") then
+				nests += if w.key == "MGNest" then 1 else 0
+				guns += if w.key == "MGNest" then 0 else 1
+				local _, d = nearSector(w.at.X, w.at.Z)
+				onFlag += if d < OP.clear then 1 else 0
+				local found = false
+				for _, t in Marks do
+					for _, sp in if w.key == "MGNest" then t.mg else t.guns do
+						found = found or (sp.x - w.at.X) ^ 2 + (sp.z - w.at.Z) ^ 2 <= OP.nestGap ^ 2
+					end
+				end
+				marked += if found then 1 else 0
+			end
+		end
+		local n = math.max(h.all, 1)
+		table.insert(
+			lines,
+			`{side}: holders this match {math.floor(100 * h.flag / n + 0.5)}% within {OP.clear} studs of a flag, {math.floor(
+				100 * h.zone / n + 0.5
+			)}% in a zone; {nests} MG nests, {guns} guns standing, {marked} of them on marked spots, {onFlag} within {OP.clear} of a flag`
+		)
+	end
+	workspace:SetAttribute(DevCfg.Admin.Spots.readout, table.concat(lines, "\n"))
+	local A = DevCfg.Admin.Spots
+	local on = workspace:GetAttribute(A.attribute) == true
+	if on == spotsDrawn then
+		return
+	end
+	spotsDrawn = on
+	local old = workspace:FindFirstChild(A.folder)
+	if old then
+		old:Destroy()
+	end
+	if not on then
+		return
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = A.folder
+	for _, t in Marks do
+		for kind, c in A.colors do
+			for _, sp in t[kind] or {} do
+				local x, z = sp.x or (sp.ax + sp.bx) / 2, sp.z or (sp.az + sp.bz) / 2
+				local part = Instance.new("Part")
+				part.Shape = Enum.PartType.Ball
+				part.Anchored, part.CanCollide, part.CanQuery, part.CanTouch = true, false, false, false
+				part.Material = Enum.Material.Neon
+				part.Color = Color3.fromRGB(c[1], c[2], c[3])
+				part.Size = Vector3.one * A.size
+				part.Position = Routes.ground(x, z) + Vector3.yAxis * A.size
+				part.Parent = folder
+			end
+		end
+	end
+	folder.Parent = workspace
+end
+
 -- the bots standing still (Config/DevTools.Admin.BotStuckAttribute): alive, not on a gun, at work or on a post, none
 -- moved `stuckFor` s
 -- (studs over the ground), with what they are doing; where each last moved and when
@@ -1009,6 +1105,7 @@ end
 
 local function label()
 	activityLines(os.clock())
+	spotLines()
 	trenchStats()
 	dugoutLines()
 	squadLines()

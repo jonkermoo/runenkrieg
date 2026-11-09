@@ -76,6 +76,8 @@ local ByTrench = {
 	activity = {} :: { [string]: { [string]: number } },
 	inSight = {} :: { [string]: { [string]: number } },
 	idleWhy = {} :: { [string]: { [string]: number } }, -- its samples of idle bots, by why
+	-- each side's samples of its living bots on hold: all, within OffPoint.clear of a flag, in a zone
+	holders = {} :: { [string]: { all: number, flag: number, zone: number } },
 	-- each side's players' planned squares dug this match: seconds from first listed to dug (Config/Bots.Trenches.Plans)
 	planTimes = {} :: { [string]: { number } },
 }
