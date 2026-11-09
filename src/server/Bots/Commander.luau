@@ -20,6 +20,7 @@ local BuildRules = require(Shared.Rules.Build)
 local BotTrenches = require(Shared.Rules.BotTrenches)
 local BotTrenchCare = require(Shared.Rules.BotTrenchCare)
 local BotSap = require(Shared.Rules.BotSap)
+local BotArcs = require(Shared.Rules.BotArcs)
 local BotCrew = require(Shared.Rules.BotCrew)
 local BotFront = require(Shared.Rules.BotFront)
 local Build = require(script.Parent.Parent.Build)
@@ -1064,7 +1065,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 			-- gathering or under its barrage: a known enemy MG nest or gun near is its Grenadier's first throw, and a
 			-- squad with a Grenadier or Mage in it bounds at it while gathering (Config/Bots.Offensive.strong)
 			local strongAt: Vector3? = nil
-			if waitHere then
+			if waitHere or (Cfg.Crew.Arcs.on and not defend) then
 				local bestD = OF.strong.reach
 				for _, sp in strong do
 					local dd = flat(sp.at - mid).Magnitude
@@ -3239,7 +3240,7 @@ local function knowStrong(side: string, owner: { string }, known: { Vector3 }, n
 			manned[g.model] = true
 			for _, p in known do
 				if flat(p - g.crew).Magnitude <= OF.strong.seen then
-					mine[g.model] = { at = g.crew, seen = now }
+					mine[g.model] = { at = g.crew, seen = now, mg = g.mg }
 					break
 				end
 			end
@@ -3257,7 +3258,14 @@ end
 -- the barrage then spots in the target's zone, then about half the enemy's dug squares there
 local function shellFirst(side: string, off: Orders.Offensive?): { Vector3 }?
 	if not off or not Orders.waiting(off) then
-		return nil
+		-- (a known MG is shelled at any time: Config/Bots.Crew.Arcs)
+		local mgs: { Vector3 } = {}
+		for _, sp in if Cfg.Crew.Arcs.on then fronts.strong[side] or {} else {} do
+			if sp.mg then
+				table.insert(mgs, sp.at)
+			end
+		end
+		return if #mgs > 0 then mgs else nil
 	end
 	local tc = sectorPoint(off.sector)
 	local list: { Vector3 } = {}
@@ -3284,6 +3292,69 @@ local function shellFirst(side: string, off: Orders.Offensive?): { Vector3 }?
 		end
 	end
 	return list
+end
+
+-- Normal: where `side`'s MGs fire with no enemy known (Config/Bots.Crew.MG): some of the enemy's dug squares and points on
+-- the way between its front `front` and the enemy's sector `shell`, in three lanes, looked up every `likelyEvery` s
+local function mgLikely(side: string, front: number?, shell: number?, foe: any, now: number): { Vector3 }
+	local M = Cfg.Crew.MG
+	local c = fronts.mgLikely[side]
+	if c and now - c.at < M.likelyEvery then
+		return c.list
+	end
+	local list: { Vector3 } = {}
+	local up = Vector3.new(0, M.chest, 0)
+	local squares = if foe then foe.squares else {}
+	for i = 1, #squares, math.max(1, math.ceil(#squares / M.likelySquares)) do
+		table.insert(list, Routes.ground(squares[i].x, squares[i].z) + up)
+	end
+	if front and shell and Map.sectors[front] and Map.sectors[shell] then
+		local a, e = sectorPoint(front), sectorPoint(shell)
+		local across = Vector3.new(e.Z - a.Z, 0, a.X - e.X)
+		across = if across.Magnitude > 1 then across.Unit else Vector3.xAxis
+		for _, t in M.along do
+			for _, lane in { -M.lanes, 0, M.lanes } do
+				local p = a + (e - a) * t + across * lane
+				table.insert(list, Routes.ground(p.X, p.Z) + up)
+			end
+		end
+	end
+	fronts.mgLikely[side] = { at = now, list = list }
+	return list
+end
+
+-- Normal: `side`'s known enemy MG arcs forgotten once stale or gone, and its soldiers who walked into one counted (the
+-- Bots' MGs readout; Config/Bots.Crew.Arcs)
+local function arcTick(side: string, now: number)
+	local A = Cfg.Crew.Arcs
+	local arcs = fronts.arcs[side]
+	if not arcs then
+		return
+	end
+	for gun, arc in arcs do
+		if gun.Parent == nil or now - arc.at > A.forget then
+			arcs[gun] = nil
+		end
+	end
+	for _, b in bots do
+		if b.side == side and alive(b) and b.root and not b.gun then
+			local p = (b.root :: BasePart).Position
+			local inOne = false
+			for _, arc in arcs do
+				if now - arc.first >= A.knownFor and BotArcs.inside(arc, p.X, p.Z, A) then
+					inOne = true
+					break
+				end
+			end
+			if inOne and not b.inArc and b.nav.goal then
+				local t = fronts.mg[side]
+				if t then
+					t.walked += 1
+				end
+			end
+			b.inArc = inOne
+		end
+	end
 end
 
 -- Normal: the initiative and each side's offensive, one commander tick (Rules/BotOrders.initiative, offensive;
@@ -3489,6 +3560,9 @@ local function command()
 		table.clear(fronts.tally)
 		table.clear(fronts.took)
 		table.clear(fronts.attacks)
+		table.clear(fronts.arcs)
+		table.clear(fronts.mg)
+		table.clear(fronts.mgLikely)
 		table.clear(lives)
 	end
 	-- (a capture is contact for both sides; each side's plan: Rules/BotFront)
@@ -3564,8 +3638,10 @@ local function command()
 			known,
 			if shell and Map.sectors[shell] then sectorPoint(shell) else nil,
 			if foe and not barrage then foe.squares else {},
-			first
+			first,
+			mgLikely(side, front, shell, foe, os.clock())
 		)
+		arcTick(side, os.clock())
 		formSquads(side, counts)
 		buildList(side, owner, FrontRules.held(state, side))
 		Tactics.fell.list(side, buildLists[side])

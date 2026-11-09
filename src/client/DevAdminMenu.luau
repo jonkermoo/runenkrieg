@@ -492,6 +492,7 @@ local function build(player: Player): DevPanel.Panel
 	onOff("BotState", "Bot state labels", "BotState", workspace, A.BotState.attribute)
 	onOff("GunArcs", "Bots' gun spot shots", "GunArcs", workspace, A.GunArcs.attribute)
 	onOff("BotSpots", "Bots' marked spots", "BotSpots", workspace, A.Spots.attribute)
+	onOff("BotMGs", "Bots' MG fire and arcs", "BotMGs", workspace, A.BotMGs.attribute)
 	onOff("Captured", "Captured guns: what bots do", "Captured", workspace, A.Captured.attribute)
 	onOff("FreeEngineer", "Bots: Engineer for free", "FreeEngineer", workspace, A.FreeEngineerAttribute)
 	onOff("FreeGrenadier", "Bots: Grenadier for free", "FreeGrenadier", workspace, A.FreeGrenadierAttribute)
@@ -586,6 +587,18 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.BotAttacks.readout):Connect(showBotAttacks)
 	showBotAttacks()
+	-- how each side's machine guns fire and what they do to the other side (Config/Bots.Crew.MG, Fear, Arcs)
+	order += 1
+	local botMGs = DevPanel.heading(p.panel, "", order)
+	botMGs.Size = UDim2.new(1, -8, 0, 90)
+	botMGs.TextWrapped = true
+	botMGs.TextYAlignment = Enum.TextYAlignment.Top
+	local function showBotMGs()
+		local s = workspace:GetAttribute(A.BotMGs.readout)
+		botMGs.Text = `Bots' MGs:\n{if type(s) == "string" then s else "none yet"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotMGs.readout):Connect(showBotMGs)
+	showBotMGs()
 
 	-- what each side's bots are doing, who is idle and why, what the gun did with an enemy in sight
 	order += 1

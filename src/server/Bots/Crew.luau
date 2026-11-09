@@ -46,15 +46,39 @@ type Gunning = {
 	retargetAt: number,
 	burstFrom: number?,
 	blind: number?, -- its looks in a row that found targets in reach but every shot stopped short
+	-- its MG's area fire (Config/Bots.Crew.MG): the area, until when, whether a known enemy is there, come round to it
+	-- yet, its sweep's start, its turn through the areas, when its line was checked; for the readout: its rounds at the
+	-- last look, when that was, what it is firing at and where
+	area: Vector3?,
+	areaTill: number?,
+	areaKnown: boolean?,
+	areaLaid: boolean?,
+	sweepFrom: number?,
+	areaTurn: number?,
+	clearAt: number?,
+	lastRounds: number?,
+	mgAt: number?,
+	kind: string?,
+	aimNow: Vector3?,
 }
 
 local ctx: Context = nil :: any
 local gunning: { [any]: Gunning } = setmetatable({}, { __mode = "k" }) :: any
 -- each side's targets, from its commander's tick: known enemy groups (biggest first) and the sector to fall back on
-local targets: { [string]: { groups: { Vector3 }, fallback: Vector3? } } = {}
+local targets: { [string]: { groups: { Vector3 }, fallback: Vector3?, likely: { Vector3 } } } = {}
 local random = Random.new()
 -- this report's counts
 local stats = { shells = 0, bursts = 0, held = 0, kicked = 0, given = 0, gaveUp = 0, blocked = 0, blinded = 0 }
+-- each side's MG fire this match, for the Bots' MGs readout: rounds at a target in sight and at an area, seconds manned
+type MgFire = {
+	seen: number,
+	area: number,
+	known: number,
+	manned: number,
+	noArea: number,
+	why: { range: number, own: number, lay: number, ground: number }, -- why areas were passed over
+}
+local mgFire: { [string]: MgFire } = {}
 -- Guns the enemy built on ground a side now holds (Config/Bots.Crew `captured`, Rules.captured): each one's verdict
 -- ("use", "wreck" or "ignore"), when it was given, the side it is for and the Build work it stands in; and each side's
 -- wreck jobs by that work's model
@@ -196,7 +220,113 @@ local function shell(b: any, g: Gunning, info: Artillery.GunInfo, now: number)
 	end
 end
 
--- an MG: bursts at a target it sees in range, a new box when empty (or low with nothing to shoot at)
+-- the next area `b`'s MG fires at (Config/Bots.Crew.MG): where enemies were last seen, else where they are likely to be,
+-- each in turn; only one in reach, its line of fire clear of the ground and of its own side
+local function pickArea(b: any, g: Gunning, info: Artillery.GunInfo, now: number): boolean
+	local MG = C.MG
+	local m = b.m :: Model
+	local t = targets[b.side]
+	g.area, g.areaLaid, g.areaTill, g.areaKnown = nil, false, now + MG.look, false
+	if not t then
+		return false
+	end
+	local pivot = info.model:GetPivot().Position
+	local eye = pivot + Vector3.new(0, C.captured.eye, 0)
+	local turn = (g.areaTurn or 0) + 1
+	g.areaTurn = turn
+	local friends = ctx.friends(b)
+	local skip: { Instance } = { info.model }
+	for _, s in Damage.soldiers() do
+		table.insert(skip, s)
+	end
+	sightParams.FilterDescendantsInstances = skip
+	local why = mgFire[b.side].why
+	local function try(list: { Vector3 }): boolean
+		local n = #list
+		for k = 0, n - 1 do
+			local at = list[(turn + k) % n + 1]
+			local d = flat(at - pivot).Magnitude
+			if d < MG.min or d > MG.reach then
+				why.range += 1
+			elseif not Rules.lineClear(pivot.X, pivot.Z, at.X, at.Z, friends, MG.clear, MG.past) then
+				why.own += 1
+			elseif not Artillery.aimAtAs(m, at) then
+				why.lay += 1
+			else
+				local line = at - eye
+				local away = line.Magnitude - MG.startOut
+				local hit = workspace:Raycast(eye + line.Unit * MG.startOut, line.Unit * away, sightParams)
+				if not hit or hit.Distance >= away * MG.sight then
+					g.area = at
+					return true
+				end
+				why.ground += 1
+			end
+		end
+		return false
+	end
+	if try(t.groups) then
+		g.areaKnown = true
+		return true
+	end
+	if try(t.likely) then
+		return true
+	end
+	mgFire[b.side].noArea += 1
+	return false
+end
+
+-- `b`'s MG on an area with nothing in sight: come round to it, swept across it in long bursts. False when it has no area.
+local function areaFire(b: any, g: Gunning, info: Artillery.GunInfo, box: number, rounds: number, now: number): boolean
+	local MG = C.MG
+	local m = b.m :: Model
+	if now >= (g.areaTill or 0) and not pickArea(b, g, info, now) then
+		g.areaTill = now + MG.retry -- (none now: a look again shortly, not every think)
+		return false
+	end
+	if not g.area then
+		return false
+	end
+	local area = g.area :: Vector3
+	local pivot = info.model:GetPivot().Position
+	if now >= (g.clearAt or 0) then
+		g.clearAt = now + 0.5
+		if not Rules.lineClear(pivot.X, pivot.Z, area.X, area.Z, ctx.friends(b), MG.clear, MG.past) then
+			g.area, g.areaTill = nil, now + MG.retry
+			g.burstFrom = nil
+			Artillery.triggerAs(m, false)
+			return true
+		end
+	end
+	if not g.areaKnown and rounds < box * MG.topUp and info.loaded then
+		Artillery.triggerAs(m, false)
+		Artillery.reloadAs(m)
+		return true
+	end
+	if not g.areaLaid then
+		Artillery.aimAtAs(m, area)
+		if not Artillery.laidAs(m) then
+			Artillery.triggerAs(m, false)
+			return true
+		end
+		g.areaLaid, g.sweepFrom = true, now
+	end
+	local a = math.rad(Rules.sweep(now - (g.sweepFrom :: number), MG.sweep))
+	local off = area - pivot
+	local swept = pivot
+		+ Vector3.new(off.X * math.cos(a) + off.Z * math.sin(a), off.Y, off.Z * math.cos(a) - off.X * math.sin(a))
+	Artillery.aimAtAs(m, swept) -- (past its stops: it stays where it is laid)
+	if not g.burstFrom then
+		g.burstFrom = now
+		stats.bursts += 1
+	end
+	g.kind, g.aimNow = "area", swept
+	Artillery.triggerAs(m, Rules.burst(now - (g.burstFrom :: number), MG.burst))
+	return true
+end
+
+-- an MG: bursts at a target it sees in range, else over the areas enemies were seen or are likely in (Config/Bots.Crew.MG),
+-- a new box when empty (or low with nothing to shoot at)
 local function mg(b: any, g: Gunning, info: Artillery.GunInfo, now: number)
 	local m = b.m :: Model
 	local gun = ArtCfg.Guns[info.key]
@@ -204,10 +334,39 @@ local function mg(b: any, g: Gunning, info: Artillery.GunInfo, now: number)
 	local rounds = info.rounds or 0
 	local t = b.target
 	local part = if t and t.visible and t.distance <= (gun.mg :: any).range then ctx.aimPart(t.model) else nil
+	local MG = C.MG
+	-- (the readout: the rounds gone since the last look, by what they were fired at)
+	local fire = mgFire[b.side]
+	if not fire then
+		fire = {
+			seen = 0,
+			area = 0,
+			known = 0,
+			manned = 0,
+			noArea = 0,
+			why = { range = 0, own = 0, lay = 0, ground = 0 },
+		}
+		mgFire[b.side] = fire
+	end
+	local spent = (g.lastRounds or rounds) - rounds
+	if spent > 0 and g.kind then
+		(fire :: any)[g.kind] += spent
+		fire.known += if g.kind == "area" and g.areaKnown then spent else 0
+	end
+	g.lastRounds = rounds
+	local dt = now - (g.mgAt or now)
+	g.mgAt = now
+	fire.manned += if dt < 1 then dt else 0
+	if not part then
+		g.kind, g.aimNow = nil, nil
+	end
 	if rounds <= 0 then
 		Artillery.triggerAs(m, false)
 		Artillery.reloadAs(m)
 		g.burstFrom = nil
+		return
+	end
+	if not part and MG.on and areaFire(b, g, info, box, rounds, now) then
 		return
 	end
 	if not part then
@@ -232,6 +391,7 @@ local function mg(b: any, g: Gunning, info: Artillery.GunInfo, now: number)
 		end
 		return
 	end
+	g.area = nil
 	if not Artillery.aimAtAs(m, part.Position) or not Artillery.laidAs(m) then
 		Artillery.triggerAs(m, false)
 		return
@@ -240,7 +400,8 @@ local function mg(b: any, g: Gunning, info: Artillery.GunInfo, now: number)
 		g.burstFrom = now
 		stats.bursts += 1
 	end
-	local held = Rules.burst(now - (g.burstFrom :: number), C.burst)
+	g.kind, g.aimNow = "seen", part.Position
+	local held = Rules.burst(now - (g.burstFrom :: number), if MG.on then MG.burst else C.burst)
 	Artillery.triggerAs(m, held)
 end
 
@@ -322,14 +483,15 @@ end
 -- duty), and its targets: the enemies its squads know (`known`) in groups, and the sector to fall back on
 -- (`dug`: the enemy's dug trench squares: its groups in the open shelled before those in a trench, Crew.trench), and
 -- `first`: spots shelled before any group (an offensive's known MG nests and guns, its barrage on the zone:
--- Config/Bots.Offensive)
+-- Config/Bots.Offensive), and `likely`: where its MGs fire with no enemy known (Config/Bots.Crew.MG)
 function Crew.command(
 	side: string,
 	owner: { string },
 	known: { Vector3 },
 	fallback: Vector3?,
 	dug: { { x: number, z: number } }?,
-	first: { Vector3 }?
+	first: { Vector3 }?,
+	likely: { Vector3 }?
 )
 	local now = os.clock()
 	local have = 0
@@ -412,7 +574,7 @@ function Crew.command(
 	for _, i in Rules.openFirst(spots, dug or {}, C.trench) do
 		table.insert(ordered, groups[i])
 	end
-	targets[side] = { groups = ordered, fallback = fallback }
+	targets[side] = { groups = ordered, fallback = fallback, likely = likely or {} }
 end
 
 -- Admin.Captured: a label over each captured gun with its verdict, while Workspace has the switch on
@@ -613,6 +775,23 @@ function Crew.report(): string
 	return s
 end
 
+-- each side's MG fire this match (the Bots' MGs readout)
+function Crew.mgCounts(): { [string]: MgFire }
+	return mgFire
+end
+
+-- each manned MG firing now: where from, where at, "seen" or "area" (the Bots' MGs readout's lines)
+function Crew.mgLines(): { { from: Vector3, to: Vector3, kind: string } }
+	local out = {}
+	for b, g in gunning do
+		local on = b.m and Artillery.gunOf(b.m)
+		if on and g.aimNow and g.kind then
+			table.insert(out, { from = on:GetPivot().Position, to = g.aimNow, kind = g.kind })
+		end
+	end
+	return out
+end
+
 -- The admin panel (Bots.dev "Gun"): bot `b` given `gun` now, as the commander gives one
 function Crew.give(b: any, gun: Model)
 	release(b)
@@ -629,6 +808,7 @@ function Crew.clear()
 		gunning[b] = nil
 	end
 	table.clear(targets)
+	table.clear(mgFire)
 end
 
 function Crew.init(c: Context)

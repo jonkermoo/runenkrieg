@@ -22,6 +22,7 @@ local SupCfg = require(Shared.Config.Suppression)
 local U = require(Shared.Config.Uniforms)
 local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Buildings = require(Shared.Rules.BotBuildings)
+local BotArcs = require(Shared.Rules.BotArcs)
 local BotTrenches = require(Shared.Rules.BotTrenches)
 local Callouts = require(Shared.Rules.BotCallouts)
 local Rules = require(Shared.Rules.Bots)
@@ -731,6 +732,83 @@ local function shotPassed(shooter: Model, origin: Vector3, hit: Vector3)
 	end
 end
 
+-- a side's tally for the Bots' MGs readout
+local function mgTally(side: string): { pinned: number, detours: number, walked: number }
+	local t = State.fronts.mg[side]
+	if not t then
+		t = { pinned = 0, detours = 0, walked = 0 }
+		State.fronts.mg[side] = t
+	end
+	return t
+end
+
+-- a machine gun round (Artillery.onMgShot): felt as any shot passing, and within Config/Bots.Crew.Fear `radius` the top
+-- danger: its soldier goes for cover from the gun itself, its squad knows the gun, its side learns the arc
+local function mgPassed(gun: Model, shooter: Model, origin: Vector3, hit: Vector3, struck: Instance?)
+	shotPassed(shooter, origin, hit)
+	local F = Cfg.Crew.Fear
+	if not F.on then
+		return
+	end
+	local A = Cfg.Crew.Arcs
+	local now = os.clock()
+	local hitModel = struck and struck:FindFirstAncestorOfClass("Model")
+	local at = gun:GetPivot().Position
+	local yaw = BotArcs.yawOf(hit.X - origin.X, hit.Z - origin.Z)
+	local fronts = State.fronts
+	for _, b in bots do
+		if b.m == shooter or not alive(b) or Damage.spares(shooter, b.m) then
+			continue
+		end
+		if hitModel and b.m == hitModel then
+			b.mgHitAt = now
+		end
+		local p = (b.root :: BasePart).Position
+		if BotArcs.offLine(origin.X, origin.Z, hit.X, hit.Z, p.X, p.Z) > F.radius then
+			continue
+		end
+		if not b.mgAt or now - (b.mgAt :: number) > F.pin then
+			mgTally(b.side :: string).pinned += 1
+		end
+		b.mgAt, b.threatAt, b.threatFrom = now, now, origin
+		local side = b.side :: string
+		local arcs = fronts.arcs[side]
+		if not arcs then
+			arcs = {}
+			fronts.arcs[side] = arcs
+		end
+		local arc = arcs[gun]
+		if arc then
+			BotArcs.feel(arc, yaw, now, A)
+		else
+			arcs[gun] = BotArcs.new(at.X, at.Z, yaw, now, A)
+		end
+		local strong = fronts.strong[side]
+		if not strong then
+			strong = {}
+			fronts.strong[side] = strong
+		end
+		strong[gun] = { at = at, seen = now, mg = true }
+		local sq = b.squad and squads[b.squad :: string]
+		if sq then
+			local known = (sq :: SquadState).known
+			local fresh = true
+			for _, k in known do
+				if k.model == nil and flat(k.pos - at).Magnitude < 8 then
+					k.at, fresh = now, false
+					break
+				end
+			end
+			if fresh then
+				table.insert(known, { model = nil, pos = at, at = now })
+				if #known > 6 then
+					table.remove(known, 1)
+				end
+			end
+		end
+	end
+end
+
 -- moving -------------------------------------------------------------------------------------------------------------
 
 local sharedPaths: { SharedPath } = {}
@@ -838,14 +916,56 @@ local function inside(b: Bot, v: Vector3): Vector3
 	return if x == v.X and z == v.Z then v else Vector3.new(x, v.Y, z)
 end
 
+-- the ground under (`x`, `z`), looked for from `y`
+local arcGround = RaycastParams.new()
+arcGround.FilterType = Enum.RaycastFilterType.Include
+local function arcGroundAt(x: number, z: number, y: number): Vector3
+	arcGround.FilterDescendantsInstances = { workspace.Terrain }
+	local hit = workspace:Raycast(Vector3.new(x, y + 300, z), Vector3.new(0, -900, 0), arcGround)
+	return if hit then hit.Position else Vector3.new(x, y, z)
+end
+
+-- where `b` walks to reach `g`: by a point round the first known enemy MG arc on the way (Config/Bots.Crew.Arcs), else `g`
+local function roundArcs(b: Bot, g: Vector3, now: number): Vector3
+	local A = Cfg.Crew.Arcs
+	if not A.on or b.mode ~= "Normal" or not b.root then
+		return g
+	end
+	local p = (b.root :: BasePart).Position
+	local v = b.arcVia
+	if v then
+		if now < v.till and flat(v.goal - g).Magnitude <= A.sameGoal and flat(v.at - p).Magnitude > A.arrive then
+			return v.at
+		end
+		b.arcVia = nil
+	end
+	local arcs = State.fronts.arcs[b.side :: string]
+	if not arcs then
+		return g
+	end
+	for gun, arc in arcs do
+		if gun.Parent and now - arc.at <= A.forget then
+			local x, z = BotArcs.detour(arc, p.X, p.Z, g.X, g.Z, A)
+			if x and z then
+				local at = inside(b, arcGroundAt(x, z, g.Y))
+				b.arcVia = { goal = g, at = at, till = now + A.keep }
+				mgTally(b.side :: string).detours += 1
+				return at
+			end
+		end
+	end
+	return g
+end
+
 local function setGoal(b: Bot, goal: Vector3?, now: number)
 	local nav = b.nav
 	if goal == nil then
 		nav.goal = nil
 		nav.waypoints = {}
+		b.arcVia = nil
 		return
 	end
-	local g = inside(b, goal :: Vector3)
+	local g = roundArcs(b, inside(b, goal :: Vector3), now)
 	local changed = nav.goal == nil or (flat((nav.goal :: Vector3) - g)).Magnitude > 4
 	-- knowing there's danger it keeps to trenches, and walks straight across once there's none: a fresh path
 	if b.mode == "Normal" and b.root then
@@ -1219,6 +1339,7 @@ return {
 	ffa = ffa,
 	heardShot = heardShot,
 	shotPassed = shotPassed,
+	mgPassed = mgPassed,
 	sharedPaths = sharedPaths,
 	sharedPath = sharedPath,
 	computePath = computePath,

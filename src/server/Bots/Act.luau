@@ -160,13 +160,20 @@ local function pickFrom(
 	-- on gun duty (Config/Bots.Build.Crews) or dugout duty (Config/Bots.Dugouts.engineers): the nearest such job
 	-- anywhere on the list first
 	if b.crew or b.dugouts then
-		local notGun: { [number]: boolean } = {}
-		for k, r in open do
-			notGun[k] = taken[k] or not (if b.crew then Kinds.gun[r.job.key] else r.job.key == "Dugout")
-		end
-		local g = BotBuild.pick(list, root.X, root.Z, math.huge, notGun, {}, nil)
-		if g then
-			return open[g]
+		-- (on gun duty: its nests first, Config/Bots.Crew.MG)
+		for _, nest in if b.crew and Cfg.Crew.MG.on then { true, false } else { false } do
+			local notGun: { [number]: boolean } = {}
+			for k, r in open do
+				local wanted = if nest
+					then r.job.key == "MGNest"
+					elseif b.crew then Kinds.gun[r.job.key]
+					else r.job.key == "Dugout"
+				notGun[k] = taken[k] or not wanted
+			end
+			local g = BotBuild.pick(list, root.X, root.Z, math.huge, notGun, {}, nil)
+			if g then
+				return open[g]
+			end
 		end
 	end
 	-- (an Engineer any job on its side's front, from where its squad is: Build.engineerTake)
@@ -174,12 +181,13 @@ local function pickFrom(
 	if not far and engineer and not any and b.order == "Attack" then
 		reach = BD.attackTake -- (attacking: jobs near where it is, not back at its side's front)
 	end
-	-- (an Engineer's own trade first, what no other class can build: dugouts, then guns, nests and wire)
+	-- (an Engineer's own trade first, what no other class can build: dugouts, then MG nests, then guns and wire)
 	if engineer and not any then
-		for _, dugout in { true, false } do
+		for _, want in if Cfg.Crew.MG.on then { "Dugout", "MGNest", "" } else { "Dugout", "" } do
 			local notOwn: { [number]: boolean } = {}
 			for k, r in open do
-				notOwn[k] = taken[k] or Kinds.small[r.job.key] == true or (r.job.key == "Dugout") ~= dugout
+				local wanted = if want == "" then r.job.key ~= "Dugout" else r.job.key == want
+				notOwn[k] = taken[k] or Kinds.small[r.job.key] == true or not wanted
 			end
 			local e = BotBuild.pick(list, root.X, root.Z, reach, notOwn, {}, nil)
 			if e then

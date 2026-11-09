@@ -1187,6 +1187,59 @@ local Bots = {
 		hold = { small = 25, big = 40, bigKg = 50 },
 		burst = { on = 1.2, off = 0.8 },
 		topUp = 0.4,
+		-- Machine guns that terrify (user 2026-11-06: "make bots more generous with their machine gun. they seem to only
+		-- fire when they see you ... have them go crazy"; "machine guns should be a terrifying threat as a soldier"):
+		-- - MG (`on`; off: seen targets only, `burst` and `topUp` above): `burst` held and let go, at a target it sees first;
+		--   with none, at where enemies were last seen, then where they are likely to be (the enemy's dug squares,
+		--   `likelySquares` of them, and points `along` the way between the fronts in three lanes `lanes` studs apart;
+		--   looked up every `likelyEvery` s). Each area `look` s, swept `sweep.half` degrees each way every `sweep.period` s.
+		--   Only areas `min` to `reach` studs off, with a clear line (from `startOut` studs out, past its own nest's walls)
+		--   to `sight` of the way and no own soldier within `clear`
+		--   studs of the line (run on `past` times the distance). Under `topUp` of a box with no known enemy: a new box.
+		--   Engineers build MG nests before guns. With no area it looks again every `retry` s.
+		-- - Fear (`on`): a round within `radius` studs is the top danger: its soldier counts as `level` suppressed for
+		--   `pin` s (cover even while pressing on, no peeks), the threat at the gun itself, and its squad knows the gun.
+		-- - Arcs (`on`): a side learns each gun's arc from the rounds its soldiers feel (first `half` degrees each way, up to
+		--   `maxHalf`), out to `reach` studs, forgotten after `forget` s. A walk over `close` studs crossing one goes by a point
+		--   `margin` degrees off its nearer edge (`steps` looks along the way), unless that's over `extra` times as long;
+		--   the point kept `keep` s, done within `arrive` studs, dropped when the goal moves over `sameGoal`. An attacking
+		--   squad's Grenadier throws at a known gun from Go too, and the guns shell a known MG at any time. Walking in counts
+		--   once the arc has been known `knownFor` s.
+		MG = {
+			on = true,
+			burst = { on = 4, off = 0.6 },
+			sweep = { half = 7, period = 5 },
+			look = 6,
+			min = 20,
+			reach = 400,
+			sight = 0.6,
+			startOut = 8,
+			clear = 3,
+			past = 1.1,
+			retry = 1.5,
+			topUp = 0.2,
+			chest = 1.5,
+			likelyEvery = 6,
+			likelySquares = 6,
+			lanes = 40,
+			along = { 0.45, 0.7 },
+		},
+		Fear = { on = true, radius = 10, pin = 4, level = 1 },
+		Arcs = {
+			on = true,
+			half = 12,
+			maxHalf = 45,
+			margin = 8,
+			reach = 350,
+			forget = 30,
+			knownFor = 3,
+			close = 30,
+			extra = 1.8,
+			steps = 10,
+			arrive = 14,
+			keep = 20,
+			sameGoal = 12,
+		},
 		-- (user 2026-11-03, bots "still firing into hills"): a field gun or howitzer fires only where its shot, flown as the
 		-- gun spots' are (Build.Crews `arc`), comes down on its target; a sector shot tries `tries` spots in its spread.
 		-- A gunner whose every target in reach was blocked `looks` looks in a row leaves the gun, given no gunner for
