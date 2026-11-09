@@ -6,13 +6,16 @@
 local BotCrew = {}
 
 export type Spot = { x: number, z: number }
-export type Gunner = { x: number, z: number, crew: boolean } -- `crew`: an Engineer on gun duty (Config/Bots.Build.Crews)
+export type Gun = { x: number, z: number, idle: boolean? } -- `idle`: an MG with no known enemy in reach (BotCrew.inReach)
+-- `crew`: an Engineer on gun duty (Config/Bots.Build.Crews); `busyOnly`: just left a gun that couldn't reach, no idle gun
+export type Gunner = { x: number, z: number, crew: boolean, busyOnly: boolean? }
 export type Group = { x: number, z: number, n: number }
 
 -- Each free gun's gunner: the nearest bot within `cfg.walk` studs, an Engineer on gun duty counted `cfg.crewFirst`
--- studs nearer, nearest pairs first, at most `room` pairs. Returns gun index -> gunner index.
+-- studs nearer, nearest pairs first, at most `room` pairs, every gun that isn't `idle` before any that is. Returns gun
+-- index -> gunner index.
 function BotCrew.assign(
-	guns: { Spot },
+	guns: { Gun },
 	gunners: { Gunner },
 	room: number,
 	cfg: { walk: number, crewFirst: number }
@@ -21,12 +24,18 @@ function BotCrew.assign(
 	for gi, g in guns do
 		for bi, b in gunners do
 			local d = math.sqrt((g.x - b.x) ^ 2 + (g.z - b.z) ^ 2)
-			if d <= cfg.walk then
-				table.insert(pairs, { gi = gi, bi = bi, score = d - (if b.crew then cfg.crewFirst else 0) })
+			if d <= cfg.walk and not (g.idle and b.busyOnly) then
+				table.insert(
+					pairs,
+					{ gi = gi, bi = bi, idle = g.idle == true, score = d - (if b.crew then cfg.crewFirst else 0) }
+				)
 			end
 		end
 	end
 	table.sort(pairs, function(a, b)
+		if a.idle ~= b.idle then
+			return b.idle
+		end
 		if a.score ~= b.score then
 			return a.score < b.score
 		end
@@ -45,6 +54,22 @@ function BotCrew.assign(
 		end
 	end
 	return out
+end
+
+-- Whether any of `spots` is `min` to `reach` studs from (`x`, `z`): an MG there has something to fire at
+function BotCrew.inReach(x: number, z: number, spots: { Spot }, min: number, reach: number): boolean
+	for _, s in spots do
+		local d2 = (s.x - x) ^ 2 + (s.z - z) ^ 2
+		if d2 >= min * min and d2 <= reach * reach then
+			return true
+		end
+	end
+	return false
+end
+
+-- Whether a gunner whose MG last had something to fire at `idleFor` s ago gets off it (Config/Bots.Crew.MG `leave`)
+function BotCrew.leaves(idleFor: number, after: number): boolean
+	return idleFor >= after
 end
 
 -- The pieces to swing at, in order (user 2026-11-03: a gun is operated down to half its HP; the bots fix one below that

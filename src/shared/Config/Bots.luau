@@ -1211,9 +1211,13 @@ local Bots = {
 			sweep = { half = 7, period = 5 },
 			look = 6,
 			min = 20,
-			-- (400 to 550, near the gun's own 600: a side's rear nest sat out of reach of the fight, points being 420 apart)
-			reach = 550,
+			reach = 400, -- (550 was tried on its own: attacks reached the zones less and the MG kills grew more lopsided)
 			far = 400, -- (the Bots' MGs readout: rounds fired and soldiers pinned from past this many studs)
+			-- A gunner whose MG has had no target it sees and no area it can fire at for `leave` s gets off it, back to its duty
+			-- or to a gun that can reach (for `leaveWait` s no gun without enemies in reach; that gun gets no gunner as long).
+			-- New gunners go first to guns with known enemies within `min` to `reach` studs (Rules/BotCrew.assign).
+			leave = 30,
+			leaveWait = 30,
 			sight = 0.6,
 			startOut = 8,
 			clear = 3,
@@ -1232,7 +1236,7 @@ local Bots = {
 			half = 12,
 			maxHalf = 45,
 			margin = 8,
-			reach = 500, -- (350 to 500 with MG.reach: walks keep clear as far out as the guns now fire)
+			reach = 350,
 			forget = 30,
 			knownFor = 3,
 			close = 30,

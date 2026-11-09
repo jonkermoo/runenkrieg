@@ -737,6 +737,7 @@ local function mgLines()
 				manned = 0,
 				noArea = 0,
 				far = 0,
+				left = 0,
 				why = { range = 0, own = 0, lay = 0, ground = 0 },
 			}
 		local t = fronts.mg[side] or { pinned = 0, far = 0, detours = 0, walked = 0 }
@@ -751,7 +752,8 @@ local function mgLines()
 			lines,
 			`{side}: {rounds} rounds ({f.seen} at seen targets, {f.area} at areas, {f.known} of those where enemies were known, {f.far} from past {far} studs; {f.noArea} looks found no area; areas passed over: {f.why.range} out of range, {f.why.own} own side in the line, {f.why.lay} gun can't lay, {f.why.ground} ground in the way), {math.floor(
 				rounds / math.max(f.manned, 1) * 60
-			)} a minute per manned MG, {math.floor(f.manned)} s manned; killed {d.mg} of {enemy} ({if d.all > 0
+			)} a minute per manned MG, {math.floor(f.manned)} s manned, {f.left} gunners left a gun with nothing to fire at; killed {d.mg} of {enemy} ({if d.all
+					> 0
 				then math.floor(100 * d.mg / d.all + 0.5)
 				else 0}%). Under fire: pinned {t.pinned} times ({t.far} from past {far} studs), knows {known} arcs, went round {t.detours} times, walked into one {t.walked} times`
 		)
