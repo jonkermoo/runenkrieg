@@ -574,6 +574,18 @@ local function build(player: Player): DevPanel.Panel
 	end
 	workspace:GetAttributeChangedSignal(A.Spots.readout):Connect(showBotSpots)
 	showBotSpots()
+	-- how each side's offensives go: gather points, waves, gaps with nobody attacking (Config/Bots.Offensive.Forward, Roll)
+	order += 1
+	local botAttacks = DevPanel.heading(p.panel, "", order)
+	botAttacks.Size = UDim2.new(1, -8, 0, 120)
+	botAttacks.TextWrapped = true
+	botAttacks.TextYAlignment = Enum.TextYAlignment.Top
+	local function showBotAttacks()
+		local s = workspace:GetAttribute(A.BotAttacks.readout)
+		botAttacks.Text = `Bots' attacks:\n{if type(s) == "string" then s else "none yet"}`
+	end
+	workspace:GetAttributeChangedSignal(A.BotAttacks.readout):Connect(showBotAttacks)
+	showBotAttacks()
 
 	-- what each side's bots are doing, who is idle and why, what the gun did with an enemy in sight
 	order += 1

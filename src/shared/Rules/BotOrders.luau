@@ -4,6 +4,8 @@
 -- most: the sector the side attacks (Rules/Frontline.target) and, while one of its own sectors is being taken, that
 -- sector to defend. A bot keeps its order while the share allows, so orders don't flicker between ticks.
 
+local BotSquads = if typeof(script) == "Instance" then require(script.Parent.BotSquads) else require("./BotSquads")
+
 local BotOrders = {}
 
 export type Order = "Attack" | "Defend"
@@ -116,6 +118,9 @@ export type Offensive = {
 	goAt: number?, -- when it went
 	went: number, -- lives that went in since Go (each living attacker once a life)
 	lost: number, -- of those, the ones lost
+	lastWave: number?, -- when its last wave of squads went (Config/Bots.Offensive.Roll)
+	nextWave: number?, -- when the next one is due
+	lastLanes: { number }?, -- the lanes that wave went by
 }
 export type OffFacts = {
 	now: number,
@@ -226,6 +231,112 @@ end
 -- Whether a side's offensive has gone (all its squads in together).
 function BotOrders.going(o: Offensive?): boolean
 	return o ~= nil and (o.phase == "Go" or o.phase == "Exploit")
+end
+
+-- Gathering forward and rolling attacks (Config/Bots.Offensive.Forward, Roll) -------------------------------------------
+
+export type GatherSpot = { x: number, z: number, hidden: boolean, near: number, lane: number }
+
+-- Whether (x, z) keeps `clear` studs off every zone `side` holds: a squad never forms up on its own point.
+function BotOrders.clearOfOwn(
+	x: number,
+	z: number,
+	sectors: { any },
+	owner: { string }?,
+	side: string,
+	clear: number
+): boolean
+	for i, s in sectors do
+		if owner and owner[i] == side and math.sqrt((s.x - x) ^ 2 + (s.z - z) ^ 2) < s.radius + clear then
+			return false
+		end
+	end
+	return true
+end
+
+-- The best of `spots` for a squad at (mx, mz): one with room (`used[i]` squads there already, under `perSpot`), in its
+-- lane when that lane has one, scored as a route spot (BotSquads.scoreSpot) with distance from the squad, so one already
+-- near the front gathers near where it is. Its index, nil when none has room.
+function BotOrders.gatherSpot(
+	spots: { GatherSpot },
+	used: { [number]: number },
+	lane: number,
+	mx: number,
+	mz: number,
+	rolls: { number },
+	w: any,
+	nearCap: number,
+	perSpot: number
+): number?
+	local function room(i: number): boolean
+		return (used[i] or 0) < perSpot
+	end
+	local inLane = false
+	for i, s in spots do
+		inLane = inLane or (s.lane == lane and room(i))
+	end
+	local best, bestAt = -math.huge, nil
+	for i, s in spots do
+		if room(i) and (not inLane or s.lane == lane) then
+			local d = math.sqrt((s.x - mx) ^ 2 + (s.z - mz) ^ 2)
+			local spot = { hidden = s.hidden, near = s.near, distance = d, lane = s.lane }
+			local v = BotSquads.scoreSpot(spot, used[i] or 0, rolls[i] or 0, w, nearCap)
+			if v > best then
+				best, bestAt = v, i
+			end
+		end
+	end
+	return bestAt
+end
+
+-- Whether an offensive's next wave is due: its first; its time come; or `attacking` none and `cfg.quiet` s since the last.
+function BotOrders.rollDue(o: Offensive, now: number, attacking: number, cfg: any): boolean
+	if o.nextWave == nil or now >= o.nextWave then
+		return true
+	end
+	return attacking <= 0 and now - (o.lastWave or -math.huge) >= cfg.quiet
+end
+
+-- The squads of `cands` (each: its lane, whether it is `there` at its gather point) that go in the next wave, up to `n`,
+-- their indices: ready squads in lanes the last wave (`lastLanes`) and this one haven't used, then ready ones in lanes
+-- this one hasn't, then any ready; with `desperate` (nobody attacking) squads not there yet as well.
+function BotOrders.pickWave(
+	cands: { { lane: number, there: boolean } },
+	n: number,
+	lastLanes: { number },
+	desperate: boolean
+): { number }
+	local picked, inWave, lanes = {}, {}, {}
+	local function take(fits: (c: { lane: number, there: boolean }) -> boolean)
+		for i, c in cands do
+			if #picked < n and not inWave[i] and fits(c) then
+				inWave[i] = true
+				lanes[c.lane] = true
+				table.insert(picked, i)
+			end
+		end
+	end
+	take(function(c)
+		return c.there and not lanes[c.lane] and not table.find(lastLanes, c.lane)
+	end)
+	take(function(c)
+		return c.there and not lanes[c.lane]
+	end)
+	take(function(c)
+		return c.there
+	end)
+	if desperate then
+		take(function()
+			return true
+		end)
+	end
+	return picked
+end
+
+-- Whether a squad gone in falls back to re-form: `living` of its `members` under `cfg.fallBelow` of them, and under half
+-- of it in the zone.
+function BotOrders.fellBack(living: number, members: number, inZone: number, cfg: any): boolean
+	return living < members * cfg.fallBelow and inZone < 0.5
 end
 
 -- `side`'s plan (BotOrders.plan's) for the side without the initiative (Config/Bots.Offensive `cfg`): everyone

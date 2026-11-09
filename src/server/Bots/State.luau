@@ -265,6 +265,7 @@ local stats = {
 	sapsDue = 0, -- saps ended at their deadline or as their side's offensive moved on (Config/Bots.Sap)
 	sapFords = 0, -- saps ended at, or bent to, a ford instead of across water
 	restarts = 0, -- Assault squads stuck out of the zone that found their way again (Config/Bots.Offensive.stuckFor)
+	fellBack = 0, -- squads gone in that fell back to re-form (Offensive.Roll)
 	pressed = 0, -- squads pinned in the open that pressed on (Squads.Open)
 	dangerPaths = 0, -- paths asked for knowing there's danger (kept to trenches)
 	intoTrench = 0, -- shot at in the open, down into a trench nearby
@@ -342,6 +343,7 @@ local fronts = {
 			gathered: number?,
 			attackers: number?,
 			dueDists: { number }?, -- its attack squads' studs to their jump-offs this look (Offensive.pace)
+			assaulting: number?, -- its offensive's squads in the Assault phase this look (the Bots' attacks readout)
 		},
 	},
 	owners = nil :: { string }?,
@@ -351,6 +353,28 @@ local fronts = {
 	tally = {} :: { [string]: number },
 	took = {} :: { [string]: { sector: number, at: number } }, -- the sector each side took last, and when
 	summary = nil :: string?, -- the [Bots] line's offensives part
+	-- each side's offensives this match, for the admin panel's Bots' attacks readout (Config/DevTools.Admin.BotAttacks):
+	-- how many went, seconds to Go and gather fill (summed), where they formed up (studs off the zone's edge, summed over
+	-- `gatherN` squads), waves and squads sent, the longest time with no squad attacking (`maxQuiet` with the initiative,
+	-- `goQuiet` from Go), the most attackers within reach of one blast, blasts catching 3 or more, sectors lost gathering
+	attacks = {} :: {
+		[string]: {
+			goes: number,
+			toGo: number,
+			fill: number,
+			gatherDist: number,
+			gatherN: number,
+			waves: number,
+			sent: number,
+			maxQuiet: number,
+			goQuiet: number,
+			quietAt: number?,
+			goQuietAt: number?,
+			blastMost: number,
+			blast3: number,
+			lostGather: number,
+		},
+	},
 }
 -- the build job a bot takes on its side's list (Rules/BotBuild.pick): an Engineer any within Build.take; a digger (half
 -- a holding squad, any class) a trench run or square within Build.take, wire wanting swings within Build.help; nil if

@@ -420,7 +420,7 @@ local function squadLines()
 		end
 		-- where it is and where it gathers (its jump-off, else its approach spot), x and z, and how far apart
 		local where = ""
-		local gather: Vector3? = sq.jump or sq.approach
+		local gather: Vector3? = sq.jump or sq.gather or sq.approach
 		if alive2 > 0 then
 			local m = sum / alive2
 			where = ` at {math.floor(m.X)},{math.floor(m.Z)}`
@@ -720,6 +720,77 @@ local function spotLines()
 	folder.Parent = workspace
 end
 
+-- how each side's offensives go (Config/DevTools.Admin.BotAttacks; Config/Bots.Offensive.Forward, Roll): the match so far,
+-- each attacking squad's distance to where it forms up, and those points drawn while the marked spots are
+local function attackLines()
+	local T = DevCfg.Admin.BotAttacks
+	local lines = {}
+	local on = workspace:GetAttribute(DevCfg.Admin.Spots.attribute) == true
+	local old = workspace:FindFirstChild(T.folder)
+	if old then
+		old:Destroy()
+	end
+	local folder = if on then Instance.new("Folder") else nil
+	if folder then
+		folder.Name = T.folder
+	end
+	local latest = 0
+	for _, sq in squads do
+		latest = math.max(latest, sq.seen)
+	end
+	for _, side in DevCfg.Admin.Sides do
+		local A = fronts.attacks[side]
+		if A then
+			local g = math.max(A.goes, 1)
+			table.insert(
+				lines,
+				`{side}: {A.goes} went, {math.floor(A.toGo / g)} s to Go, {math.floor(100 * A.fill / g)}% gathered, formed up {math.floor(
+					A.gatherDist / math.max(A.gatherN, 1)
+				)} studs off the zone; {A.waves} waves, {A.sent} squads sent; longest no squad attacking {math.floor(
+					A.maxQuiet
+				)} s ({math.floor(A.goQuiet)} s from Go); one blast caught at most {A.blastMost}, {A.blast3} caught 3+; {A.lostGather} sectors lost gathering`
+			)
+			local fs = fronts.sides[side]
+			local dists = {}
+			for key, sq in squads do
+				local off = fs and fs.off
+				local at = sq.jump or sq.gather
+				if off and sq.side == side and sq.sector == off.sector and at and sq.seen >= latest - 1 then
+					local sx, sz, n = 0, 0, 0
+					for _, b in bots do
+						if b.squad == key and alive(b) then
+							local p = (b.root :: BasePart).Position
+							sx, sz, n = sx + p.X, sz + p.Z, n + 1
+						end
+					end
+					if n > 0 then
+						local spot = at :: Vector3
+						local d = math.sqrt((sx / n - spot.X) ^ 2 + (sz / n - spot.Z) ^ 2)
+						table.insert(dists, `{math.floor(d)}{if sq.sq.phase == "Assault" then "*" else ""}`)
+						if folder then
+							local part = Instance.new("Part")
+							part.Shape = Enum.PartType.Ball
+							part.Anchored, part.CanCollide, part.CanQuery, part.CanTouch = true, false, false, false
+							part.Material = Enum.Material.Neon
+							part.Color = Color3.fromRGB(T.color[1], T.color[2], T.color[3])
+							part.Size = Vector3.one * T.size
+							part.Position = spot + Vector3.yAxis * T.size
+							part.Parent = folder
+						end
+					end
+				end
+			end
+			if #dists > 0 then
+				table.insert(lines, `  now: studs to gather point {table.concat(dists, ", ")} (* gone in)`)
+			end
+		end
+	end
+	if folder then
+		folder.Parent = workspace
+	end
+	workspace:SetAttribute(T.readout, table.concat(lines, "\n"))
+end
+
 -- the bots standing still (Config/DevTools.Admin.BotStuckAttribute): alive, not on a gun, at work or on a post, none
 -- moved `stuckFor` s
 -- (studs over the ground), with what they are doing; where each last moved and when
@@ -731,7 +802,15 @@ local function squadNote(b: Bot, p: Vector3): string
 		return "no squad"
 	end
 	local parts = { `squad {sq.sq.phase}` }
-	for _, w in { { "approach", sq.approach }, { "waypoint", sq.mid }, { "jump", sq.jump }, { "push", sq.push } } do
+	for _, w in
+		{
+			{ "approach", sq.approach },
+			{ "waypoint", sq.mid },
+			{ "jump", sq.jump },
+			{ "gather", sq.gather },
+			{ "push", sq.push },
+		}
+	do
 		local at = w[2] :: Vector3?
 		if at then
 			table.insert(parts, `{w[1]} {math.floor(flat(at - p).Magnitude)}`)
@@ -1106,6 +1185,7 @@ end
 local function label()
 	activityLines(os.clock())
 	spotLines()
+	attackLines()
 	trenchStats()
 	dugoutLines()
 	squadLines()
