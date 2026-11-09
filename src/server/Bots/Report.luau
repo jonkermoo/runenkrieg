@@ -720,6 +720,74 @@ local function spotLines()
 	folder.Parent = workspace
 end
 
+-- how each side's machine guns fire and what they do to the other side (Config/DevTools.Admin.BotMGs; Config/Bots.Crew.MG,
+-- Fear, Arcs), and, while it is on, each gun's line of fire and the arcs known drawn
+local function mgLines()
+	local T = DevCfg.Admin.BotMGs
+	local lines = {}
+	local fire = Tactics.crew.mgCounts()
+	local now = os.clock()
+	for _, side in DevCfg.Admin.Sides do
+		local enemy = if side == "West" then "East" else "West"
+		local f = fire[side]
+			or {
+				seen = 0,
+				area = 0,
+				known = 0,
+				manned = 0,
+				noArea = 0,
+				why = { range = 0, own = 0, lay = 0, ground = 0 },
+			}
+		local t = fronts.mg[side] or { pinned = 0, detours = 0, walked = 0 }
+		local d = State.ByTrench.deaths[enemy] or { all = 0, trench = 0, shell = 0, zone = 0, mg = 0 }
+		local rounds = f.seen + f.area
+		local known = 0
+		for _, arc in fronts.arcs[side] or {} do
+			known += if now - arc.at <= Cfg.Crew.Arcs.forget then 1 else 0
+		end
+		table.insert(
+			lines,
+			`{side}: {rounds} rounds ({f.seen} at seen targets, {f.area} at areas, {f.known} of those where enemies were known; {f.noArea} looks found no area; areas passed over: {f.why.range} out of range, {f.why.own} own side in the line, {f.why.lay} gun can't lay, {f.why.ground} ground in the way), {math.floor(
+				rounds / math.max(f.manned, 1) * 60
+			)} a minute per manned MG, {math.floor(f.manned)} s manned; killed {d.mg} of {enemy} ({if d.all > 0
+				then math.floor(100 * d.mg / d.all + 0.5)
+				else 0}%). Under fire: pinned {t.pinned} times, knows {known} arcs, went round {t.detours} times, walked into one {t.walked} times`
+		)
+	end
+	workspace:SetAttribute(T.readout, table.concat(lines, "\n"))
+	local old = workspace:FindFirstChild(T.folder)
+	if old then
+		old:Destroy()
+	end
+	if workspace:GetAttribute(T.attribute) ~= true then
+		return
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = T.folder
+	local function line(from: Vector3, to: Vector3, c: { number })
+		local part = Instance.new("Part")
+		part.Anchored, part.CanCollide, part.CanQuery, part.CanTouch = true, false, false, false
+		part.Material = Enum.Material.Neon
+		part.Color = Color3.fromRGB(c[1], c[2], c[3])
+		part.Size = Vector3.new(T.width, T.width, (to - from).Magnitude)
+		part.CFrame = CFrame.lookAt((from + to) / 2, to)
+		part.Parent = folder
+	end
+	for _, l in Tactics.crew.mgLines() do
+		line(l.from + Vector3.yAxis * 3, l.to, if l.kind == "seen" then T.seen else T.area)
+	end
+	for _, side in DevCfg.Admin.Sides do
+		for gun, arc in fronts.arcs[side] or {} do
+			local from = gun:GetPivot().Position + Vector3.yAxis * 3
+			for _, sign in { -1, 1 } do
+				local a = math.rad(arc.yaw + sign * arc.half)
+				line(from, from + Vector3.new(math.sin(a), 0, math.cos(a)) * Cfg.Crew.Arcs.reach, T.arc)
+			end
+		end
+	end
+	folder.Parent = workspace
+end
+
 -- how each side's offensives go (Config/DevTools.Admin.BotAttacks; Config/Bots.Offensive.Forward, Roll): the match so far,
 -- each attacking squad's distance to where it forms up, and those points drawn while the marked spots are
 local function attackLines()
@@ -995,7 +1063,7 @@ local function trenchStats()
 		for _ in manned do
 			onStep += 1
 		end
-		local d = State.ByTrench.deaths[side] or { all = 0, trench = 0, shell = 0, zone = 0 }
+		local d = State.ByTrench.deaths[side] or { all = 0, trench = 0, shell = 0, zone = 0, mg = 0 }
 		local function pct(n: number): string
 			return if d.all > 0 then `{math.floor(n / d.all * 100 + 0.5)}%` else "-"
 		end
@@ -1186,6 +1254,7 @@ local function label()
 	activityLines(os.clock())
 	spotLines()
 	attackLines()
+	mgLines()
 	trenchStats()
 	dugoutLines()
 	squadLines()

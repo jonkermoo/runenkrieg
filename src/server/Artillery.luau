@@ -682,6 +682,9 @@ local function fire(s: State)
 	fly(s, origin, velocity, character)
 end
 
+-- who hears every machine gun round: the gun, its gunner, the muzzle, where it stopped, what it hit (Artillery.onMgShot)
+local mgWatchers: { (Model, Model, Vector3, Vector3, Instance?) -> () } = {}
+
 -- A machine gun's bullet: from the muzzle along the gun's lay plus its stray, cast against the world (glass on the way
 -- broken and passed, Config/Firing.Shatter), its wound handed to src/server/Damage
 local function bullet(s: State, character: Model)
@@ -724,6 +727,9 @@ local function bullet(s: State, character: Model)
 		})
 	end
 	Net.event("MGShot"):FireAllClients(s.model, origin, hit, result and result.Normal, result and result.Instance)
+	for _, watch in mgWatchers do
+		watch(s.model, character, origin, hit, result and result.Instance)
+	end
 end
 
 -- A machine gun at work this frame: its heat settling, and while its fire is held, its shots as they fall due
@@ -1929,6 +1935,11 @@ function Artillery.devShells(key: string, at: Vector3)
 			task.wait(S.every)
 		end
 	end)
+end
+
+-- `fn` hears every machine gun round fired, by a player or a bot (src/server/Bots: its near misses, Config/Bots.Crew.Fear)
+function Artillery.onMgShot(fn: (Model, Model, Vector3, Vector3, Instance?) -> ())
+	table.insert(mgWatchers, fn)
 end
 
 function Artillery.onBotLeft(fn: (Model, Model, string) -> ())

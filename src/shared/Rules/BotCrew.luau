@@ -176,6 +176,35 @@ function BotCrew.burst(t: number, cfg: { on: number, off: number }): boolean
 	return t >= 0 and t % (cfg.on + cfg.off) < cfg.on
 end
 
+-- An MG's sweep `t` seconds in: degrees off the middle of its area, there and back, `half` each way every `period` s
+function BotCrew.sweep(t: number, cfg: { half: number, period: number }): number
+	local u = (t / cfg.period) % 1
+	local wave = if u < 0.25 then u * 4 elseif u < 0.75 then 2 - u * 4 else u * 4 - 4
+	return wave * cfg.half
+end
+
+-- Whether a line of fire from (`ax`, `az`) through (`bx`, `bz`), run on to `past` times the way, is clear of every one of
+-- `friends` by `clear` studs (no own soldier in an MG's area fire: Config/Bots.Crew.MG)
+function BotCrew.lineClear(
+	ax: number,
+	az: number,
+	bx: number,
+	bz: number,
+	friends: { Spot },
+	clear: number,
+	past: number
+): boolean
+	local dx, dz = (bx - ax) * past, (bz - az) * past
+	local len2 = dx * dx + dz * dz
+	for _, f in friends do
+		local t = if len2 > 0 then math.clamp(((f.x - ax) * dx + (f.z - az) * dz) / len2, 0, 1) else 0
+		if (ax + dx * t - f.x) ^ 2 + (az + dz * t - f.z) ^ 2 <= clear * clear then
+			return false
+		end
+	end
+	return true
+end
+
 -- The order to shell its known enemy groups (`groups`, biggest first; their indices): those in the open before those
 -- within `within` studs of one of the enemy's dug trench squares (`dug`), each kept in its order (user 2026-11-04, the
 -- trench priority: "most fights end up being artillery"; Config/Bots.Crew.trench)

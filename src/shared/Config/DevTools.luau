@@ -400,6 +400,18 @@ local DevTools = {
 			size = 7,
 			blast = 15,
 		},
+		-- how each side's machine guns fire and what they do to the other side (Config/Bots.Crew.MG, Fear, Arcs); while
+		-- Workspace has `attribute`, in the folder `folder`: a line from each manned MG to where it is firing (`seen` at a
+		-- target in sight, `area` at an area) and the edges of each arc a side knows (`arc`)
+		BotMGs = {
+			readout = "DevBotMGs",
+			attribute = "DevBotMGsDrawn",
+			folder = "DevBotMGs",
+			seen = { 240, 60, 50 },
+			area = { 255, 190, 60 },
+			arc = { 200, 90, 240 },
+			width = 0.5,
+		},
 		-- the admin panel's "Plan a player's trench here": a run `length` studs long across the way to the nearest sector's
 		-- point, through the aim point, planned as this player (its UserId the owner) for the side of the nearest other soldier
 		-- within `near` studs (user 2026-11-06: bots must dig the player's trench plans)

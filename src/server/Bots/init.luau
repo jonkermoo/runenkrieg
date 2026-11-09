@@ -490,11 +490,12 @@ spawnBody = function(b: Bot)
 			local p = root.Position
 			local inT, byShell =
 				BotTrenches.deathKind(p.X, p.Z, b.deadAt, squares, ByTrench.blasts, Cfg.Dugouts.shell, TR.Stats)
-			local d = ByTrench.deaths[b.side :: string] or { all = 0, trench = 0, shell = 0, zone = 0 }
+			local d = ByTrench.deaths[b.side :: string] or { all = 0, trench = 0, shell = 0, zone = 0, mg = 0 }
 			ByTrench.deaths[b.side :: string] = d
 			d.all += 1
 			d.trench += if inT then 1 else 0
 			d.shell += if byShell then 1 else 0
+			d.mg += if b.mgHitAt and b.deadAt - (b.mgHitAt :: number) <= 1.5 then 1 else 0
 			-- (in a sector's capture zone: the admin trench stats, how much of the fighting reaches the points)
 			for i, sec in Map.sectors do
 				if flat(sectorPoint(i) - p).Magnitude <= sec.radius then
@@ -1092,7 +1093,9 @@ local function think(b: Bot, now: number, d: Rules.Difficulty)
 		cover = coverState,
 		push = b.push,
 		role = b.role,
-		suppressed = shakenNow(b, now),
+		suppressed = if b.mgAt and now - (b.mgAt :: number) < Cfg.Crew.Fear.pin
+			then math.max(shakenNow(b, now), Cfg.Crew.Fear.level)
+			else shakenNow(b, now),
 		-- (a Mage's medium shots go at a known enemy's cover too: user "Soldiers and their cover")
 		suppress = spot ~= nil,
 	}
@@ -1669,6 +1672,7 @@ function Bots.start()
 		end
 	end)
 	Firing.onShot(shotPassed)
+	Artillery.onMgShot(Move.mgPassed)
 	Tactics.crew.init({
 		bots = bots,
 		alive = alive,

@@ -249,6 +249,10 @@ export type Bot = {
 	dugStuck: number?, -- since when it has been down in a dugout it isn't sheltering in (Config/Bots.Dugouts.Free)
 	dugRest: number?, -- up to fight till then, after a stay (Dugouts.Heat.rest)
 	gun: Model?, -- Normal: the gun its commander gave it (src/server/Bots/Crew): it walks there, mans and fires it
+	mgAt: number?, -- Normal: when an MG round last came within Config/Bots.Crew.Fear `radius` of it
+	mgHitAt: number?, -- Normal: when an MG round last struck it (the Bots' MGs readout's deaths)
+	arcVia: { goal: Vector3, at: Vector3, till: number }?, -- Normal: the point it goes by, round a known MG's arc
+	inArc: boolean?, -- Normal: in an enemy MG's known arc at the last commander tick (the Bots' MGs readout)
 	gunWait: number?, -- not given a gun again before this (taken over by a teammate, or gave up the walk)
 }
 

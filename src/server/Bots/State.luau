@@ -11,6 +11,7 @@ local BotBuild = require(Shared.Rules.BotBuild)
 local BotTrenches = require(Shared.Rules.BotTrenches)
 local BotTrenchCare = require(Shared.Rules.BotTrenchCare)
 local BotOrders = require(Shared.Rules.BotOrders)
+local BotArcs = require(Shared.Rules.BotArcs)
 local Build = require(script.Parent.Parent.Build)
 
 local TR = Cfg.Trenches
@@ -60,7 +61,7 @@ local ByTrench = {
 	top = require(Shared.Rules.Build).trenchTop(BuildCfg.Trench), -- (a square's half width at its wall tops)
 	-- each side's bots' deaths this match: all, in a trench square, by a shell, in a sector's capture zone (Config/Bots.Trenches.Stats; the admin
 	-- trench stats)
-	deaths = {} :: { [string]: { all: number, trench: number, shell: number, zone: number } },
+	deaths = {} :: { [string]: { all: number, trench: number, shell: number, zone: number, mg: number } },
 	-- each side's trench run plans this match, by "<side> <what>": laid, refused (and by Trenches.plan's reason),
 	-- chained (started at the real free end of the run before, Config/Bots.Trenches.Chain), redug (buried squares
 	-- planned again); the admin trench stats
@@ -349,7 +350,12 @@ local fronts = {
 	owners = nil :: { string }?,
 	initiative = nil :: string?,
 	lostAt = {} :: { [string]: { [number]: number } },
-	strong = {} :: { [string]: { [Model]: { at: Vector3, seen: number } } },
+	strong = {} :: { [string]: { [Model]: { at: Vector3, seen: number, mg: boolean? } } },
+	-- the enemy MGs' arcs each side has felt (Config/Bots.Crew.Arcs), its tallies this match for the Bots' MGs readout,
+	-- and where it reckons the enemy is likely to be (Config/Bots.Crew.MG)
+	arcs = {} :: { [string]: { [Model]: BotArcs.Arc } },
+	mg = {} :: { [string]: { pinned: number, detours: number, walked: number } },
+	mgLikely = {} :: { [string]: { at: number, list: { Vector3 } } },
 	tally = {} :: { [string]: number },
 	took = {} :: { [string]: { sector: number, at: number } }, -- the sector each side took last, and when
 	summary = nil :: string?, -- the [Bots] line's offensives part
