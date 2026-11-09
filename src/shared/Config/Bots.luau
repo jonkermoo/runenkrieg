@@ -1211,7 +1211,9 @@ local Bots = {
 			sweep = { half = 7, period = 5 },
 			look = 6,
 			min = 20,
-			reach = 400,
+			-- (400 to 550, near the gun's own 600: a side's rear nest sat out of reach of the fight, points being 420 apart)
+			reach = 550,
+			far = 400, -- (the Bots' MGs readout: rounds fired and soldiers pinned from past this many studs)
 			sight = 0.6,
 			startOut = 8,
 			clear = 3,
@@ -1230,7 +1232,7 @@ local Bots = {
 			half = 12,
 			maxHalf = 45,
 			margin = 8,
-			reach = 350,
+			reach = 500, -- (350 to 500 with MG.reach: walks keep clear as far out as the guns now fire)
 			forget = 30,
 			knownFor = 3,
 			close = 30,

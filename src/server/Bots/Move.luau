@@ -733,10 +733,10 @@ local function shotPassed(shooter: Model, origin: Vector3, hit: Vector3)
 end
 
 -- a side's tally for the Bots' MGs readout
-local function mgTally(side: string): { pinned: number, detours: number, walked: number }
+local function mgTally(side: string): { pinned: number, far: number, detours: number, walked: number }
 	local t = State.fronts.mg[side]
 	if not t then
-		t = { pinned = 0, detours = 0, walked = 0 }
+		t = { pinned = 0, far = 0, detours = 0, walked = 0 }
 		State.fronts.mg[side] = t
 	end
 	return t
@@ -768,7 +768,9 @@ local function mgPassed(gun: Model, shooter: Model, origin: Vector3, hit: Vector
 			continue
 		end
 		if not b.mgAt or now - (b.mgAt :: number) > F.pin then
-			mgTally(b.side :: string).pinned += 1
+			local tally = mgTally(b.side :: string)
+			tally.pinned += 1
+			tally.far += if flat(p - at).Magnitude > Cfg.Crew.MG.far then 1 else 0
 		end
 		b.mgAt, b.threatAt, b.threatFrom = now, now, origin
 		local side = b.side :: string

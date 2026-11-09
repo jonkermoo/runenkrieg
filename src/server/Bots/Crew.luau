@@ -76,6 +76,7 @@ type MgFire = {
 	known: number,
 	manned: number,
 	noArea: number,
+	far: number, -- rounds fired at a point past Config/Bots.Crew.MG `far` studs off
 	why: { range: number, own: number, lay: number, ground: number }, -- why areas were passed over
 }
 local mgFire: { [string]: MgFire } = {}
@@ -344,6 +345,7 @@ local function mg(b: any, g: Gunning, info: Artillery.GunInfo, now: number)
 			known = 0,
 			manned = 0,
 			noArea = 0,
+			far = 0,
 			why = { range = 0, own = 0, lay = 0, ground = 0 },
 		}
 		mgFire[b.side] = fire
@@ -352,6 +354,9 @@ local function mg(b: any, g: Gunning, info: Artillery.GunInfo, now: number)
 	if spent > 0 and g.kind then
 		(fire :: any)[g.kind] += spent
 		fire.known += if g.kind == "area" and g.areaKnown then spent else 0
+		if g.aimNow and flat((g.aimNow :: Vector3) - info.model:GetPivot().Position).Magnitude > MG.far then
+			fire.far += spent
+		end
 	end
 	g.lastRounds = rounds
 	local dt = now - (g.mgAt or now)
