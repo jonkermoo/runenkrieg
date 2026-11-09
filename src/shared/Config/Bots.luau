@@ -1224,7 +1224,7 @@ local Bots = {
 			lanes = 40,
 			along = { 0.45, 0.7 },
 		},
-		Fear = { on = true, radius = 10, pin = 4, level = 1 },
+		Fear = { on = true, radius = 10, pin = 2, level = 1 },
 		Arcs = {
 			on = true,
 			half = 12,
