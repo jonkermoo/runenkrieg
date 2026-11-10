@@ -84,6 +84,9 @@ local ByTrench = {
 	-- sectors")
 	where = {} :: { [string]: { [string]: number } },
 	behindWhy = {} :: { [string]: { [string]: number } },
+	-- how near each side's living bots stood to their nearest teammate this match, by role (Report's spot readout;
+	-- user 2026-11-10: "when they are in groups, they are super close together"): samples, under 4 / 8 studs
+	gaps = {} :: { [string]: { [string]: { n: number, under4: number, under8: number } } },
 	-- each side's players' planned squares dug this match: seconds from first listed to dug (Config/Bots.Trenches.Plans)
 	planTimes = {} :: { [string]: { number } },
 }

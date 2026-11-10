@@ -59,4 +59,9 @@ return {
 		assert(R.clumped(pts, W.clump.within, 4) == 0)
 		assert(R.clumped({}, W.clump.within, 3) == 0)
 	end,
+	["nearest: each one's nearest other"] = function()
+		local d = R.nearest({ { x = 0, z = 0 }, { x = 3, z = 4 }, { x = 20, z = 0 } })
+		assert(d[1] == 5 and d[2] == 5 and math.abs(d[3] - math.sqrt(17 ^ 2 + 4 ^ 2)) < 1e-6)
+		assert(R.nearest({ { x = 1, z = 1 } })[1] == math.huge, "one alone")
+	end,
 }

@@ -719,6 +719,41 @@ local function spotLines()
 			)}% front, {math.floor(100 * (where.behind or 0) / seen + 0.5)}% behind, {math.floor(
 				100 * (where.ahead or 0) / seen + 0.5
 			)}% ahead; behind: {table.concat(whyText, ", ")}`
+		-- (how near its living bots stand to their nearest teammate, by role, now and this match: Rules/BotWait.nearest)
+		local pts, roles = {}, {}
+		for _, b in bots do
+			if b.side == side and b.m and alive(b) then
+				local p = (b.root :: BasePart).Position
+				table.insert(pts, { x = p.X, z = p.Z })
+				table.insert(roles, b.role or "none")
+			end
+		end
+		local gaps = State.ByTrench.gaps[side] or {}
+		State.ByTrench.gaps[side] = gaps
+		local nowGaps: { [string]: { number } } = {}
+		for k, d in BotWait.nearest(pts) do
+			local g = gaps[roles[k]] or { n = 0, under4 = 0, under8 = 0 }
+			gaps[roles[k]] = g
+			g.n += 1
+			g.under4 += if d < 4 then 1 else 0
+			g.under8 += if d < 8 then 1 else 0
+			nowGaps[roles[k]] = nowGaps[roles[k]] or {}
+			table.insert(nowGaps[roles[k]], d)
+		end
+		local gapText = {}
+		for role, g in gaps do
+			local list = nowGaps[role] or {}
+			table.sort(list)
+			local mid = list[math.max(math.ceil(#list / 2), 1)]
+			table.insert(
+				gapText,
+				`{role} {if mid and mid < math.huge then math.floor(mid + 0.5) else "-"} now, this match {math.floor(
+					100 * g.under4 / math.max(g.n, 1) + 0.5
+				)}% under 4, {math.floor(100 * g.under8 / math.max(g.n, 1) + 0.5)}% under 8`
+			)
+		end
+		table.sort(gapText)
+		local gapNote = `nearest teammate (studs, middle): {table.concat(gapText, "; ")}`
 		local nests, guns, onFlag, marked, frames = 0, 0, 0, 0, 0
 		local nestsAt = {}
 		for _, w in if kit then BuildServer.worksOf(kit) else {} do
@@ -760,7 +795,7 @@ local function spotLines()
 			lines,
 			`{side}: holders this match {math.floor(100 * h.flag / n + 0.5)}% within {OP.clear} studs of a flag, {math.floor(
 				100 * h.zone / n + 0.5
-			)}% in a zone; {nests} MG nests ({frames} more going up, {Tactics.crew.nestsOut[side] or 0} at its front too far from the fight to count; {spacing}; {Tactics.crew.nestsTight[side] or 0} spots passed over too close), {guns} guns standing, {marked} of them on marked spots, {onFlag} within {OP.clear} of a flag; {brokenNote}; {whereNote}`
+			)}% in a zone; {nests} MG nests ({frames} more going up, {Tactics.crew.nestsOut[side] or 0} at its front too far from the fight to count; {spacing}; {Tactics.crew.nestsTight[side] or 0} spots passed over too close), {guns} guns standing, {marked} of them on marked spots, {onFlag} within {OP.clear} of a flag; {brokenNote}; {whereNote}; {gapNote}`
 		)
 	end
 	workspace:SetAttribute(DevCfg.Admin.Spots.readout, table.concat(lines, "\n"))
