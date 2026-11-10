@@ -34,12 +34,38 @@ local PTS = { { 420, 160 }, { 889, -26 }, { 1420, 0 }, { 1951, 26 }, { 2420, -16
 -- The leg pattern (Rules/MapTerrain: legPieces, rally, tactics; the numbers explained there and in MAP_RULES.md), as
 -- Lantern Meadows
 local LEGS = {
-	crest = { u = 100, half = 110, height = 8, width = 40, taper = 30 },
-	fold = { u = 170, half = 120, depth = 4.5, floor = 4, wall = 6, ends = 20 },
+	-- a natural rise, not a straight bank (user 2026-11-10: "just make it natural looking rises"): wider, its line
+	-- wandering up to `bend` studs toward or away from the point, its height and its ends varying (Rules/MapTerrain.legsAt)
+	crest = {
+		u = 100,
+		half = 110,
+		height = 8,
+		width = 52,
+		taper = 45,
+		bend = 18,
+		bendScale = 70,
+		vary = 0.8,
+		reach = 0.4,
+	},
+	-- no sunken lane cut here (user 2026-11-10: "remove the old trenches"): `depth` 0; the line still marks where the
+	-- enemy's attack forms up (the bots' gather spots)
+	fold = { u = 170, half = 120, depth = 0, floor = 4, wall = 6, ends = 20 },
 	knoll = { u = 90, n = 175, height = 7, top = 6, radius = 30 },
 	guns = { u = 140, n = 110, howitzer = 210, pad = 9, fade = 12 },
 	rally = 60,
-	calm = { width = 230, fade = 80, keep = 0.3 },
+	calm = { width = 230, fade = 80, keep = 0.55 },
+	-- copses and lone trees on the open ground (user 2026-11-10: "add more trees and such in the really open field. it
+	-- looks really empty"), none within `lane` of the way between the points, round a knoll, a gun pad or a rally
+	open = {
+		scale = 55,
+		threshold = 0.42,
+		copse = 0.42,
+		lone = 0.012,
+		lane = 30,
+		knollClear = 34,
+		padClear = 22,
+		rallyClear = 45,
+	},
 	flagClear = 25, -- no marked spot this close to a flag (the point gets shelled)
 	-- the bots' marked spots (Rules/MapTerrain.tactics), as Lantern Meadows (its comment explains each)
 	spots = {
@@ -53,27 +79,6 @@ local LEGS = {
 		laneEnds = { out = 10, past = 40 },
 	},
 }
-
--- each lane's hedge bank on the side of the point it attacks (dead ground to gather in), with a gap in the middle;
--- one per approach of every point
-local laneHedges = {}
-for i, s in PTS do
-	for _, j in { i - 1, i + 1 } do
-		local o = PTS[j]
-		if o then
-			local dx, dz = o[1] - s[1], o[2] - s[2]
-			local l = math.sqrt(dx * dx + dz * dz)
-			dx, dz = dx / l, dz / l
-			local u = LEGS.fold.u - LEGS.fold.floor / 2 - LEGS.fold.wall - 3
-			for _, run in { { -110, -14 }, { 14, 110 } } do
-				table.insert(laneHedges, {
-					a = { s[1] + dx * u - dz * run[1], s[2] + dz * u + dx * run[1] },
-					b = { s[1] + dx * u - dz * run[2], s[2] + dz * u + dx * run[2] },
-				})
-			end
-		end
-	end
-end
 
 local Map1 = {
 	name = "Map 1",
@@ -202,7 +207,10 @@ local Map1 = {
 		moundAmp = 5,
 		moundScale = 80,
 		moundThreshold = 0.3,
-		patchThreshold = 0.5,
+		-- fewer, smaller bare patches, and grass up a natural rise's face (user 2026-11-10: "make it look more naturally
+		-- generated"; Rules/MapTerrain.materialAt: earth from `dirtSlope` degrees)
+		patchThreshold = 0.62,
+		dirtSlope = 33,
 		-- the surface material (grass) only in voxels whose top is within this of the ground: under it is dirt, so a
 		-- crater shows earth (user 2026-10-17: "dont make the green layer ... so thick")
 		surfaceDepth = 1.5,
@@ -243,10 +251,10 @@ local Map1 = {
 		{ id = "Halt", minX = 2870, maxX = 2930, minZ = -45, maxZ = 25 },
 	},
 
-	-- The road along the step and over the bridge, the crossroads lane, Ashby round S4, the landmarks and the lanes'
-	-- hedge banks (Rules/Village). Map 1's English cottages (Config/Buildings.RoadTemplates).
+	-- The road along the step and over the bridge, the crossroads lane, Ashby round S4, and the landmarks
+	-- (Rules/Village). Map 1's English cottages (Config/Buildings.RoadTemplates).
 	village = {
-		-- (houses only in Ashby round S4, inside the two sunken lanes' hedges ~157 out from its point)
+		-- (houses only in Ashby round S4, inside its two approaches' lines ~157 out from its point)
 		area = rect(1800, 2095, -165, 205),
 		roads = {
 			{
@@ -257,7 +265,7 @@ local Map1 = {
 				points = {
 					{ -90, 160 },
 					{ 420, 160 },
-					{ 743, 32 }, -- (through the gap in S2's west lane hedge, then the oast farm's two cart gates)
+					{ 743, 32 }, -- (then through the oast farm's two cart gates)
 					{ 800, -26 },
 					{ 978, -26 },
 					{ 1160, -15 },
@@ -265,7 +273,7 @@ local Map1 = {
 					{ 1680, 15 },
 					{ 1951, 26 },
 					{ 2185, -67 },
-					{ 2274, -102 }, -- (through the gap in S5's west lane hedge)
+					{ 2274, -102 },
 					{ 2340, -140 },
 					{ 2378, -150 }, -- (to the church close's lychgate)
 				},
@@ -316,7 +324,6 @@ local Map1 = {
 			{ id = "Halt", style = "RailwayHalt", x = 2902, z = -10, front = { 1, 0 } },
 		},
 		railX = 2915,
-		hedgerows = laneHedges,
 		-- garden trees only in the town (the village area)
 		trees = { cell = 18, density = 0.05, roadClear = 5, buildingClear = 6 },
 		cars = 0,

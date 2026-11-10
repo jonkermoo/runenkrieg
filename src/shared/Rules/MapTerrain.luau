@@ -428,9 +428,24 @@ local function legsAt(map: any, x: number, z: number): (number, number)
 	local cr, kn, fo = C.crest, C.knoll, C.fold
 	for _, c in L.crests do
 		local a, b = frame(c, x, z)
-		if math.abs(a) < cr.width / 2 and math.abs(b) < cr.half + cr.taper then
+		-- a natural rise (`crest.bend`: user 2026-11-10, "just make it natural looking rises"): its line wanders toward
+		-- and away from the point, its height and its two ends vary, all along it (b) from noise; none of it at its
+		-- middle (b = 0), so the rise over the point and the open ground stays `height`. Keyed so that a crest and its
+		-- twin through the middle point (West's at i, East's at #sectors + 1 - i) get the same shape: fair cover.
+		local half, lift = cr.half, 1
+		if cr.bend then
+			local key = (if c.side == "West" then c.sector else #map.sectors + 1 - c.sector) * 7.31
+			local seed = map.seed * 0.001
+			local function wob(v: number, o: number): number
+				return math.noise(v / cr.bendScale, key + o, seed) - math.noise(0, key + o, seed)
+			end
+			a -= cr.bend * wob(b, 0.5)
+			lift = 1 + cr.vary * math.abs(wob(b, 3.7)) -- (only ever higher: the rise still hides the spawns behind it)
+			half *= 1 + cr.reach * math.noise(if b < 0 then 1.7 else 4.3, key, seed)
+		end
+		if math.abs(a) < cr.width / 2 and math.abs(b) < half + cr.taper then
 			local bell = 0.5 + 0.5 * math.cos(math.pi * a / (cr.width / 2))
-			up = math.max(up, cr.height * bell * ends(b, cr.half, cr.taper))
+			up = math.max(up, cr.height * lift * bell * ends(b, half, cr.taper))
 		end
 	end
 	for _, k in L.knolls do
@@ -461,6 +476,8 @@ local function legsAt(map: any, x: number, z: number): (number, number)
 	end
 	return up + down, keep
 end
+
+MapTerrain.legShape = legsAt
 
 -- 0 = fully flattened (inside a reserved area), 1 = natural terrain.
 function MapTerrain.flattenWeight(map: any, x: number, z: number): (number, number)
@@ -632,7 +649,7 @@ function MapTerrain.materialAt(map: any, x: number, z: number): string
 	local slope = MapTerrain.slopeAt(map, x, z)
 	if slope > 34 then
 		return "Rock"
-	elseif slope > 24 then
+	elseif slope > (map.terrain.dirtSlope or 24) then
 		return "Ground"
 	end
 	for _, res in map.reserved do
@@ -717,8 +734,40 @@ function MapTerrain.treeDensity(map: any, x: number, z: number): number
 	end
 	-- the leg pattern's open ground: no trees along the chain (user 2026-11-06: "just being able to see an enemy is
 	-- considered not safe"); the copses stand out on the flanks
+	-- A map with `legs.open` (Map 1; user 2026-11-10: "add more trees and such in the really open field") grows
+	-- copses and lone trees there instead, off the way between the points, the knolls, the gun pads and the rallies
 	if map.legs and MapTerrain.chainDistance(map, x, z) < map.legs.calm.width then
-		return 0
+		local O = map.legs.open
+		if not O or MapTerrain.chainDistance(map, x, z) < O.lane then
+			return 0
+		end
+		local L = MapTerrain.legPieces(map)
+		for _, k in L.knolls do
+			if (x - k.x) ^ 2 + (z - k.z) ^ 2 < O.knollClear ^ 2 then
+				return 0
+			end
+		end
+		for _, p in L.pads do
+			if (x - p.x) ^ 2 + (z - p.z) ^ 2 < O.padClear ^ 2 then
+				return 0
+			end
+		end
+		for i = 1, #map.sectors do
+			for _, side in { "West", "East" } do
+				local rx, rz = MapTerrain.rally(map, i, side)
+				if rx and rz and (x - rx) ^ 2 + (z - rz) ^ 2 < O.rallyClear ^ 2 then
+					return 0
+				end
+			end
+		end
+		-- the copses point-symmetric through the middle point, like the points (fair cover)
+		local m = map.sectors[math.ceil(#map.sectors / 2)]
+		local seed = map.seed * 0.001 + 61.3
+		local c = math.max(
+			math.noise(x / O.scale, z / O.scale, seed),
+			math.noise((2 * m.x - x) / O.scale, (2 * m.z - z) / O.scale, seed)
+		)
+		return if c > O.threshold then O.copse else O.lone
 	end
 	local out = outside(b, x, z)
 	if out > 0 then

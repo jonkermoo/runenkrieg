@@ -149,7 +149,7 @@ return {
 			end
 		end
 	end,
-	["the leg pattern: crests stand over the point and the open ground, lanes are sunk, knolls rise"] = function()
+	["the leg pattern: crests stand over the point and the open ground, knolls rise; no sunken lanes (user 2026-11-10)"] = function()
 		local C = Map.legs
 		local function h(q: { number }): number
 			return MT.heightAt(Map, q[1], q[2])
@@ -163,9 +163,6 @@ return {
 					assert(top - base > 4 or s.isHQ, `{s.id}'s {side} crest stands {top - base} over its point`)
 					local mid = at(i, side, dist(s, o) / 2, 0)
 					assert(top - h(mid) > 4, `{s.id}'s {side} crest stands {top - h(mid)} over the open ground`)
-					local floor = h(at(i, side, C.fold.u, 0))
-					local lip = math.max(h(at(i, side, C.fold.u - 14, 0)), h(at(i, side, C.fold.u + 14, 0)))
-					assert(lip - floor > 3.5, `{s.id}'s {side} lane is {lip - floor} deep`)
 					for _, sgn in { -1, 1 } do
 						local k = at(i, side, C.knoll.u, sgn * C.knoll.n)
 						local foot = at(i, side, C.knoll.u, sgn * (C.knoll.n + C.knoll.radius + 6))
@@ -175,10 +172,25 @@ return {
 			end
 		end
 	end,
-	["the open ground is open: no trees along the chain (user 2026-11-06)"] = function()
+	["copses and lone trees on the open ground, off the way between the points, knolls, gun pads and rallies (user 2026-11-10)"] = function()
+		local O = Map.legs.open
+		local L = MT.legPieces(Map)
+		local open = 0
 		for _, t in MT.trees(Map) do
-			assert(MT.chainDistance(Map, t.x, t.z) >= Map.legs.calm.width, `a tree at {t.x}, {t.z}`)
+			local near = MT.chainDistance(Map, t.x, t.z)
+			if near >= Map.legs.calm.width then
+				continue
+			end
+			open += 1
+			assert(near >= O.lane, `a tree in the way between the points at {t.x}, {t.z}`)
+			for _, k in L.knolls do
+				assert((t.x - k.x) ^ 2 + (t.z - k.z) ^ 2 >= O.knollClear ^ 2, `a tree on a knoll at {t.x}, {t.z}`)
+			end
+			for _, p in L.pads do
+				assert((t.x - p.x) ^ 2 + (t.z - p.z) ^ 2 >= O.padClear ^ 2, `a tree on a gun pad at {t.x}, {t.z}`)
+			end
 		end
+		assert(open >= 150 and open <= 900, `{open} trees on the open ground`)
 	end,
 	["the step: the end legs turn 15-25 degrees south, the middle ones 2-8 north, point-symmetric about S3"] = function()
 		local c = sectors[3]
@@ -344,25 +356,52 @@ return {
 	["the main region: Map 1 replaces all terrain, Lantern Meadows' and the playtest ground stay clear of it"] = function()
 		assert(not Map.offMap, "Map 1 is the main map")
 	end,
-	["fair cover: the lanes' hedge banks mirror through S3's point, like the points"] = function()
+	["fair cover: the natural rises mirror through S3's point, like the points (user 2026-11-10)"] = function()
 		local c = sectors[3]
-		local runs = Map.village.hedgerows
-		assert(#runs >= 2 * 2 * (#sectors - 1), "two hedge runs on every lane")
-		for _, h in runs do
-			local found = false
-			for _, o in runs do
-				local ma, mb = { 2 * c.x - h.a[1], 2 * c.z - h.a[2] }, { 2 * c.x - h.b[1], 2 * c.z - h.b[2] }
-				for _, pair in { { o.a, o.b }, { o.b, o.a } } do
-					found = found
-						or (
-							math.abs(pair[1][1] - ma[1]) < 1e-6
-							and math.abs(pair[1][2] - ma[2]) < 1e-6
-							and math.abs(pair[2][1] - mb[1]) < 1e-6
-							and math.abs(pair[2][2] - mb[2]) < 1e-6
-						)
+		local L = MT.legPieces(Map)
+		local twins = 0
+		for _, cr in L.crests do
+			local twin = #sectors + 1 - cr.sector
+			local has = false
+			for _, o in L.crests do
+				has = has or (o.sector == twin and o.side ~= cr.side)
+			end
+			if not has then
+				continue -- (its twin is Ashby's, a town with no crest)
+			end
+			twins += 1
+			for b = -160, 160, 10 do
+				for a = -40, 40, 8 do
+					local x, z = cr.cx + cr.dx * a - cr.dz * b, cr.cz + cr.dz * a + cr.dx * b
+					local here = MT.legShape(Map, x, z)
+					local there = MT.legShape(Map, 2 * c.x - x, 2 * c.z - z)
+					assert(math.abs(here - there) < 1e-6, `the rise at {x}, {z} is {here}, its twin {there}`)
 				end
 			end
-			assert(found, `a hedgerow from {h.a[1]}, {h.a[2]} has no mirror through S3`)
+		end
+		assert(twins >= 4, `{twins} crests with a twin`)
+	end,
+	["the rises are natural: each crest's line wanders and its height varies along it (user 2026-11-10)"] = function()
+		local C = Map.legs.crest
+		local L = MT.legPieces(Map)
+		for _, cr in L.crests do
+			local lo, hi, tops = math.huge, -math.huge, {}
+			for b = -90, 90, 15 do
+				local best, at = -math.huge, 0
+				for a = -40, 40, 1 do
+					local x, z = cr.cx + cr.dx * a - cr.dz * b, cr.cz + cr.dz * a + cr.dx * b
+					local v = MT.legShape(Map, x, z)
+					if v > best then
+						best, at = v, a
+					end
+				end
+				lo, hi = math.min(lo, best), math.max(hi, best)
+				table.insert(tops, at)
+			end
+			local wander = math.max(table.unpack(tops)) - math.min(table.unpack(tops))
+			assert(wander >= 6, `sector {cr.sector}'s {cr.side} crest is straight (its top wanders {wander})`)
+			assert(hi - lo >= 1.5, `sector {cr.sector}'s {cr.side} crest is level ({lo} to {hi})`)
+			assert(lo > 2 and hi < C.height * 2, `sector {cr.sector}'s {cr.side} crest {lo} to {hi} high`)
 		end
 	end,
 	["each spawn sits behind its own HQ, ~400 out, still in the HQ's sector (user 2026-11-02)"] = function()
