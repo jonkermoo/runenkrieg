@@ -856,7 +856,11 @@ local Build = {
 		-- trench poked out of the slope): the ground over its room and `around` past its sides and back (the dig's
 		-- `cut`) read on a `cols` x `rows` grid (Rules.dugoutCoverAt), the lowest at least `over` studs over the trench
 		-- floor (its dig's top lies at the floor, a 4-stud voxel past it rounds up to 2 more; level ground: Trench.depth)
-		cover = { over = 2, around = 4, cols = 5, rows = 4 },
+		-- (user 2026-11-09, a half-built dugout poking out of the ground or left bare: its cut is whole 4-stud voxels,
+		-- so ground only `over` over the floor could round away to nothing over the room. Now its ground keeps `earth`
+		-- studs over the top of its cut (rounded up a voxel) above the room and the tunnel behind the wall's face, a
+		-- mound of its soil where the ground lies lower: Rules.dugoutEarth, src/server/Trenches.)
+		cover = { over = 2, around = 4, cols = 5, rows = 4, earth = 2.5 },
 		openFront = 0.5,
 		-- its doorway (dugout_pieces v3; user 2026-11-02: "redesign the dugout door to be build over a wall", "the dug
 		-- out should be lined with the wall not sticking out"): cut in the wall's face under a lintel this high over the
@@ -866,6 +870,12 @@ local Build = {
 		-- `lift` over it (their root over their feet) while there is `headroom` between the earth and the roof, else put
 		-- out; it fills again by a whole `fillStep` share at a time
 		lintel = 3.4,
+		-- (user 2026-11-09: "dont let the dugout be usable (block it off some how) until it is at 100% constructed.
+		-- destructed can keep its current bhavior"): until it has stood once its doorway is boarded up from stage 1
+		-- (Rules.dugoutBarred): a solid unseen plate across the tunnel where the lintel meets the wall's face, from
+		-- `bar.under` under the steps there up to the lintel, and `bar.boards` planks `bar.board` wide, `bar.thick`
+		-- thick, nailed across it in a cross; anyone inside is put out in front of it. Once whole it opens for good.
+		bar = { under = 1, boards = 2, board = 0.7, thick = 0.25 },
 		fillFrom = 75,
 		lift = 3,
 		headroom = 5.2,
@@ -887,12 +897,19 @@ local Build = {
 	-- ground; a Build swing of its team adds `hp.swing` up to `hp.max` (repairs too), a Destroy swing takes `hp.destroy`,
 	-- blasts Structures `wire`% of `hp.max`. Its look is its HP alone (user round 7: "barbwire should jsut hp"): under
 	-- `stand` of its HP it lies bundled on the ground and does nothing, from there up it stands and works; a Destroy
-	-- swing or a hit at 0 and it is gone, nothing left (user: "remove the crumble. 0 hp should just disappear"). (4 Build
-	-- swings stand it, 8 make it whole, an engineer's 3 and 6 (Power above); a Destroy swing at a whole one knocks it
+	-- swing or a hit at 0 and it is gone, nothing left (user: "remove the crumble. 0 hp should just disappear"). (1 Build
+	-- swing stands it and 2 make it whole (`hits` below), an engineer's 1; a Destroy swing at a whole one knocks it
 	-- down, the next takes it away.) The grass
 	-- goes from under it (Net GroundDug, `grass` studs round its centre) as it is laid.
+	-- (user 2026-11-09: "make barbed wire 2 hits to build for soldiers and 1 for engineers": a Build swing adds
+	-- hp.max / `hits` of the builder's class (`default` for any other), whatever Power says; Rules.wireSwing.)
+	-- (user 2026-11-09: the slow came about half a second after running into it: your own client now slows you the
+	-- frame your root is in a standing wire's box (src/client/Stance, Rules.inWire), `over` studs taller than the wire
+	-- so a jump over it still counts; the server's tick still does the harm and the rattle.)
 	Wire = {
 		hp = { max = 100, place = 0, swing = 25, destroy = 60 },
+		hits = { default = 2, Engineer = 1 } :: { [string]: number },
+		over = 3,
 		stand = 0.5,
 		speed = 3,
 		damage = 4,

@@ -964,6 +964,34 @@ function Build.dugoutSeals(piece: Piece, d: any, run: number, depth: number): { 
 	return out
 end
 
+-- How high the ground must stand (studs over the trench floor) over a dugout's ground cut at `z` back into the wall from
+-- its foot (Config/Build.Dugout: its room from `stair` back, its tunnel's roof before it, Build.dugoutRoof), so its
+-- cut (`cutTop` over its roof, rounded up by half a 4-stud voxel) keeps `cover.earth` of earth over it: nil in front of
+-- the wall's face (`run` back at its top over the trench's `depth`: the open trench), where nothing is raised.
+-- `height`: its room's.
+function Build.dugoutEarth(z: number, d: any, height: number, run: number, depth: number): number?
+	if z <= run then
+		return nil
+	end
+	local roof = if z >= d.stair then height - d.drop else Build.dugoutRoof(z, d, height, run, depth)
+	return roof + d.cutTop + 2 + d.cover.earth
+end
+
+-- Whether a dugout's doorway is boarded up (Config/Build.Dugout.bar): its ground is cut (build stage 1 on) but it has
+-- never stood whole (user 2026-11-09: not usable until 100% built; worn after standing, it stays open as before)
+function Build.dugoutBarred(stage: number, built: boolean): boolean
+	return stage >= 1 and not built
+end
+
+-- Where a dugout's doorway is boarded up, in its own frame (as Build.inDugout): across the tunnel `d.slot` wide where the
+-- lintel meets the wall's face (`run` back at its top, `depth` over the trench floor), from `d.bar.under` under the
+-- steps there up to the lintel. Returns its middle's z, its bottom and top y.
+function Build.dugoutBar(d: any, run: number, depth: number): (number, number, number)
+	local z = run * d.lintel / depth
+	local steps = -d.drop * math.clamp(z / d.stair, 0, 1)
+	return z, steps - d.bar.under, d.lintel
+end
+
 -- Whether a dugout shelters the soldiers in its room: it has stood once and has HP left (user 2026-11-02: "anything
 -- above them should not hurt them")
 function Build.dugoutShelters(hp: number, built: boolean): boolean
@@ -1256,6 +1284,21 @@ end
 -- whether a point in a box's own space (`lx`, `ly`, `lz` from its centre) is inside it (`sx`, `sy`, `sz` its size)
 function Build.inBox(lx: number, ly: number, lz: number, sx: number, sy: number, sz: number): boolean
 	return math.abs(lx) <= sx / 2 and math.abs(ly) <= sy / 2 and math.abs(lz) <= sz / 2
+end
+
+-- Whether a point `lx`, `ly`, `lz` in a barbed wire's own frame (its "Frame": the middle of its footprint on the
+-- ground) is in its box: its `width` x `depth` footprint, from half `w.over` under the ground to half of it over its
+-- `height` (src/server/Wire and src/client/Stance both test this)
+function Build.inWire(lx: number, ly: number, lz: number, piece: Piece, w: any): boolean
+	local h = piece.height
+	return Build.inBox(lx, ly - h / 2, lz, piece.width, h + w.over, piece.depth)
+end
+
+-- The HP one Build swing adds to a barbed wire for a soldier of `class` (Config/Build.Wire `hits` to make it whole:
+-- the class's own, else `default`), whatever the build power
+function Build.wireSwing(class: string?, w: any): number
+	local hits = (class and w.hits[class]) or w.hits.default
+	return w.hp.max / math.max(hits, 1)
 end
 
 -- the wire's harm over `dt` seconds to a soldier moving at `speed` studs/s (Config/Build.Wire); its own team's soldiers

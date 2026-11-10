@@ -13,7 +13,9 @@
 -- - healing someone (the "Healing" attribute, src/server/Healing): crouched at crouch speed, no sprint or aim;
 -- - dragging a teammate (the "Dragging" attribute, src/server/Dragging): crouched at Config/Dragging.Speed, no sprint
 --   or aim;
--- - in barbed wire (the "Wired" attribute, src/server/Wire): Config/Build.Wire.speed, no sprint, no jump;
+-- - in barbed wire: Config/Build.Wire.speed, no sprint, no jump, from the frame your root is in a standing wire's box
+--   (Rules/Build.inWire, checked here every frame; the server's "Wired" tick, src/server/Wire, came up to half a second
+--   late, user 2026-11-09);
 -- - a staff cast (src/client/StaffAttack) scales the walk speed by the character's "SpeedScale" attribute (local:
 --   the charge and the recoil slow you, Config/Spells.Staff) and blocks sprinting while "Casting" is set;
 -- - hip-deep water slows every pace by the character's "WadeScale" attribute (src/client/Wading).
@@ -34,6 +36,7 @@ local Dev = require(Shared.Config.DevTools)
 local DragCfg = require(Shared.Config.Dragging)
 local M = require(Shared.Config.Metrics)
 local W = require(Shared.Config.Weapons)
+local BuildRules = require(Shared.Rules.Build)
 local CameraRules = require(Shared.Rules.Camera)
 local Held = require(script.Parent.Held)
 local Settings = require(script.Parent.Settings)
@@ -44,6 +47,41 @@ function Stance.start()
 	local player = Players.LocalPlayer
 	local sprintHeld, aimHeld, crouched = false, false, false
 	local sprintMoved = false -- a toggled sprint has moved since it was switched on (stopping then ends it)
+	local wired = false -- the local root in a standing barbed wire's box (Rules/Build.inWire), every frame
+
+	-- the barbed wire pieces (Config/Build.Folder models with "Piece" Wire); standing ones have "Armed"
+	local wires: { [Instance]: boolean } = {}
+	local wirePiece = BuildRules.piece("Wire", BuildCfg.Pieces)
+	task.spawn(function()
+		local folder = workspace:WaitForChild(BuildCfg.Folder)
+		local function add(m: Instance)
+			if m:IsA("Model") and m:GetAttribute("Piece") == "Wire" then
+				wires[m] = true
+			end
+		end
+		for _, m in folder:GetChildren() do
+			add(m)
+		end
+		folder.ChildAdded:Connect(add)
+		folder.ChildRemoved:Connect(function(m)
+			wires[m] = nil
+		end)
+	end)
+	local function inWire(root: BasePart): boolean
+		if not wirePiece then
+			return false
+		end
+		for m in wires do
+			local frame = m:GetAttribute("Frame")
+			if m:GetAttribute("Armed") == true and typeof(frame) == "CFrame" then
+				local l = frame:PointToObjectSpace(root.Position)
+				if BuildRules.inWire(l.X, l.Y, l.Z, wirePiece, BuildCfg.Wire) then
+					return true
+				end
+			end
+		end
+		return false
+	end
 
 	local cone = math.cos(math.rad(Cfg.SprintCone))
 	-- moving within the cone around where the camera looks (flat), or standing still (Shift down, about to go)
@@ -78,8 +116,7 @@ function Stance.start()
 		local dragging = character:GetAttribute("Dragging") == true -- (src/server/Dragging) slow, no sprint, no aim
 		-- a butt stroke (src/client/Melee "Striking"): no sprint and no aim until it's back in the hold
 		local striking = character:GetAttribute("Striking") == true
-		-- in barbed wire (src/server/Wire sets "Wired"): a slow wade, no sprint, no jump
-		local wired = character:GetAttribute("Wired") == true
+		-- in barbed wire (`wired`, checked every frame below): a slow wade, no sprint, no jump
 		local sprinting = sprintHeld
 			and not striking
 			and not wired
@@ -208,7 +245,6 @@ function Stance.start()
 		character:GetAttributeChangedSignal("GetUp"):Connect(apply)
 		character:GetAttributeChangedSignal("Healing"):Connect(apply)
 		character:GetAttributeChangedSignal("Dragging"):Connect(apply)
-		character:GetAttributeChangedSignal("Wired"):Connect(apply)
 		character:GetAttributeChangedSignal("Reloading"):Connect(apply) -- the aim held through a reload comes up after it
 		character:GetAttributeChangedSignal("Striking"):Connect(apply) -- (and through a butt stroke)
 		character:GetAttributeChangedSignal("Swinging"):Connect(apply) -- a shovel swing stops you, and its end frees you
@@ -223,12 +259,14 @@ function Stance.start()
 	-- from the animated body)
 	local drop, dropSpeed = 0, 0
 	RunService.Heartbeat:Connect(function(dt)
-		if sprintHeld then
-			apply()
-		end
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local nowWired = root ~= nil and inWire(root)
+		if sprintHeld or nowWired ~= wired then
+			wired = nowWired
+			apply()
+		end
 		local torso = character and character:FindFirstChild("Torso") :: BasePart?
 		if humanoid and root and torso then
 			local want = if crouched then math.min(0, torso.Position.Y - root.Position.Y) else 0

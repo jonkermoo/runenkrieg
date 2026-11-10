@@ -537,6 +537,11 @@ local DevTools = {
 		-- and back
 		GunHp = { 100, 75, 50, 49, 25 },
 		GunReach = 20,
+		-- the dugout nearest the aim point (within `DugoutReach` studs of its doorway) set to one of these % of its HP as
+		-- if it were still being built (100: finished, it has stood; src/server/Build.devHp; user 2026-11-09: a dugout
+		-- is boarded up until it is whole, Config/Build.Dugout.bar)
+		DugoutHp = { 25, 50, 75, 100 },
+		DugoutReach = 20,
 		-- the dug trench square nearest the aim point (within `TrenchReach` studs) set to 100 + one of these
 		-- (Config/Build.Trench.hp.extra; src/server/Trenches.reinforce; user 2026-11-04, reinforced trenches): 0 strips
 		-- it back to the plain square

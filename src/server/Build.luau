@@ -120,6 +120,8 @@ type Rec = {
 	filled: number?, -- and how high it has filled with earth over its room's floor (Rules.dugoutFillHeight)
 	meshes: { [string]: BasePart }?, -- a dugout: its pieces by mesh name (Config/Assets dugout_pieces)
 	plates: { BasePart }?, -- and its unseen plates (attribute "Stage")
+	bars: { BasePart }?, -- and its boarded-up doorway: the solid plate, then the planks (Config/Build.Dugout.bar)
+	barred: boolean?, -- and whether they are up (Rules.dugoutBarred)
 	watch: { RBXScriptConnection }?, -- and its watch on that square
 	sector: string?, -- the Map1 sector it stands in (a piece with a `sectorCap`)
 	plot: Ground.Plot?, -- a foxhole's spot: the ground there as it lay
@@ -908,7 +910,40 @@ local function layoutDugout(r: Rec): boolean
 		plate(s.name, size, CFrame.new((s.x0 + s.x1) / 2, (s.y0 + s.y1) / 2, (s.z0 + s.z1) / 2), 1)
 		plates[#plates]:SetAttribute("Seal", true)
 	end
-	r.meshes, r.plates = meshes, plates
+	-- its doorway boarded up until it has stood whole (Rules.dugoutBar; shown by showDugout): an unseen solid plate
+	-- across the tunnel, the planks crossed over it on the trench's side
+	local B = G.bar
+	local bz, b0, b1 = Rules.dugoutBar(G, face, top)
+	local bars = {}
+	local block =
+		newPart(r.model, "Bar", Vector3.new(G.slot, b1 - b0, t), r.frame * CFrame.new(0, (b0 + b1) / 2, bz), plank)
+	block.Transparency = 1
+	block.CastShadow = false
+	table.insert(bars, block)
+	-- (the planks cross the opening above the steps, corner to corner)
+	local low = -G.drop * math.clamp(bz / G.stair, 0, 1)
+	local high, wide = b1 - low, G.slot
+	local tilt = math.atan2(high, wide)
+	for i = 1, B.boards do
+		local sign = if i % 2 == 1 then 1 else -1
+		local board = newPart(
+			r.model,
+			"BarBoard",
+			Vector3.new(math.sqrt(high * high + wide * wide), B.board, B.thick),
+			r.frame * CFrame.new(0, (low + b1) / 2, bz - t / 2 - B.thick * (i - 0.5)) * CFrame.Angles(0, 0, sign * tilt),
+			timber
+		)
+		table.insert(bars, board)
+	end
+	for _, part in bars do
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		if part.Name == "BarBoard" then
+			part.Transparency = 1
+		end
+	end
+	r.meshes, r.plates, r.bars, r.barred = meshes, plates, bars, false
 	return true
 end
 
@@ -986,6 +1021,27 @@ local function showDugout(r: Rec)
 				o.model:PivotTo(CFrame.new(ejectSpot(r)) * o.root.CFrame.Rotation)
 			elseif l.Y < feet + G.lift then
 				o.model:PivotTo(o.root.CFrame + r.frame.UpVector * (feet + G.lift - l.Y))
+			end
+		end
+	end
+	-- boarded up until it has stood whole (Rules.dugoutBarred): anyone behind the boards is put out in front of them
+	local barred = Rules.dugoutBarred(stage, r.built)
+	if barred then
+		local bz = Rules.dugoutBar(G, Rules.trenchTop(C.Trench) - C.Trench.floor, C.Trench.depth)
+		for _, o in inDugout(r) do
+			if r.frame:PointToObjectSpace(o.root.Position).Z > bz - G.bar.thick then
+				o.model:PivotTo(CFrame.new(ejectSpot(r)) * o.root.CFrame.Rotation)
+			end
+		end
+	end
+	if r.barred ~= barred then
+		r.barred = barred
+		for _, part in r.bars or {} do
+			if part.Name == "Bar" then
+				part.CanCollide = barred
+				part.CanQuery = barred
+			else
+				part.Transparency = if barred then 0 else 1
 			end
 		end
 	end
@@ -1909,7 +1965,11 @@ local function work(b: Builder, target: any, mode: any)
 	local h = Rules.hpOf(r.piece, C)
 	if h then
 		local build = mode == "Build"
-		local step = Rules.digAmount((if build then h.swing else h.destroy) * k, h.max, shareOf(b))
+		-- (a wire: whole in its class's Wire.hits Build swings, whatever the build power; Rules.wireSwing)
+		local amount = if build and r.piece.kind == "Wire"
+			then Rules.wireSwing(Loadouts.classOf(b.character), C.Wire)
+			else (if build then h.swing else h.destroy) * k
+		local step = Rules.digAmount(amount, h.max, shareOf(b))
 		local left, gone = Rules.hpSwing(r.work, build, h, step)
 		if gone then
 			remove(r)
@@ -1952,6 +2012,27 @@ local function work(b: Builder, target: any, mode: any)
 	else
 		r.model:SetAttribute("Work", r.work)
 	end
+end
+
+-- Dev (the admin panel): the piece of `kind` nearest `at` (within `reach` studs of its "Frame") set to `pct`% of its HP
+-- as if it were still being built; 100 finishes it (it has stood). Returns why not, nil when done.
+function Build.devHp(at: Vector3, kind: string, pct: number, reach: number): string?
+	local best, bestD = nil, reach
+	for _, r in recs do
+		local frame = r.model:GetAttribute("Frame")
+		local d = if typeof(frame) == "CFrame" then (frame.Position - at).Magnitude else math.huge
+		if r.piece.kind == kind and d < bestD then
+			best, bestD = r, d
+		end
+	end
+	if not best then
+		return `no {string.lower(kind)} near`
+	end
+	best.work = best.need * math.clamp(pct, 0, 100) / 100
+	best.built = pct >= 100
+	best.paid = best.paid or best.built
+	apply(best)
+	return nil
 end
 
 -- A blast at `position` (src/server/Damage.blast, after the crater) of `kg`, `key` what it is to built things (a
@@ -2142,7 +2223,9 @@ function Build.worksOf(team: string?, class: string?): { Work }
 			if r.built and g and type(gunHp) == "number" then
 				hp, max, swing = gunHp, g.hp, g.hp / g.repair
 			end
-			swing = Rules.swingWork(r.piece, swing * power)
+			swing = if r.piece.kind == "Wire"
+				then Rules.wireSwing(class, C.Wire)
+				else Rules.swingWork(r.piece, swing * power)
 			table.insert(out, {
 				model = r.model,
 				key = r.piece.key,
@@ -2347,8 +2430,9 @@ function Build.onDugout(p: Vector3): boolean
 	return false
 end
 
--- the barbed wire that stands: its box (centre frame and size), its team and model, for src/server/Wire
-export type WireBox = { frame: CFrame, size: Vector3, team: string, model: Model }
+-- the barbed wire that stands: its frame (the middle of its footprint on the ground) and piece (its box:
+-- Rules.inWire), its team and model, for src/server/Wire
+export type WireBox = { frame: CFrame, piece: Rules.Piece, team: string, model: Model }
 -- whether `p` is on an MG nest's ground (its footprint round the ring's middle and Config/Build.Nest.ground round it,
 -- from the moment it is laid): craters never carve it (src/server/Ground.guard; user 2026-10-29: "similarily to the
 -- artilierries, give the turret some ground. the ground beneath it shouldnt be be to be destroyed")
@@ -2404,11 +2488,9 @@ function Build.wires(): { WireBox }
 	local out = {}
 	for _, r in recs do
 		if r.piece.kind == "Wire" and r.model:GetAttribute("Armed") == true then
-			local p = r.piece
-			local frame = r.model:GetAttribute("Frame") :: CFrame
 			table.insert(out, {
-				frame = frame * CFrame.new(0, p.height / 2, 0),
-				size = Vector3.new(p.width, p.height + 3, p.depth),
+				frame = r.model:GetAttribute("Frame") :: CFrame,
+				piece = r.piece,
 				team = r.team,
 				model = r.model,
 			})

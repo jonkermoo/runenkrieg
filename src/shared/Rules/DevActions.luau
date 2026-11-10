@@ -14,6 +14,7 @@ DevActions.Aimed = table.freeze({
 	PlaceGun = true,
 	PlacePiece = true,
 	GunHp = true,
+	DugoutHp = true,
 	TrenchExtra = true,
 	BotPush = true,
 	BotStrike = true,
@@ -191,6 +192,8 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 		return table.find(cfg.Blasts.Pieces, value) ~= nil
 	elseif action == "GunHp" then
 		return table.find(cfg.Blasts.GunHp, value) ~= nil
+	elseif action == "DugoutHp" then
+		return table.find(cfg.Blasts.DugoutHp, value) ~= nil
 	elseif action == "TrenchExtra" then
 		return table.find(cfg.Blasts.TrenchExtra, value) ~= nil
 	elseif action == "Dummy" then
