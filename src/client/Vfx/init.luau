@@ -10,6 +10,7 @@
 --   Muzzle.play(origin, direction, scale?)                                      a gun's muzzle blast
 --   Gunsmoke.shot(gun, origin, direction)                                       the machine gun's flash and smoke
 --   Shockwave.play(center, normal), Star.play(pos), Spikes.play(pos)            rings and flashes
+--   FiringWave.play(center, scale?, { color?, tint? })                          a big gun's air and dust ring
 --   Lightning.bolt(from, to, t?), Aura.play(partOrPoint, t)                     lightning
 --   Zoltraak.play(tipCFrame, ignore?, scheme?)                                   the full spell
 --   Pointer.new() -> { set(from, to), hide, free }                               the aiming laser
@@ -32,6 +33,7 @@ return {
 	Muzzle = require(script.Muzzle),
 	Gunsmoke = require(script.Gunsmoke),
 	Shockwave = require(script.Shockwave),
+	FiringWave = require(script.FiringWave),
 	Star = require(script.Star),
 	Spikes = require(script.Spikes),
 	Lightning = require(script.Lightning),

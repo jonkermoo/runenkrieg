@@ -784,6 +784,13 @@ function Artillery.fxScheme(gun: any, kit: any, teams: { [string]: string }): st
 	return gun.vfx.scheme
 end
 
+-- The howitzer's crystal colours in scheme `scheme` (user 2026-11-09: the crystal follows its gunner's team):
+-- `c.Schemes[scheme]`'s { empty, ready, fired } RGB lists, else the crystal's own (Config/Artillery.Crystal)
+function Artillery.crystalColors(c: any, scheme: string?): { empty: { number }, ready: { number }, fired: { number } }
+	local own = if scheme and c.Schemes then c.Schemes[scheme] else nil
+	return own or { empty = c.empty, ready = c.ready, fired = c.fired }
+end
+
 -- A magic muzzle look (Config/Vfx.Muzzle.Looks) in scheme `s`'s colours (a Config/Vfx.Schemes entry): the fireball
 -- deep edge -> body -> body -> white-hot core, its flash, glint and star the core, embers and rune ring the body (the
 -- frost-blue Arcane gives the old Magic look: Deep, Glow, Glow, Core)

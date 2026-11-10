@@ -626,6 +626,16 @@ local Artillery = {
 		empty = { 20, 26, 40 },
 		ready = { 70, 150, 255 },
 		fired = { 225, 245, 255 },
+		-- in its gunner's team's staff colours (user 2026-11-09: "make sure the crystals change color based off teams as
+		-- well (artillery doesnt have to change accent color if a different team uses the artillery, but crrystal color
+		-- should change)"): `empty` / `ready` / `fired` per Config/Vfx.Schemes name (Rules/Artillery.crystalColors; any
+		-- other its own above). Nobody on it, it keeps the last gunner's; a new team's colours blend in over `blend` s.
+		Schemes = {
+			Arcane = { empty = { 20, 26, 40 }, ready = { 70, 150, 255 }, fired = { 225, 245, 255 } },
+			Brass = { empty = { 40, 31, 12 }, ready = { 240, 172, 40 }, fired = { 255, 250, 225 } },
+			Crimson = { empty = { 42, 12, 20 }, ready = { 238, 48, 84 }, fired = { 255, 235, 240 } },
+		},
+		blend = 0.6,
 		flare = 0.6,
 		flareGlow = 1.6,
 		curve = 1.6,

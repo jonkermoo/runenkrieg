@@ -874,6 +874,65 @@ local Vfx = {
 	-- A ring that races outward and thins (lying flat on the ground, or facing any way).
 	Shockwave = { from = 0.5, to = 6, time = 0.4, line = 0.5, color = "Glow", brightness = 2 }, -- radii
 
+	-- A big gun's firing shockwave (src/client/Vfx/FiringWave; user 2026-11-09: "add a shockkwave around teh artillery
+	-- when its fired? (like air and terrain dust in a circle around where the explosion to set off the artillery is)"):
+	-- round the ground under the muzzle, flat on it. Studs at scale 1 (a gun's muzzleScale), times in seconds.
+	-- Air: `rings` pale bands `gap` s apart, `line` wide, racing from `from` to `to` over `time` s `lift` studs up,
+	--   `transparency` from the first to the second as they go (RGB `color`; a magic gun's mixed `tint` of the way to its
+	--   scheme's glow).
+	-- Dust: `count` flat-coloured puffs of the ground's own colour (lightened `light` toward white) blown out round it,
+	--   from `from` to `to` studs (each `jitter` of that more or less) over `time` s, growing from `size` to x `grow`,
+	--   rising `rise` studs, turning up to `spin` degrees, `transparency` from the first to the second.
+	-- Clods: `count` chips of the ground flung out at `speed` studs/s and `up` studs/s, falling at `gravity`, `size`
+	--   studs, gone after `life` s.
+	-- `ground`: the ground must be within this far under the firing point (x the scale), else no wave.
+	FiringWave = {
+		ground = 9,
+		Air = {
+			rings = 2,
+			gap = 0.08,
+			from = 1,
+			to = 17,
+			time = 0.5,
+			line = 2.4,
+			lift = 0.5,
+			brightness = 0.5,
+			transparency = { 0.35, 1 },
+			color = { 236, 236, 230 },
+			tint = 0.45,
+			wider = 0.15, -- each later band reaches this much further
+			thin = 0.6, -- a band thins by this share of its width as it goes
+		},
+		Dust = {
+			count = 16,
+			from = 1.5,
+			to = 12,
+			jitter = 0.25,
+			time = { 0.9, 1.5 },
+			size = { 1.4, 2.6 },
+			grow = 2.4,
+			rise = 1.6,
+			spin = 70,
+			light = 0.3,
+			transparency = { 0.2, 1 },
+			wander = 0.15, -- radians off even spacing round the ring
+			shade = 0.12, -- each puff up to this much darker
+			squat = 0.6, -- a puff's height, of its width
+		},
+		Clods = {
+			count = 14,
+			speed = { 12, 24 },
+			up = { 6, 13 },
+			gravity = 70,
+			size = { 0.25, 0.5 },
+			life = { 0.6, 1 },
+			lift = 0.3, -- starting this far above the ground
+			shade = { 0.05, 0.3 }, -- darker than the ground by
+			spin = 12, -- rad/s at most
+			fade = 0.7, -- fading out from this share of its life
+		},
+	},
+
 	-- A star glint: four thin spikes from a point, facing the camera, popping out and back with a twist.
 	Star = { length = 6, width = 0.6, time = 0.3, twist = 25, color = "Core", brightness = 10, flash = 1.2 },
 
@@ -1008,6 +1067,7 @@ local Vfx = {
 			{ effect = "Shell", label = "Field gun shell", every = 5, gun = "artillery_qf18" },
 			{ effect = "Shell", label = "Rune howitzer shell", every = 9, gun = "artillery_howitzer" },
 			{ effect = "Shockwave", label = "Shockwave", every = 1.5 },
+			{ effect = "FiringWave", label = "Gun firing shockwave", every = 2.5, scale = 1.6 },
 			{ effect = "Star", label = "Star glint", every = 1.2 },
 			{ effect = "Spikes", label = "Light spikes", every = 1.5 },
 			{ effect = "Lightning", label = "Lightning bolt", every = 1.2 },

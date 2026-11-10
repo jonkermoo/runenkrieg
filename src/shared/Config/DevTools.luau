@@ -456,6 +456,16 @@ local DevTools = {
 		-- (src/server/Artillery); `quick` my gun reloads in `quickReload` s; "GunDummy" stands a dummy (the first of
 		-- Dummies.Kits) where my gun's shell comes down
 		GunAim = { scatter = "DevGunScatter", exact = "DevGunExact", quick = "DevGunQuick", quickReload = 1 },
+		-- "Gun effects" (user 2026-11-09, the firing shockwave and the team crystals; client only): play the firing
+		-- shockwave (Vfx/FiringWave) on the ground `ahead` studs in front of me at each of `waves` (a gun's muzzleScale:
+		-- field gun, howitzer); preview every howitzer crystal in one of `schemes` on this screen (the Player's local
+		-- `crystal` attribute; off: its gunner's team as in play)
+		GunFx = {
+			ahead = 14,
+			waves = { { name = "field gun", scale = 1 }, { name = "howitzer", scale = 1.6 } },
+			crystal = "DevCrystalScheme",
+			schemes = { "Arcane", "Brass", "Crimson" },
+		},
 		-- "Weapon" sight lines (user 2026-11-03: "always add additional admin panel settings as we go"; src/client/
 		-- DevSights): the visible gun's Muzzle, Aim and Eject drawn as dots, the line of fire (from Muzzle) and the line
 		-- of sight (from Aim) out `length` studs along each one's -Z; aimed, the two run parallel. On the Player while on.
