@@ -5,7 +5,7 @@
 -- "make the explosions have a staticky effect (charge up, projectile, explosion) kind of like the beam":
 -- - shot(gun, origin, dir): the muzzle blast in its beats (Vfx.Muzzle: fireball, flash, glint, smoke jet and ring,
 --   embers, dust), a pressure wave racing out along the bore, a flat ring blown across the ground, a clear air bubble
---   swelling from the muzzle, a shake for whoever is near (src/client/CameraShake), smoke curling out of the barrel
+--   swelling from the muzzle, the firing shockwave of air and dust round the ground under it (Vfx/FiringWave), a shake for whoever is near (src/client/CameraShake), smoke curling out of the barrel
 --   and a bank of it hanging in front, and the sound layers after the report (user 2026-10-26: "improve the cannon
 --   firing animations. give it more effect, make it super 'visual' and appealing"); far off only the muzzle's flash;
 -- - punch(gun, manning): the gunner's view widening for a moment on the shot;
@@ -20,6 +20,7 @@
 -- - blast(gun, position): the howitzer's static after its explosion: bolts leaping out across the ground and a
 --   crackling aura (the shake for whoever is near comes with the explosion, src/client/CameraShake).
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -187,7 +188,7 @@ function ArtilleryFx.punch(gun: any, manning: () -> boolean)
 	end)
 end
 
-function ArtilleryFx.shot(gun: any, origin: Vector3, dir: Vector3, scheme: string?)
+function ArtilleryFx.shot(gun: any, origin: Vector3, dir: Vector3, scheme: string?, model: Model?)
 	local k = gun.muzzleScale
 	local d = if dir.Magnitude > 1e-6 then dir.Unit else Vector3.zAxis
 	local look = if gun.vfx.magic then "Magic" else "Field"
@@ -215,6 +216,25 @@ function ArtilleryFx.shot(gun: any, origin: Vector3, dir: Vector3, scheme: strin
 	local ground = workspace:Raycast(origin, Vector3.new(0, -S.groundReach * k, 0))
 	if ground then
 		Vfx.Shockwave.play(ground.Position + Vector3.new(0, 0.2, 0), Vector3.yAxis, wave, S.ground * k)
+	end
+	-- the firing shockwave: air and the ground's dust blown out in a ring round the ground under the muzzle (user
+	-- 2026-11-09; Vfx/FiringWave), the gun itself and the soldiers looked through
+	if not gun.mg then
+		local W = VfxCfg.FiringWave
+		local skip: { Instance } = { model :: any }
+		for _, plr in Players:GetPlayers() do
+			if plr.Character then
+				table.insert(skip, plr.Character)
+			end
+		end
+		local reach = W.ground * k
+		local at, _, under = Vfx.Util.cast(origin, -Vector3.yAxis, reach, skip)
+		if (origin - at).Magnitude < reach - 0.05 then
+			Vfx.FiringWave.play(at + Vector3.new(0, 0.1, 0), k, {
+				color = under,
+				tint = if s then Vfx.Util.color(s.glow) else nil,
+			})
+		end
 	end
 	bubble(origin + d * S.ahead * k, F.Air.size * k, F.Air.time)
 	-- the smoke bank hanging low in front, and on the magic gun its motes twinkling in it

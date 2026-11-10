@@ -51,6 +51,7 @@ local ShotSpread = require(script.Parent.ShotSpread)
 local Menus = require(script.Parent.Menus) :: any
 local MapLoader = require(script.Parent.MapLoader)
 local Suppression = require(script.Parent.Suppression)
+local Vfx = require(script.Parent.Vfx)
 local LoadCfg = require(Shared.Config.JoinLoading)
 
 local DevAdminMenu = {}
@@ -887,6 +888,39 @@ local function build(player: Player): DevPanel.Panel
 	p.gui.Destroying:Once(function()
 		said:Disconnect()
 	end)
+
+	-- Gun effects (Config/DevTools.Admin.GunFx; client only): the firing shockwave in front of me, the howitzer
+	-- crystals in a team's colours
+	heading("Gun effects")
+	local GF = A.GunFx
+	for i, wave in GF.waves do
+		order += 1
+		local b = DevPanel.button(p.panel, `GunWave{i}`, `Firing shockwave ahead ({wave.name} size)`, order)
+		b.Activated:Connect(function()
+			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			if not root then
+				return
+			end
+			local flat = Vector3.new(root.CFrame.LookVector.X, 0, root.CFrame.LookVector.Z)
+			local from = root.Position + (if flat.Magnitude > 1e-3 then flat.Unit else Vector3.zAxis) * GF.ahead
+			local at, _, under =
+				Vfx.Util.cast(from + Vector3.new(0, 6, 0), -Vector3.yAxis, 40, { player.Character :: any })
+			Vfx.FiringWave.play(at + Vector3.new(0, 0.1, 0), wave.scale, { color = under })
+		end)
+	end
+	order += 1
+	local crystal = DevPanel.button(p.panel, "GunCrystal", "", order)
+	local function showCrystal()
+		local now = player:GetAttribute(GF.crystal)
+		crystal.Text = `Howitzer crystals (this screen): {if type(now) == "string" then now else "gunner's team"}`
+		paint(crystal, type(now) == "string")
+	end
+	crystal.Activated:Connect(function()
+		local i = table.find(GF.schemes, player:GetAttribute(GF.crystal) :: any) or 0
+		player:SetAttribute(GF.crystal, GF.schemes[i + 1])
+	end)
+	player:GetAttributeChangedSignal(GF.crystal):Connect(showCrystal)
+	showCrystal()
 
 	-- Weapon: the visible gun's Muzzle / Aim / Eject and its lines of fire and sight (src/client/DevSights, client only)
 	heading("Weapon")

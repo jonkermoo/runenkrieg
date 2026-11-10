@@ -421,6 +421,14 @@ local function pose(model: Model, p: Pose, dt: number)
 		-- hurt, its light sputters toward death (Config/Artillery.Crystal.dying)
 		local hp = model:GetAttribute("HP")
 		local hurt = if type(hp) == "number" then 1 - math.clamp(hp / gun.hp, 0, 1) else 0
+		-- in its gunner's team's colours, the last gunner's while nobody is on it (user 2026-11-09)
+		-- (the admin panel's preview, this screen only: Config/DevTools.Admin.GunFx)
+		local preview = Players.LocalPlayer:GetAttribute(DevCfg.Admin.GunFx.crystal)
+		if type(preview) == "string" then
+			ArtilleryCrystal.scheme(p.fx, preview)
+		elseif gunnerOf(model) then
+			ArtilleryCrystal.scheme(p.fx, schemeOf(model, gun))
+		end
 		ArtilleryCrystal.update(
 			p.fx,
 			t,
@@ -1173,6 +1181,8 @@ function Artillery.start()
 		mine = nil
 		moveKeys(true)
 		hideArc()
+		-- the cursor back (a drawn rifle's camera hides it again itself)
+		UserInputService.MouseIconEnabled = true
 		-- (a machine gun's first person hid my own body)
 		for _, d in (character and character:GetDescendants()) or {} do
 			if d:IsA("BasePart") or d:IsA("Decal") then
@@ -1330,10 +1340,11 @@ function Artillery.start()
 		end
 		local gun = p.gun
 
-		-- the mouse stays locked in the middle (free while the settings menu is open)
-		UserInputService.MouseBehavior = if player:GetAttribute("MenuOpen") == true
-			then Enum.MouseBehavior.Default
-			else Enum.MouseBehavior.LockCenter
+		-- the mouse stays locked in the middle, the cursor hidden (user 2026-11-09: "make the cursor not visible when
+		-- camera is locked (turret and guns)"); free and shown while the settings menu is open
+		local free = player:GetAttribute("MenuOpen") == true
+		UserInputService.MouseBehavior = if free then Enum.MouseBehavior.Default else Enum.MouseBehavior.LockCenter
+		UserInputService.MouseIconEnabled = free
 
 		-- WASD lays it (A / D turn, W / S raise / lower) at the gun's own rates: held, the aim leads the lay a little;
 		-- let go, it stops where the gun is
@@ -1573,7 +1584,7 @@ function Artillery.start()
 		-- the muzzle blast and the air, smoke and sound round the gun, the gunner's view kicked wide, and the shell
 		-- itself flying its path
 		local scheme = schemeOf(model, gun)
-		ArtilleryFx.shot(gun, origin, velocity, scheme)
+		ArtilleryFx.shot(gun, origin, velocity, scheme, model)
 		if mine == model then
 			ArtilleryFx.punch(gun, function()
 				return mine == model

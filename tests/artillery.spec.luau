@@ -368,6 +368,26 @@ return {
 		end
 		assert(V.Looks.Field.ring == nil and V.Looks.Magic.ring, "only the magic gun's smoke ring has runes")
 	end,
+	["the howitzer's crystal takes its gunner's team's colours"] = function()
+		-- user 2026-11-09: "make sure the crystals change color based off teams as well"
+		local Spells = require("../src/shared/Config/Spells")
+		local K = C.Crystal
+		for _, scheme in Spells.Staff.Teams do
+			local c = A.crystalColors(K, scheme)
+			assert(K.Schemes[scheme] == c, `no crystal colours for {scheme}`)
+			for _, key in { "empty", "ready", "fired" } do
+				assert(#c[key] == 3, `{scheme}.{key}`)
+			end
+			-- dark when drained, bright when full, near white on the shot
+			local function sum(t: { number }): number
+				return t[1] + t[2] + t[3]
+			end
+			assert(sum(c.empty) < sum(c.ready) and sum(c.ready) < sum(c.fired), scheme)
+		end
+		local own = A.crystalColors(K, nil)
+		assert(own.ready == K.ready and A.crystalColors(K, "nobody").empty == K.empty)
+		assert(K.blend > 0)
+	end,
 	["the howitzer's magic takes its gunner's team's staff colours, in a tight cone"] = function()
 		-- user 2026-11-06: "make howitzer colors match team staff colors", "make the howitzer effects a tighter cone"
 		local Palette = require("../src/shared/Config/Palette")

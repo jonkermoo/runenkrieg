@@ -114,6 +114,9 @@ local plays: { [string]: (pad: Vector3, folder: Folder, entry: Entry) -> () } = 
 	Shockwave = function(p)
 		Vfx.Shockwave.play(Vector3.new(p.X, 0.3, p.Z), Vector3.yAxis)
 	end,
+	FiringWave = function(p, _, entry)
+		Vfx.FiringWave.play(Vector3.new(p.X, 0.1, p.Z), entry.scale)
+	end,
 	Star = function(p)
 		Vfx.Star.play(p)
 	end,

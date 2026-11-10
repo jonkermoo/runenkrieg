@@ -11,7 +11,9 @@
 --   and fade;
 -- - motes of light drawn into it while it charges;
 -- - the runes engraved round the barrel lit through the charge-up, gone again after the shot (user 2026-11-02).
---   ArtilleryCrystal.new(model, crystal) -> state; .update(state, now, firedAt, readyAt, reload); .destroy(state)
+-- - all of it in its gunner's team's staff colours (user 2026-11-09), the last gunner's while nobody is on it.
+--   ArtilleryCrystal.new(model, crystal) -> state; .scheme(state, scheme?, now?); .update(state, now, firedAt,
+--   readyAt, reload); .destroy(state)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -42,6 +44,10 @@ export type State = {
 	runes: { { gui: BillboardGui, strokes: { Frame } } },
 	angle: number,
 	last: number,
+	-- its colours now (empty, ready, fired), blending toward `want`'s (its gunner's team: Config/Artillery.Crystal.Schemes)
+	colors: { Color3 },
+	want: { Color3 },
+	scheme: string?,
 }
 
 local function rgb(c: { number }): Color3
@@ -171,15 +177,31 @@ function ArtilleryCrystal.new(model: Model, crystal: BasePart): State
 		runes = runes,
 		angle = 0,
 		last = os.clock(),
+		colors = { rgb(Cfg.empty), rgb(Cfg.ready), rgb(Cfg.fired) },
+		want = { rgb(Cfg.empty), rgb(Cfg.ready), rgb(Cfg.fired) },
 	}
 end
 
--- the colour for a glow: empty -> ready, past 1 toward white-hot
-local function colorAt(glow: number): Color3
-	if glow <= 1 then
-		return rgb(Cfg.empty):Lerp(rgb(Cfg.ready), math.clamp(glow, 0, 1))
+-- its gunner's team's colours (a Config/Vfx.Schemes name; Rules/Artillery.crystalColors), blended in over Cfg.blend s;
+-- `now`: at once
+function ArtilleryCrystal.scheme(s: State, scheme: string?, now: boolean?)
+	if scheme == s.scheme and not now then
+		return
 	end
-	return rgb(Cfg.ready):Lerp(rgb(Cfg.fired), math.clamp(glow - 1, 0, 1))
+	s.scheme = scheme
+	local c = Rules.crystalColors(Cfg, scheme)
+	s.want = { rgb(c.empty), rgb(c.ready), rgb(c.fired) }
+	if now then
+		s.colors = table.clone(s.want)
+	end
+end
+
+-- the colour for a glow in colours `c` (empty, ready, fired): empty -> ready, past 1 toward white-hot
+local function colorIn(c: { Color3 }, glow: number): Color3
+	if glow <= 1 then
+		return c[1]:Lerp(c[2], math.clamp(glow, 0, 1))
+	end
+	return c[2]:Lerp(c[3], math.clamp(glow - 1, 0, 1))
 end
 
 function ArtilleryCrystal.update(
@@ -196,6 +218,14 @@ function ArtilleryCrystal.update(
 	local clock = os.clock()
 	local dt = math.min(clock - s.last, 0.1)
 	s.last = clock
+	-- a new team's colours blending in
+	local mix = math.clamp(dt / math.max(Cfg.blend, 1e-3), 0, 1)
+	for i = 1, 3 do
+		s.colors[i] = s.colors[i]:Lerp(s.want[i], mix)
+	end
+	local function colorAt(glow: number): Color3
+		return colorIn(s.colors, glow)
+	end
 	local state, glow, share = Rules.crystal(now, firedAt, readyAt, reload, Cfg)
 	local Dy = Cfg.dying
 	local dying = math.clamp(((hurt or 0) - Dy.from) / (1 - Dy.from), 0, 1)
@@ -261,7 +291,7 @@ function ArtilleryCrystal.update(
 	-- motes drawn in while charging (more as it fills), a few while ready
 	local box = s.motes.Parent :: BasePart
 	box.CFrame = CFrame.new(s.crystal.Position)
-	s.motes.Color = ColorSequence.new(rgb(Cfg.ready))
+	s.motes.Color = ColorSequence.new(s.colors[2])
 	s.motes.Rate = if state == "Charging" then Cfg.motes * (0.2 + 0.8 * share) elseif state == "Ready" then 2 else 0
 
 	-- the runes circling it

@@ -14,6 +14,7 @@ local EFFECTS = {
 	Grenade = true,
 	Shell = true,
 	Shockwave = true,
+	FiringWave = true,
 	Star = true,
 	Spikes = true,
 	Lightning = true,
@@ -177,6 +178,24 @@ return {
 			if Spells.Built[s.name] then
 				assert(stages[i] and stages[i].beam == s.name, `built spell stage {s.name} has no cast stage {i}`)
 			end
+		end
+	end,
+	["the firing shockwave: air out wider than the dust, everything fading out, in RGB"] = function()
+		-- user 2026-11-09: "add a shockkwave around teh artillery when its fired"
+		local W = Vfx.FiringWave
+		local A, D, C = W.Air, W.Dust, W.Clods
+		assert(W.ground > 0 and A.rings >= 1 and A.time > 0 and A.line > 0)
+		assert(A.from < A.to and D.from < D.to and D.to * (1 + D.jitter) <= A.to * 1.2, "the dust stays inside the air")
+		assert(A.transparency[2] == 1 and D.transparency[2] == 1, "both fade out")
+		assert(#A.color == 3 and A.tint >= 0 and A.tint <= 1)
+		for _, r in { D.time, D.size, C.speed, C.up, C.size, C.life } do
+			assert(r[1] > 0 and r[1] <= r[2])
+		end
+		assert(D.count > 0 and C.count >= 0 and C.gravity > 0 and D.light >= 0 and D.light <= 1)
+		local GF = DevTools.Admin.GunFx
+		assert(#GF.waves > 0 and GF.ahead > 0 and type(GF.crystal) == "string")
+		for _, s in GF.schemes do
+			assert((Vfx.Schemes :: any)[s], s)
 		end
 	end,
 	["showcase: every entry is a known effect, with a teleport and hideable labels"] = function()
