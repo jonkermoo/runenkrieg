@@ -254,6 +254,7 @@ export type Bot = {
 	arcVia: { goal: Vector3, at: Vector3, till: number }?, -- Normal: the point it goes by, round a known MG's arc
 	inArc: boolean?, -- Normal: in an enemy MG's known arc at the last commander tick (the Bots' MGs readout)
 	gunWait: number?, -- not given a gun again before this (taken over by a teammate, or gave up the walk)
+	busyOnlyUntil: number?, -- left an MG with nothing to fire at: until then only a gun with enemies in reach
 }
 
 export type CoverJob = { threat: Vector3, ring: number, here: number }

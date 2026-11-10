@@ -60,6 +60,8 @@ type Gunning = {
 	mgAt: number?,
 	kind: string?,
 	aimNow: Vector3?,
+	workAt: number?, -- when its MG last had a target it saw or an area it could fire at
+	stay: boolean?, -- given by the admin panel: it doesn't leave for having nothing in reach
 }
 
 local ctx: Context = nil :: any
@@ -76,6 +78,8 @@ type MgFire = {
 	known: number,
 	manned: number,
 	noArea: number,
+	far: number, -- rounds fired at a point past Config/Bots.Crew.MG `far` studs off
+	left: number, -- gunners off their MG for having nothing to fire at (Config/Bots.Crew.MG `leave`)
 	why: { range: number, own: number, lay: number, ground: number }, -- why areas were passed over
 }
 local mgFire: { [string]: MgFire } = {}
@@ -89,7 +93,8 @@ local verdicts: { [Model]: Verdict } = {}
 local wreckJobs: { [string]: { [Model]: any } } = { West = {}, East = {} }
 local sightParams = RaycastParams.new()
 
--- guns given no gunner until then: every shot they could lay stopped short (Config/Bots.Crew `blind`)
+-- guns given no gunner until then: every shot they could lay stopped short (Config/Bots.Crew `blind`), or an MG with
+-- nothing to fire at (Config/Bots.Crew.MG `leave`)
 local blindUntil: { [Model]: number } = {}
 -- the guns' list once a frame (Artillery.list, no point)
 local listed: { [Model]: Artillery.GunInfo } = {}
@@ -344,6 +349,8 @@ local function mg(b: any, g: Gunning, info: Artillery.GunInfo, now: number)
 			known = 0,
 			manned = 0,
 			noArea = 0,
+			far = 0,
+			left = 0,
 			why = { range = 0, own = 0, lay = 0, ground = 0 },
 		}
 		mgFire[b.side] = fire
@@ -352,11 +359,26 @@ local function mg(b: any, g: Gunning, info: Artillery.GunInfo, now: number)
 	if spent > 0 and g.kind then
 		(fire :: any)[g.kind] += spent
 		fire.known += if g.kind == "area" and g.areaKnown then spent else 0
+		if g.aimNow and flat((g.aimNow :: Vector3) - info.model:GetPivot().Position).Magnitude > MG.far then
+			fire.far += spent
+		end
 	end
 	g.lastRounds = rounds
 	local dt = now - (g.mgAt or now)
 	g.mgAt = now
 	fire.manned += if dt < 1 then dt else 0
+	-- nothing to fire at for a good while: off it, the gun left a while, the gunner free for one that can reach
+	if part or g.area or not g.workAt then
+		g.workAt = now
+	end
+	if MG.on and not g.stay and Rules.leaves(now - (g.workAt :: number), MG.leave) then
+		fire.left += 1
+		blindUntil[info.model] = now + MG.leaveWait
+		b.busyOnlyUntil = now + MG.leaveWait
+		Artillery.triggerAs(m, false)
+		Artillery.leaveAs(m)
+		return
+	end
 	if not part then
 		g.kind, g.aimNow = nil, nil
 	end
@@ -506,6 +528,13 @@ function Crew.command(
 			end
 		end
 	end
+	-- (what an MG counts as having in reach: the enemies its side knows of, an offensive's known nests and guns)
+	local enemies: { Rules.Spot } = {}
+	for _, list in { known, first or {} } do
+		for _, p in list do
+			table.insert(enemies, { x = p.X, z = p.Z })
+		end
+	end
 	local guns, gunModels = {}, {}
 	for _, g in Artillery.list() do
 		if
@@ -517,7 +546,8 @@ function Crew.command(
 			and g.model.Parent ~= nil
 			and ownerAt(g.crew, owner) == side
 		then
-			table.insert(guns, { x = g.crew.X, z = g.crew.Z })
+			local reaches = not g.mg or Rules.inReach(g.crew.X, g.crew.Z, enemies, C.MG.min, C.MG.reach)
+			table.insert(guns, { x = g.crew.X, z = g.crew.Z, idle = not reaches })
 			table.insert(gunModels, g.model)
 		end
 	end
@@ -538,7 +568,12 @@ function Crew.command(
 				and b.root
 			then
 				local p = (b.root :: BasePart).Position
-				table.insert(gunners, { x = p.X, z = p.Z, crew = b.crew == true })
+				table.insert(gunners, {
+					x = p.X,
+					z = p.Z,
+					crew = b.crew == true,
+					busyOnly = now < (b.busyOnlyUntil or 0),
+				})
 				table.insert(gunnerBots, b)
 			end
 		end
@@ -775,6 +810,9 @@ function Crew.report(): string
 	return s
 end
 
+-- each side's nests in its front sector too far from the fight to count (Commander; the marked spots readout)
+Crew.nestsOut = {} :: { [string]: number }
+
 -- each side's MG fire this match (the Bots' MGs readout)
 function Crew.mgCounts(): { [string]: MgFire }
 	return mgFire
@@ -796,7 +834,7 @@ end
 function Crew.give(b: any, gun: Model)
 	release(b)
 	b.gun = gun
-	gunning[b] = { m = b.m, since = os.clock(), retargetAt = 0 }
+	gunning[b] = { m = b.m, since = os.clock(), retargetAt = 0, stay = true }
 	b.post, b.postKind, b.postFloor, b.postFace = nil, nil, nil, nil
 	stats.given += 1
 end
@@ -809,6 +847,7 @@ function Crew.clear()
 	end
 	table.clear(targets)
 	table.clear(mgFire)
+	table.clear(Crew.nestsOut)
 end
 
 function Crew.init(c: Context)

@@ -19,6 +19,27 @@ local function count(jobs: { R.Job }, key: string): number
 end
 
 return {
+	["mostBuilt: the laid piece with the fewest swings left, near or far"] = function()
+		local jobs = {
+			{ key = "MGNest", x = 10, z = 0, fx = 1, fz = 0, work = true },
+			{ key = "MGNest", x = 200, z = 0, fx = 1, fz = 0, work = true },
+			{ key = "MGNest", x = 5, z = 0, fx = 1, fz = 0, work = false },
+		}
+		assert(R.mostBuilt(jobs, 0, 0, 500, {}, { 40, 5, 0 }) == 2, "the fuller frame, though further")
+		assert(R.mostBuilt(jobs, 0, 0, 100, {}, { 40, 5, 0 }) == 1, "only within reach")
+		assert(R.mostBuilt(jobs, 0, 0, 500, { [2] = true }, { 40, 5, 0 }) == 1, "not one taken")
+		assert(R.mostBuilt({ jobs[3] }, 0, 0, 500, {}, { 0 }) == nil, "nothing laid yet")
+		assert(R.mostBuilt(jobs, 0, 0, 500, {}, { 5, 5, 0 }) == 1, "a tie to the nearer")
+	end,
+	["fightPoint: part way to the next sector on the enemy's side, the flag at the chain's end"] = function()
+		local sectors = { { x = 0, z = 0 }, { x = 400, z = 100 }, { x = 800, z = 0 } }
+		local x, z = R.fightPoint(sectors, 2, "West", 0.5)
+		assert(x == 600 and z == 50, "West goes up the chain")
+		x, z = R.fightPoint(sectors, 2, "East", 0.5)
+		assert(x == 200 and z == 50, "East goes down it")
+		x, z = R.fightPoint(sectors, 3, "West", 0.5)
+		assert(x == 800 and z == 0, "no sector beyond")
+	end,
 	["front: West's easternmost sector, East's westernmost"] = function()
 		local sectors = { { x = 0 }, { x = 100 }, { x = 200 }, { x = 300 } }
 		local owner = { "West", "West", "East", "East" }

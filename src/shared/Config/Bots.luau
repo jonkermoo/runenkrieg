@@ -1211,7 +1211,17 @@ local Bots = {
 			sweep = { half = 7, period = 5 },
 			look = 6,
 			min = 20,
-			reach = 400,
+			reach = 400, -- (550 was tried on its own: attacks reached the zones less and the MG kills grew more lopsided)
+			far = 400, -- (the Bots' MGs readout: rounds fired and soldiers pinned from past this many studs)
+			-- A gunner whose MG has had no target it sees and no area it can fire at for `leave` s gets off it, back to its duty
+			-- or to a gun that can reach (for `leaveWait` s no gun without enemies in reach; that gun gets no gunner as long).
+			-- New gunners go first to guns with known enemies within `min` to `reach` studs (Rules/BotCrew.assign).
+			leave = 30,
+			leaveWait = 30,
+			-- Where the fight is for its nests: `fightAt` of the way from its front flag to the enemy's next sector. A nest in
+			-- its front sector more than `reach` from there doesn't count toward its `caps.MGNest`, so a nearer one is planned,
+			-- and no new one goes on a marked spot that far off. Engineers finish the fullest nest going up first.
+			fightAt = 0.7,
 			sight = 0.6,
 			startOut = 8,
 			clear = 3,

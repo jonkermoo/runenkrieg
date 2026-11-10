@@ -354,7 +354,7 @@ local fronts = {
 	-- the enemy MGs' arcs each side has felt (Config/Bots.Crew.Arcs), its tallies this match for the Bots' MGs readout,
 	-- and where it reckons the enemy is likely to be (Config/Bots.Crew.MG)
 	arcs = {} :: { [string]: { [Model]: BotArcs.Arc } },
-	mg = {} :: { [string]: { pinned: number, detours: number, walked: number } },
+	mg = {} :: { [string]: { pinned: number, far: number, detours: number, walked: number } },
 	mgLikely = {} :: { [string]: { at: number, list: { Vector3 } } },
 	tally = {} :: { [string]: number },
 	took = {} :: { [string]: { sector: number, at: number } }, -- the sector each side took last, and when

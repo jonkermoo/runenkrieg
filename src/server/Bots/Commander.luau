@@ -1660,21 +1660,35 @@ function Guns.spots(
 	return BotBuild.gunSpots(zone, tx, tz, want, C, Guns.spacing, fits, seed)
 end
 -- `side`'s guns and MG nests in sector `i` by Config/Build piece key: its team's own `works` there (laid or standing;
--- `built`: standing only) and the enemy's there it judged "use" (src/server/Bots/Crew)
-local function sectorGuns(side: string, works: { Build.Work }, i: number, built: boolean?): { [string]: number }
+-- `built`: standing only) and the enemy's there it judged "use" (src/server/Bots/Crew); with `fight`, an MG nest more than
+-- Config/Bots.Crew.MG `reach` from it left out (`n.outOfFight` counts those)
+local function sectorGuns(
+	side: string,
+	works: { Build.Work },
+	i: number,
+	built: boolean?,
+	fight: BotCrew.Spot?
+): { [string]: number }
 	local n = {}
+	local function add(key: string, at: Vector3)
+		if fight and key == "MGNest" and not BotCrew.inReach(at.X, at.Z, { fight }, 0, Cfg.Crew.MG.reach) then
+			n.outOfFight = (n.outOfFight or 0) + 1
+		else
+			n[key] = (n[key] or 0) + 1
+		end
+	end
 	for _, w in works do
 		if
 			(w.kind == "Gun" or w.kind == "Nest")
 			and (w.built or not built)
 			and BotCrew.sectorAt(w.at.X, w.at.Z, Map.sectors) == i
 		then
-			n[w.key] = (n[w.key] or 0) + 1
+			add(w.key, w.at)
 		end
 	end
 	for _, g in Tactics.crew.usable(side) do
 		if BotCrew.sectorAt(g.at.X, g.at.Z, Map.sectors) == i then
-			n[g.key] = (n[g.key] or 0) + 1
+			add(g.key, g.at)
 		end
 	end
 	return n
@@ -2141,6 +2155,8 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	local s = Map.sectors[front :: number]
 	local zone = { x = s.x, z = s.z, radius = s.radius }
 	local tx, tz = BotBuild.toward(Map.sectors, front :: number, side) -- (the enemy's way, from the live map's chain)
+	local fightX, fightZ = BotBuild.fightPoint(Map.sectors, front :: number, side, Cfg.Crew.MG.fightAt)
+	local fight = { x = fightX, z = fightZ }
 	local spots = Routes.spots(front :: number, side, true)
 	local fl = workspace:FindFirstChild(FrontCfg.FolderName)
 	local latched = fl ~= nil and fl:GetAttribute(side .. FrontCfg.LatchAttribute) == true
@@ -2215,12 +2231,13 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		end
 		-- (MG nests: those missing of its share, its side's standing ones in its front sector and captured ones it uses
 		-- there counted; one still going up gets its job again)
-		local standing = sectorGuns(side, Build.worksOf(kit), front :: number, true)
+		-- (one that can't reach the fight doesn't count: a nearer one is planned)
+		local standing = sectorGuns(side, Build.worksOf(kit), front :: number, true, fight)
 		local missing = math.max((BD.caps.MGNest or 0) - (standing.MGNest or 0), 0)
 		-- (the nests on the map's marked MG spots first, those with no nest of its side by them yet)
 		local mgSpots = {}
 		for _, sp in BotBuild.serving(Marks[front :: number] and Marks[front :: number].mg, side) do
-			local free = true
+			local free = BotCrew.inReach(sp.x, sp.z, { fight }, 0, Cfg.Crew.MG.reach)
 			for _, w in Build.worksOf(kit) do
 				free = free and not (w.key == "MGNest" and (w.at.X - sp.x) ^ 2 + (w.at.Z - sp.z) ^ 2 <= OP.nestGap ^ 2)
 			end
@@ -2348,8 +2365,9 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	-- (its guns and MG nests are counted by the sector: the team's own in its front sector, anyone's laying them, and the
 	-- enemy's there it judged worth using, against its share, BD.caps; user 2026-11-03: "cannons and artys built
 	-- should be by sector")
-	local inFront = sectorGuns(side, works, front :: number)
+	local inFront = sectorGuns(side, works, front :: number, nil, fight)
 	sbs.inFront = inFront
+	Tactics.crew.nestsOut[side] = inFront.outOfFight or 0
 	-- (a trench run is matched by its squares, Rules/BotTrenches.laid; the rest by BotBuild.match)
 	local jobs = {}
 	local runs: { BotTrenches.Run } = {}

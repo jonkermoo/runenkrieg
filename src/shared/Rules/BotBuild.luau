@@ -281,6 +281,46 @@ function BotBuild.pick(
 	return best
 end
 
+-- The piece already going up with the fewest swings `left` (`left[j]`; a tie to the nearer) of the laid jobs within
+-- `within` of (x, z), not taken: one nest finished before the next is worked on (Config/Bots.Crew.MG). Nil if none.
+function BotBuild.mostBuilt(
+	jobs: { Job },
+	x: number,
+	z: number,
+	within: number,
+	taken: { [number]: boolean },
+	left: { [number]: number }
+): number?
+	local best, bestLeft, bestD = nil, math.huge, math.huge
+	for j, job in jobs do
+		local d = (job.x - x) ^ 2 + (job.z - z) ^ 2
+		if
+			job.work
+			and not taken[j]
+			and d <= within * within
+			and (left[j] < bestLeft or (left[j] == bestLeft and d < bestD))
+		then
+			best, bestLeft, bestD = j, left[j], d
+		end
+	end
+	return best
+end
+
+-- Where the fight is for `side` holding sector `i`: `frac` of the way from its flag to the next sector on the enemy's
+-- side; at the chain's end, its own flag
+function BotBuild.fightPoint(
+	sectors: { { x: number, z: number } },
+	i: number,
+	side: string,
+	frac: number
+): (number, number)
+	local a, b = sectors[i], sectors[i + (if side == "West" then 1 else -1)]
+	if not b then
+		return a.x, a.z
+	end
+	return a.x + (b.x - a.x) * frac, a.z + (b.z - a.z) * frac
+end
+
 -- Where a lay job's spot moves after a refusal (the ground, a piece in the way): `tries` (1, 2, ...) steps of `step`,
 -- one way then the other: along the line across, or for a trench line (which runs across) back and forth along the
 -- way in, back first.

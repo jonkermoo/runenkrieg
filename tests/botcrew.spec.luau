@@ -31,6 +31,34 @@ return {
 		local gunners = { { x = 20, z = 0, crew = false }, { x = 20 + C.crewFirst / 2, z = 0, crew = true } }
 		assert(R.assign(guns, gunners, 4, C)[1] == 2)
 	end,
+	["assign: guns with enemies in reach before nearer idle ones"] = function()
+		local guns = { { x = 0, z = 0, idle = true }, { x = 100, z = 0 } }
+		local got = R.assign(guns, { { x = 5, z = 0, crew = false } }, 4, C)
+		assert(got[2] == 1 and got[1] == nil, "the one gunner goes to the gun that can reach")
+		local both = R.assign(guns, { { x = 5, z = 0, crew = false }, { x = 90, z = 0, crew = false } }, 4, C)
+		assert(both[1] == 1 and both[2] == 2, "idle guns still get a gunner when there are enough")
+		local room = R.assign(guns, { { x = 5, z = 0, crew = false }, { x = 90, z = 0, crew = false } }, 1, C)
+		assert(room[2] == 2 and room[1] == nil, "room for one: not the idle gun")
+	end,
+	["assign: a gunner who just left a gun that couldn't reach takes no idle gun"] = function()
+		local guns = { { x = 0, z = 0, idle = true }, { x = 100, z = 0 } }
+		local got = R.assign(guns, { { x = 5, z = 0, crew = false, busyOnly = true } }, 4, C)
+		assert(got[2] == 1 and got[1] == nil, "the gun that can reach")
+		local none = R.assign({ guns[1] }, { { x = 5, z = 0, crew = false, busyOnly = true } }, 4, C)
+		assert(next(none) == nil, "back to its duty")
+	end,
+	["inReach: between the gun's nearest and furthest only"] = function()
+		assert(R.inReach(0, 0, { { x = 300, z = 0 } }, 20, 400))
+		assert(R.inReach(0, 0, { { x = 400, z = 0 } }, 20, 400), "the very edge")
+		assert(not R.inReach(0, 0, { { x = 500, z = 0 } }, 20, 400), "too far")
+		assert(not R.inReach(0, 0, { { x = 10, z = 0 } }, 20, 400), "too near")
+		assert(R.inReach(0, 0, { { x = 500, z = 0 }, { x = 0, z = 100 } }, 20, 400), "any one will do")
+		assert(not R.inReach(0, 0, {}, 20, 400), "nothing known")
+	end,
+	["leaves: only once idle for the full time"] = function()
+		assert(not R.leaves(29.9, 30))
+		assert(R.leaves(30, 30))
+	end,
 	["repairOrder: built guns under half first, wherever they are, then the usual repairs"] = function()
 		local keep = require("../src/shared/Config/Artillery").Man.keep
 		local pieces = {
