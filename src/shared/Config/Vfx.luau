@@ -887,7 +887,7 @@ local Vfx = {
 	--   studs, gone after `life` s.
 	-- `ground`: the ground must be within this far under the firing point (x the scale), else no wave.
 	FiringWave = {
-		ground = 9,
+		ground = 14,
 		Air = {
 			rings = 2,
 			gap = 0.08,
