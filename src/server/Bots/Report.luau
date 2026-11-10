@@ -688,6 +688,11 @@ local function spotLines()
 		-- for that this match: Rules/BotBuild.spaced)
 		local gap = Cfg.Build.Nest.gap
 		local near, tight = BotBuild.closest(nestsAt, gap)
+		-- (its guns out of service: its own being fixed, its own left for being of no use, the enemy's it uses being
+		-- fixed: Crew.useful, Crew.fixes)
+		local bk = Tactics.crew.broken[side] or { fixing = 0, left = 0, captured = 0 }
+		local brokenNote =
+			`broken guns: {bk.fixing} of its own to fix, {bk.left} of its own left (can't reach the enemy), {bk.captured} captured to fix`
 		local spacing = if near
 			then `nearest two {math.floor(near + 0.5)} studs apart, {tight} pairs within {gap}`
 			else "fewer than two"
@@ -695,7 +700,7 @@ local function spotLines()
 			lines,
 			`{side}: holders this match {math.floor(100 * h.flag / n + 0.5)}% within {OP.clear} studs of a flag, {math.floor(
 				100 * h.zone / n + 0.5
-			)}% in a zone; {nests} MG nests ({frames} more going up, {Tactics.crew.nestsOut[side] or 0} at its front too far from the fight to count; {spacing}; {Tactics.crew.nestsTight[side] or 0} spots passed over too close), {guns} guns standing, {marked} of them on marked spots, {onFlag} within {OP.clear} of a flag`
+			)}% in a zone; {nests} MG nests ({frames} more going up, {Tactics.crew.nestsOut[side] or 0} at its front too far from the fight to count; {spacing}; {Tactics.crew.nestsTight[side] or 0} spots passed over too close), {guns} guns standing, {marked} of them on marked spots, {onFlag} within {OP.clear} of a flag; {brokenNote}`
 		)
 	end
 	workspace:SetAttribute(DevCfg.Admin.Spots.readout, table.concat(lines, "\n"))

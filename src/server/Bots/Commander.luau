@@ -2824,16 +2824,31 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	local keep: { [Model]: BuildJob } = {}
 	local n, nd = 0, 0
 	-- (its guns out of service first, wherever they stand: fixed before anyone mans them, Rules/BotCrew.repairOrder)
+	-- (one whose shot no longer reaches the enemy isn't: Crew.useful; the broken ones tallied for the readout)
 	local fixable = {}
+	local broken = Tactics.crew.broken[side] or { fixing = 0, left = 0, captured = 0 }
+	Tactics.crew.broken[side] = broken
+	broken.fixing, broken.left = 0, 0
 	for i, w in works do
 		local at = BotCrew.sectorAt(w.at.X, w.at.Z, Map.sectors)
+		local gun = w.kind == "Gun" or w.kind == "Nest"
+		local useful = if gun then Tactics.crew.usefulAt(side, w.at, 12) else nil
 		fixable[i] = {
-			gun = w.kind == "Gun" or w.kind == "Nest",
+			gun = gun,
 			built = w.built,
 			held = at ~= nil and owner[at] == side,
 			hp = w.hp,
 			max = w.max,
+			useful = useful,
 		}
+		local f = fixable[i]
+		if gun and f.built and f.held and w.max > 0 and w.hp / w.max * 100 < ArtCfg.Man.keep - 1e-6 then
+			if useful == false then
+				broken.left += 1
+			else
+				broken.fixing += 1
+			end
+		end
 	end
 	-- (its trench squares from further off: its lines at the sectors it holds and its forward lines, Trenches.digReach)
 	-- (its dug squares by what each is worth, Care.Score: those wanting repair first, the best first, then the base's
@@ -3688,6 +3703,15 @@ local function command()
 		)
 		arcTick(side, os.clock())
 		formSquads(side, counts)
+		-- (which guns on its ground can still reach the enemy: those that can't aren't fixed first, Crew.useful)
+		local reachAt = if shell and Map.sectors[shell] then sectorPoint(shell) else nil
+		local fightX, fightZ =
+			if front then BotBuild.fightPoint(Map.sectors, front, side, Cfg.Crew.MG.fightAt) else 0, 0
+		Tactics.crew.useful(side, owner, if front then reachAt else nil, function(g, k, a, t, arc)
+			return Guns.flyShot(g, k, a, t, arc, true)
+		end, function(at)
+			return BotCrew.inReach(at.X, at.Z, { { x = fightX, z = fightZ } }, 0, Cfg.Crew.MG.reach)
+		end)
 		buildList(side, owner, FrontRules.held(state, side))
 		Tactics.fell.list(side, buildLists[side])
 		pioneers(side) -- (after the trees in its lines' way are on the list)
@@ -3710,6 +3734,7 @@ local function command()
 			return BotCrew.safeSpot(at.X, at.Z, sec.x, sec.z, ex, ez, enemies, Cfg.Crew.captured.safe)
 		end)
 		Tactics.crew.wrecks(side, buildLists[side])
+		Tactics.crew.fixes(side, buildLists[side])
 	end
 	markTrenches()
 	label()

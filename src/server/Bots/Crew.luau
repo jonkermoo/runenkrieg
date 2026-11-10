@@ -781,6 +781,111 @@ function Crew.wrecks(side: string, sb: any)
 	wreckJobs[side] = keep
 end
 
+-- Whether each gun on a side's ground can still do its side any good (user 2026-11-09: "make sure bots are repairing
+-- broken artilleries that may be useful to them"): a field gun or howitzer whose shot, low or lobbed (`fly`), reaches
+-- `target` (the enemy sector it shells), an MG within reach of its side's fight (`mgReach`). Looked at again each
+-- `captured.every` s; by where the gun stands (its Build work stands at it, not the same model).
+type Useful = { side: string, at: Vector3, ok: boolean, when: number }
+local usefulOf: { [Model]: Useful } = {}
+
+function Crew.useful(
+	side: string,
+	owner: { string },
+	target: Vector3?,
+	fly: (gun: any, key: string, at: Vector3, target: Vector3, arc: string) -> boolean,
+	mgReach: (at: Vector3) -> boolean
+)
+	local now = os.clock()
+	local every = C.captured.every
+	for model, u in usefulOf do
+		if not model.Parent or (u.side == side and now - u.when >= every) then
+			usefulOf[model] = nil
+		end
+	end
+	if not target then
+		return
+	end
+	for _, g in Artillery.list() do
+		local at = g.model:GetPivot().Position
+		if ownerAt(at, owner) ~= side or usefulOf[g.model] then
+			continue
+		end
+		local ok = if g.mg
+			then mgReach(at)
+			else fly(ArtCfg.Guns[g.key], g.key, at, target, "low") or fly(
+				ArtCfg.Guns[g.key],
+				g.key,
+				at,
+				target,
+				"high"
+			)
+		usefulOf[g.model] = { side = side, at = at, ok = ok, when = now }
+	end
+end
+
+-- Whether the gun standing at `at` (within `near` studs) is of use to `side` (Crew.useful): nil when not looked at
+function Crew.usefulAt(side: string, at: Vector3, near: number): boolean?
+	for _, u in usefulOf do
+		if u.side == side and flat(u.at - at).Magnitude <= near then
+			return u.ok
+		end
+	end
+	return nil
+end
+
+-- each side's broken guns at the last look (Commander and Crew.fixes; the marked spots readout): its own being fixed,
+-- its own left for being of no use, the enemy's it uses being fixed
+Crew.broken = {} :: { [string]: { fixing: number, left: number, captured: number } }
+
+-- `side`'s fix jobs this tick on `sb.open` for the enemy-built guns it judged "use" (Crew.judge) that are out of service
+-- (under Config/Artillery.Man.keep of their HP): fixed first, like its own (Rules/BotCrew.repairOrder; Build swings fix
+-- any team's gun, src/server/Build)
+local fixJobs: { [string]: { [Model]: any } } = { West = {}, East = {} }
+function Crew.fixes(side: string, sb: any)
+	local keep = {}
+	local n = 0
+	if sb then
+		for _, v in verdicts do
+			local w = v.work
+			if
+				v.side == side
+				and v.verdict == "use"
+				and w.model.Parent
+				and w.max > 0
+				and w.hp / w.max * 100 < ArtCfg.Man.keep - 1e-6
+			then
+				local r = fixJobs[side][w.model]
+				if not r then
+					local job = { key = w.key, x = w.at.X, z = w.at.Z, fx = 0, fz = 1, work = true }
+					r = {
+						job = job,
+						base = job,
+						model = w.model,
+						at = w.at,
+						tries = 0,
+						waitUntil = 0,
+						left = 1,
+						open = true,
+					}
+				end
+				r.open, r.fix, r.left = true, true, math.max(w.left, 1)
+				keep[w.model] = r
+				table.insert(sb.open, r)
+				n += 1
+			end
+		end
+	end
+	for model, r in fixJobs[side] do
+		if not keep[model] then
+			r.open = false
+		end
+	end
+	fixJobs[side] = keep
+	local b = Crew.broken[side] or { fixing = 0, left = 0, captured = 0 }
+	Crew.broken[side] = b
+	b.captured = n
+end
+
 -- The report's piece: gunners on guns and walking to them, and what they did since the last
 function Crew.report(): string
 	local on, walking = 0, 0
@@ -853,6 +958,9 @@ function Crew.clear()
 	table.clear(mgFire)
 	table.clear(Crew.nestsOut)
 	table.clear(Crew.nestsTight)
+	table.clear(Crew.broken)
+	table.clear(usefulOf)
+	fixJobs = { West = {}, East = {} }
 end
 
 function Crew.init(c: Context)
