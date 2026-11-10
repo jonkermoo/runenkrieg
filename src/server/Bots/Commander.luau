@@ -2245,16 +2245,43 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				table.insert(mgSpots, sp)
 			end
 		end
-		for _, job in BotBuild.plan(zone, tx, tz, holds, if #spotted > 0 then unplaced else guns, Flanked.plan, missing) do
-			local keep = true
-			if job.key == "MGNest" and #mgSpots > 0 then
-				local sp = table.remove(mgSpots, 1)
-				local fx, fz = job.fx, job.fz
-				if sp.face then
-					fx, fz = BotBuild.bearingWay(sp.face)
-				end
-				job = { key = job.key, x = sp.x, z = sp.z, fx = fx, fz = fz }
+		-- (each nest `Nest.gap` studs from every nest of its side, standing, going up or captured and used, and from the
+		-- others planned now: the marked spots first, then the hold spots nearest the enemy, Rules/BotBuild.spaced)
+		local nestCands: { BotBuild.Job } = {}
+		for _, sp in mgSpots do
+			local fx, fz = tx, tz
+			if sp.face then
+				fx, fz = BotBuild.bearingWay(sp.face)
 			end
+			table.insert(nestCands, { key = "MGNest", x = sp.x, z = sp.z, fx = fx, fz = fz })
+		end
+		local planned =
+			BotBuild.plan(zone, tx, tz, holds, if #spotted > 0 then unplaced else guns, Flanked.plan, #holds)
+		for _, job in planned do
+			if job.key == "MGNest" then
+				table.insert(nestCands, job)
+			end
+		end
+		local nestsAt = {}
+		for _, w in Build.worksOf(kit) do
+			if w.key == "MGNest" then
+				table.insert(nestsAt, { x = w.at.X, z = w.at.Z })
+			end
+		end
+		for _, u in Tactics.crew.usable(side) do
+			if u.key == "MGNest" then
+				table.insert(nestsAt, { x = u.at.X, z = u.at.Z })
+			end
+		end
+		local nestJobs, passed = BotBuild.spaced(nestCands, nestsAt, BD.Nest.gap, missing)
+		Tactics.crew.nestsTight[side] = (Tactics.crew.nestsTight[side] or 0) + passed
+		for _, job in planned do
+			if job.key ~= "MGNest" then
+				table.insert(nestJobs, job)
+			end
+		end
+		for _, job in nestJobs do
+			local keep = true
 			if job.key == "Wire" then
 				local wx, wz = BotBuild.wireSpot(job.x, job.z, -tz, tx, ways, (Map.spawnZones :: any)[side], BD.Wire)
 				if wx ~= job.x or wz ~= job.z then

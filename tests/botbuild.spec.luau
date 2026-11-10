@@ -19,6 +19,32 @@ local function count(jobs: { R.Job }, key: string): number
 end
 
 return {
+	["spaced: nest spots kept gap apart from standing nests and each other, up to count"] = function()
+		local function at(x: number, z: number): R.Job
+			return { key = "MGNest", x = x, z = z, fx = 1, fz = 0 }
+		end
+		local cands = { at(0, 0), at(10, 0), at(50, 0), at(60, 0), at(100, 0) }
+		local kept, passed = R.spaced(cands, {}, 40, 3)
+		assert(#kept == 3 and kept[1].x == 0 and kept[2].x == 50 and kept[3].x == 100, "every 40 studs or more")
+		assert(passed == 2, "two passed over")
+		kept, passed = R.spaced(cands, { { x = 5, z = 0 } }, 40, 3)
+		assert(#kept == 2 and kept[1].x == 50 and kept[2].x == 100 and passed == 3, "clear of one standing")
+		kept = R.spaced(cands, {}, 40, 1)
+		assert(#kept == 1 and kept[1].x == 0, "stops at count")
+		kept = R.spaced(cands, {}, 0, 5)
+		assert(#kept == 5, "gap 0: none passed over")
+		kept = R.spaced(cands, {}, 40, 0)
+		assert(#kept == 0, "none wanted")
+		assert(B.Nest.gap > 0, "a gap is set")
+	end,
+
+	["closest: the nearest two and the pairs within gap"] = function()
+		local d, under = R.closest({ { x = 0, z = 0 }, { x = 30, z = 40 }, { x = 100, z = 0 } }, 60)
+		assert(d and near(d, 50) and under == 1, "50 apart, one pair within 60")
+		d, under = R.closest({ { x = 0, z = 0 } }, 60)
+		assert(d == nil and under == 0, "one alone")
+	end,
+
 	["mostBuilt: the laid piece with the fewest swings left, near or far"] = function()
 		local jobs = {
 			{ key = "MGNest", x = 10, z = 0, fx = 1, fz = 0, work = true },

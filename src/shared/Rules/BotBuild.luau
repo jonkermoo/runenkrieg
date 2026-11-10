@@ -138,6 +138,56 @@ function BotBuild.plan(
 	return jobs
 end
 
+-- MG nest spots kept apart (Config/Bots.Build.Nest `gap`; user 2026-11-09: "we need to add a distance requirement for
+-- mg nests too too many are compacted together"): from `cands` in order, each kept that stands at least `gap` studs
+-- from every nest in `standing` (its side's, built or going up) and every one kept already, until `count` are kept.
+-- Also how many were passed over for standing too close.
+function BotBuild.spaced(
+	cands: { Job },
+	standing: { { x: number, z: number } },
+	gap: number,
+	count: number
+): ({ Job }, number)
+	local kept: { Job } = {}
+	local passed = 0
+	local function clear(x: number, z: number, list: { any }): boolean
+		for _, p in list do
+			if (p.x - x) ^ 2 + (p.z - z) ^ 2 < gap * gap then
+				return false
+			end
+		end
+		return true
+	end
+	for _, c in cands do
+		if #kept >= count then
+			break
+		end
+		if clear(c.x, c.z, standing) and clear(c.x, c.z, kept) then
+			table.insert(kept, c)
+		else
+			passed += 1
+		end
+	end
+	return kept, passed
+end
+
+-- The two nearest of `points` (each { x, z }): how far apart they are (nil with fewer than two), and how many pairs
+-- stand closer than `gap` (the marked spots readout)
+function BotBuild.closest(points: { { x: number, z: number } }, gap: number): (number?, number)
+	local best: number? = nil
+	local under = 0
+	for i = 1, #points do
+		for j = i + 1, #points do
+			local d = math.sqrt((points[i].x - points[j].x) ^ 2 + (points[i].z - points[j].z) ^ 2)
+			if best == nil or d < best then
+				best = d
+			end
+			under += if d < gap then 1 else 0
+		end
+	end
+	return best, under
+end
+
 -- Whether one more of a side's bots should go Engineer for its guns (Config/Bots.Build.Crews): fewer than `enough`
 -- guns stand and fewer than `max` of its bots are on gun duty already.
 function BotBuild.crewWanted(standing: number, crews: number, cfg: any): boolean

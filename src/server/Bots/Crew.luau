@@ -813,6 +813,10 @@ end
 -- each side's nests in its front sector too far from the fight to count (Commander; the marked spots readout)
 Crew.nestsOut = {} :: { [string]: number }
 
+-- each side's nest spots passed over this match for standing within Build.Nest.gap of another nest (Commander; the
+-- marked spots readout)
+Crew.nestsTight = {} :: { [string]: number }
+
 -- each side's MG fire this match (the Bots' MGs readout)
 function Crew.mgCounts(): { [string]: MgFire }
 	return mgFire
@@ -848,6 +852,7 @@ function Crew.clear()
 	table.clear(targets)
 	table.clear(mgFire)
 	table.clear(Crew.nestsOut)
+	table.clear(Crew.nestsTight)
 end
 
 function Crew.init(c: Context)

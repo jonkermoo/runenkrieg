@@ -404,7 +404,10 @@ local Bots = {
 			flapWithin = 2,
 			giveUpAfter = 3,
 		},
-		Nest = { ahead = 2, count = 3 },
+		-- (a new nest's spot, marked or at a hold spot, stands at least `gap` studs from every nest of its side, standing or
+		-- going up, and from the others planned with it; fewer than its share where none fits: Rules/BotBuild.spaced; user
+		-- 2026-11-09: "we need to add a distance requirement for mg nests too too many are compacted together". 0: none)
+		Nest = { ahead = 2, count = 3, gap = 40 },
 		Guns = { back = 60, side = 24 },
 		-- (pieces 100: a third of Config/Build.PerTeam 300, as the 50 of 150 the user chose)
 		-- (the guns and MG nests: its share in each sector, user 2026-11-03: "cannons and artys built should be by sector.

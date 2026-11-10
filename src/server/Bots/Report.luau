@@ -663,8 +663,12 @@ local function spotLines()
 			end
 		end
 		local nests, guns, onFlag, marked, frames = 0, 0, 0, 0, 0
+		local nestsAt = {}
 		for _, w in if kit then BuildServer.worksOf(kit) else {} do
 			frames += if w.key == "MGNest" and not w.built then 1 else 0
+			if w.key == "MGNest" then
+				table.insert(nestsAt, { x = w.at.X, z = w.at.Z })
+			end
 			if w.built and (w.key == "MGNest" or w.key == "FieldGun" or w.key == "Howitzer") then
 				nests += if w.key == "MGNest" then 1 else 0
 				guns += if w.key == "MGNest" then 0 else 1
@@ -680,11 +684,18 @@ local function spotLines()
 			end
 		end
 		local n = math.max(h.all, 1)
+		-- (its nests, standing or going up: the nearest two, the pairs within Build.Nest.gap, and the spots passed over
+		-- for that this match: Rules/BotBuild.spaced)
+		local gap = Cfg.Build.Nest.gap
+		local near, tight = BotBuild.closest(nestsAt, gap)
+		local spacing = if near
+			then `nearest two {math.floor(near + 0.5)} studs apart, {tight} pairs within {gap}`
+			else "fewer than two"
 		table.insert(
 			lines,
 			`{side}: holders this match {math.floor(100 * h.flag / n + 0.5)}% within {OP.clear} studs of a flag, {math.floor(
 				100 * h.zone / n + 0.5
-			)}% in a zone; {nests} MG nests ({frames} more going up, {Tactics.crew.nestsOut[side] or 0} at its front too far from the fight to count), {guns} guns standing, {marked} of them on marked spots, {onFlag} within {OP.clear} of a flag`
+			)}% in a zone; {nests} MG nests ({frames} more going up, {Tactics.crew.nestsOut[side] or 0} at its front too far from the fight to count; {spacing}; {Tactics.crew.nestsTight[side] or 0} spots passed over too close), {guns} guns standing, {marked} of them on marked spots, {onFlag} within {OP.clear} of a flag`
 		)
 	end
 	workspace:SetAttribute(DevCfg.Admin.Spots.readout, table.concat(lines, "\n"))
