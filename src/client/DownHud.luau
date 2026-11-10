@@ -5,11 +5,11 @@
 -- - knocked down and alive: a field-note tag low in the middle of the screen, the key, what holding it does, and the
 --   seconds left (Rules/Ragdoll.downView): "up in 1.4s" while the get-up wait runs; held, "staying down" with the
 --   underline full and draining over the stay-down time (Config/Ragdoll.StayDown.max); dragged, the break-free key.
--- - a marker over each knocked-down, living teammate near (a red cross and DOWN, or HOLDING ON while they hold the
---   key, waiting for a medic or a drag), seen through walls, so medics and the rest can find them.
+-- - a marker over each knocked-down, living squad mate near (src/client/Squad; a red cross and DOWN, or HOLDING ON
+--   while they hold the key, waiting for a medic or a drag), seen through walls; only your own squad's (user
+--   2026-11-09), none while you are in no squad.
 -- Off during the match cutscenes and while the admin panel hides the game HUD.
 
-local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -17,15 +17,12 @@ local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Ragdoll)
-local BotsCfg = require(Shared.Config.Bots)
-local DevCfg = require(Shared.Config.DevTools)
-local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Ragdoll)
-local Teams = require(Shared.Rules.Teams)
 local Spec = require(Shared.ui.Prompt) :: any
 local DevCinematic = require(script.Parent.DevCinematic)
 local MatchCutscene = require(script.Parent.MatchCutscene)
+local Squad = require(script.Parent.Squad)
 local Settings = require(script.Parent.Settings)
 
 local DownHud = {}
@@ -250,27 +247,18 @@ local function clearMarks()
 	end
 end
 
--- the knocked-down, living teammates to mark now, nearest first, at most H.maxMarks within H.range
+-- the knocked-down, living squad mates to mark now, nearest first, at most H.maxMarks within H.range
 local function wanted(): { [Model]: BasePart }
 	local out: { [Model]: BasePart } = {}
 	local mine = player.Character
 	if not mine or hudHidden() then
 		return out
 	end
-	local kit = mine:GetAttribute("Kit")
-	local ffa = workspace:GetAttribute(ZoneCfg.FreeForAllAttribute) == true
 	local andMe = player:GetAttribute(H.selfAttribute) == true
 	local eye = workspace.CurrentCamera.CFrame.Position
 	local found: { { m: Model, head: BasePart, d: number } } = {}
 	local function consider(m: Instance?)
 		if not m or not m:IsA("Model") or not m:IsDescendantOf(workspace) then
-			return
-		end
-		if m == mine then
-			if not andMe then
-				return
-			end
-		elseif not Teams.same(kit, m:GetAttribute("Kit"), ffa) then
 			return
 		end
 		if m:GetAttribute("Ragdolled") ~= true then
@@ -286,13 +274,18 @@ local function wanted(): { [Model]: BasePart }
 			table.insert(found, { m = m, head = head, d = d })
 		end
 	end
-	for _, p in Players:GetPlayers() do
-		consider(p.Character)
-	end
-	for _, tag in { BotsCfg.Tag, DevCfg.Dummies.Tag } do
-		for _, m in CollectionService:GetTagged(tag) do
-			consider(m)
+	-- only your own squad mates (user 2026-11-09: "dont show the down status thing to everyone. only show it for
+	-- your squad mates"): none while you are in no squad
+	local key = Squad.key()
+	if key then
+		for _, e in Squad.everyone() do
+			if e.key == key and not e.me then
+				consider(e.model)
+			end
 		end
+	end
+	if andMe then
+		consider(mine)
 	end
 	table.sort(found, function(a, b)
 		return a.d < b.d
