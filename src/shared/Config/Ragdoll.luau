@@ -80,8 +80,8 @@ local Ragdoll = {
 	-- something when a player is knocked"; layout src/shared/ui/Prompt.json `down` and `mark`, colours Palette.UI.Prompt):
 	-- - your own prompt while down and alive: the key, what holding it does, its fill and the seconds left. The server
 	--   puts the get-up wait's end on the character as `upAtAttribute` (workspace:GetServerTimeNow() time).
-	-- - a marker over each knocked-down, living teammate (players, bots, the admin panel's dummies; nobody in a
-	--   free-for-all), the nearest `maxMarks` within `range` studs, seen through walls, saying whether they are holding
+	-- - a marker over each knocked-down, living squad mate (players and the admin panel's test mates in your squad;
+	--   user 2026-11-09: "only show it for your squad mates"), the nearest `maxMarks` within `range` studs, seen through walls, saying whether they are holding
 	--   to stay down (waiting for a medic or a drag). The admin panel's `selfAttribute` (on the Player) marks you too.
 	DownHud = {
 		upAtAttribute = "UpAt",
