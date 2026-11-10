@@ -795,7 +795,15 @@ local function waitStep(
 				local pr = b.prog or { key = nil, best = 0, at = now }
 				b.prog = pr
 				if BotWait.stalled(pr, { x = k.X, z = k.Z }, dist, now, WT) then
-					anchor, reach, why = p, WT.stalled, "stalled"
+					-- (a building in its way: round it rather than wait against its wall, Config/Bots.Move.Round)
+					local corner = Move.roundHouse(p, k, now)
+					if corner then
+						b.prog = nil
+						b.nav.direct, b.nav.pathAt = corner, -1
+						stats.roundHouse += 1
+					else
+						anchor, reach, why = p, WT.stalled, "stalled"
+					end
 				end
 			end
 		end

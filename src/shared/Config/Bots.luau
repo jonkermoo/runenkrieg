@@ -1042,8 +1042,9 @@ local Bots = {
 		Idle = { seconds = 25, studs = 3, post = 4, push = 15 },
 		-- round a building (Rules/BotBuildings.roundCorner; user 2026-11-09, photo: "a group of enemy bots is stuck
 		-- against a house"; chose "walk round the house"): a bot walking with no path (none found yet, or none at all)
-		-- whose straight way crosses a building within `look` studs, or stuck with one there, walks first to the corner
-		-- `clear` studs out past it on the shorter way round (in place of the random step aside), then paths again
+		-- whose straight way crosses a building within `look` studs, or stuck or stalled (Wait.stall) with one there, walks
+		-- first to the corner `clear` studs out past it on the shorter way round (in place of the random step aside, or of
+		-- waiting against its wall), then paths again; in a yard, round the one house of the farm it stands outside of
 		Round = { look = 10, clear = 4 },
 		-- waiting instead of milling (Rules/BotWait; user 2026-11-05 hand test: "instead of standing idly, they just move
 		-- in the same spot. if they're going to think, at least have them do it in a trench or while they're providing

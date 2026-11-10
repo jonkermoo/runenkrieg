@@ -1039,33 +1039,44 @@ local function roundHouse(from: Vector3, to: Vector3, now: number): Vector3?
 	if not hit then
 		return nil
 	end
-	local house: Instance? = hit.Instance
-	while house and not CollectionService:HasTag(house, DestructionCfg.BuildingTag) do
-		house = house.Parent
+	-- (the models from the building down to the part hit: a farm's whole yard first, else the one house of it the bot
+	-- stands outside of)
+	local chain: { Model } = {}
+	local at: Instance? = hit.Instance
+	while at do
+		if at:IsA("Model") then
+			table.insert(chain, 1, at :: Model)
+		end
+		if CollectionService:HasTag(at, DestructionCfg.BuildingTag) then
+			break
+		end
+		at = at.Parent
 	end
-	if not house or not house:IsA("Model") then
+	if not at then
 		return nil
 	end
-	local cf, size = (house :: Model):GetBoundingBox()
-	local u = Vector3.new(cf.RightVector.X, 0, cf.RightVector.Z)
-	if u.Magnitude < 1e-3 then
-		return nil
+	for _, m in chain do
+		local cf, size = m:GetBoundingBox()
+		local u = Vector3.new(cf.RightVector.X, 0, cf.RightVector.Z)
+		if u.Magnitude < 1e-3 then
+			continue
+		end
+		u = u.Unit
+		local v = Vector3.new(-u.Z, 0, u.X)
+		-- (its half sizes along the flat axes, from the bounding box's own, whichever way it is turned)
+		local hu = math.abs(cf.RightVector:Dot(u)) * size.X / 2
+			+ math.abs(cf.UpVector:Dot(u)) * size.Y / 2
+			+ math.abs(cf.LookVector:Dot(u)) * size.Z / 2
+		local hv = math.abs(cf.RightVector:Dot(v)) * size.X / 2
+			+ math.abs(cf.UpVector:Dot(v)) * size.Y / 2
+			+ math.abs(cf.LookVector:Dot(v)) * size.Z / 2
+		local box = { cx = cf.Position.X, cz = cf.Position.Z, ux = u.X, uz = u.Z, hu = hu, hv = hv }
+		local x, z = Buildings.roundCorner(from.X, from.Z, to.X, to.Z, box, RD.clear)
+		if x and z then
+			return Vector3.new(x, from.Y, z)
+		end
 	end
-	u = u.Unit
-	local v = Vector3.new(-u.Z, 0, u.X)
-	-- (its half sizes along the flat axes, from the bounding box's own, whichever way it is turned)
-	local hu = math.abs(cf.RightVector:Dot(u)) * size.X / 2
-		+ math.abs(cf.UpVector:Dot(u)) * size.Y / 2
-		+ math.abs(cf.LookVector:Dot(u)) * size.Z / 2
-	local hv = math.abs(cf.RightVector:Dot(v)) * size.X / 2
-		+ math.abs(cf.UpVector:Dot(v)) * size.Y / 2
-		+ math.abs(cf.LookVector:Dot(v)) * size.Z / 2
-	local box = { cx = cf.Position.X, cz = cf.Position.Z, ux = u.X, uz = u.Z, hu = hu, hv = hv }
-	local x, z = Buildings.roundCorner(from.X, from.Z, to.X, to.Z, box, RD.clear)
-	if not x or not z then
-		return nil
-	end
-	return Vector3.new(x, from.Y, z)
+	return nil
 end
 
 -- walks along the path (or straight at the goal while there's none); stuck: jumps, then a fresh path, then a step aside
@@ -1421,6 +1432,7 @@ return {
 	inside = inside,
 	setGoal = setGoal,
 	follow = follow,
+	roundHouse = roundHouse,
 	strafeStep = strafeStep,
 	arrived = arrivedAt,
 	stow = stow,
