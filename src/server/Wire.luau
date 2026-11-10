@@ -1,7 +1,8 @@
 --!strict
 -- Barbed wire on the soldiers (Config/Build.Wire; the pieces: src/server/Build). Every Wire.tick seconds each soldier
--- whose root stands in a standing wire's box is "Wired" (a character attribute: src/client/Stance slows them to
--- Wire.speed, no sprint, no jump), both teams alike; the enemy loses health while moving through it (Rules/Build.wireHarm),
+-- whose root stands in a standing wire's box (Rules.inWire) is "Wired" (a character attribute; a player's own client
+-- slows them to Wire.speed, no sprint, no jump the frame they touch it: src/client/Stance), both teams alike; the
+-- enemy loses health while moving through it (Rules/Build.wireHarm),
 -- and each tick anyone moves through it (Rules/Build.wireRattles) the wire's "RattleFrom" (where) and "ShakeAt" (when)
 -- are set: src/client/WireShake shakes it and plays its rattle.
 
@@ -26,7 +27,7 @@ function Wire.start()
 					local inside: Build.WireBox? = nil
 					for _, w in wires do
 						local l = w.frame:PointToObjectSpace(root.Position)
-						if Rules.inBox(l.X, l.Y, l.Z, w.size.X, w.size.Y, w.size.Z) then
+						if Rules.inWire(l.X, l.Y, l.Z, w.piece, C.Wire) then
 							inside = w
 							break
 						end

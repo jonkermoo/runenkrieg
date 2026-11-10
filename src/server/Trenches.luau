@@ -369,6 +369,14 @@ local function reshapeColumns(job: Reshape, i0: number, i1: number)
 				if math.abs(l.X) <= pk.room.X / 2 + D.cut and l.Z >= D.stair - D.cut and l.Z <= back then
 					open(floor - D.cut, floor + pk.room.Y + D.cutTop, earth, pk)
 				end
+				-- earth kept over its cut behind the wall's face (Rules.dugoutEarth): where the ground lies lower (a
+				-- slope), a mound of its soil, so the cut's voxels never leave its shell bare (user 2026-11-09)
+				local over = math.abs(l.X) <= pk.room.X / 2 + D.cut and l.Z <= back
+				local want = over and Rules.dugoutEarth(l.Z, D, pk.room.Y, RUN, T.depth)
+				if want and not cut and top and top < y0 + want then
+					bank = math.max(bank or -math.huge, y0 + want)
+					soil = soil or soilOf(pk.blk)
+				end
 			end
 			if cut or bank or soil or hollow then
 				for iy = 1, size.Y do

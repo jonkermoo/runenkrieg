@@ -180,6 +180,21 @@ local function build(player: Player): ScreenGui
 			end
 		end)
 	end
+	-- the dugout nearest the aim point to a share of its HP as if still being built (100: finished; src/server/DevTools)
+	for _, pct in B.DugoutHp do
+		order += 1
+		local key = `DugoutHp{pct}`
+		local label = if pct >= 100 then "Dugout at aim: finish (100%)" else `Dugout at aim: built to {pct}%`
+		local button = DevPanel.button(p.panel, key, label, order)
+		pieceButtons[key] = button
+		pieceNames[key] = label
+		button.Activated:Connect(function()
+			local aim = DevAim.point()
+			if aim then
+				Net.event("DevAction"):FireServer("DugoutHp", pct, aim)
+			end
+		end)
+	end
 	-- the trench square nearest the aim point reinforced to 100 + x, or stripped back to 100 (src/server/DevTools)
 	for _, x in B.TrenchExtra do
 		order += 1

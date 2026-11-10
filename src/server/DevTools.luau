@@ -294,6 +294,11 @@ local function act(player: Player, action: string, value: any, aim: Vector3?)
 			stand:Destroy()
 		end
 		Net.event("DevAction"):FireClient(player, if why then "Refused" else "Done", action, why or `planned for {kit}`)
+	elseif action == "DugoutHp" and aim and type(value) == "number" then
+		-- the dugout nearest the aim point to `value`% of its HP as if still being built (Build.devHp; on the button)
+		local key = `DugoutHp{value}`
+		local why = Build.devHp(aim, "Dugout", value, Cfg.Blasts.DugoutReach)
+		Net.event("DevAction"):FireClient(player, if why then "Refused" else "Done", key, why or `dugout at {value}%`)
 	elseif action == "TrenchExtra" and aim then
 		-- the dug square nearest the aim point to 100 + `value` (Trenches.reinforce; shown on the button)
 		local best, bestD = nil, Cfg.Blasts.TrenchReach

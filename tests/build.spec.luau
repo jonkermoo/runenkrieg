@@ -311,6 +311,29 @@ return {
 		assert(B.wireHarm(0.5, 1, C.Wire) == 0 and near(B.wireHarm(5, 0.25, C.Wire), C.Wire.damage / 4))
 		assert(C.Wire.speed < M.Movement.CrouchSpeed)
 	end,
+	["the wire: 2 Build swings make it whole, an Engineer's 1 (user 2026-11-09)"] = function()
+		local w = C.Wire
+		local soldier, engineer = B.wireSwing(nil, w), B.wireSwing("Engineer", w)
+		local hp, n = w.hp.place, 0
+		repeat
+			hp, n = B.hpSwing(hp, true, w.hp, soldier), n + 1
+		until hp >= w.hp.max or n > 10
+		assert(n == 2, `a soldier's swings: {n}`)
+		assert(B.hpSwing(w.hp.place, true, w.hp, engineer) == w.hp.max, "an engineer's one swing")
+		assert(B.wireSwing("Grenadier", w) == soldier, "every other class as a soldier")
+	end,
+	["the wire: its box from just under the ground to over its top, its footprint wide"] = function()
+		local piece = assert(B.piece("Wire", C.Pieces))
+		local w = C.Wire
+		assert(
+			B.inWire(0, 0, 0, piece, w) and B.inWire(0, 3, 0, piece, w),
+			"a root on the ground, at the wire's middle"
+		)
+		assert(B.inWire(piece.width / 2 - 0.01, 2, piece.depth / 2 - 0.01, piece, w), "at a corner")
+		assert(not B.inWire(0, 2, piece.depth / 2 + 0.01, piece, w), "just off its front")
+		assert(B.inWire(0, piece.height + w.over / 2 - 0.01, 0, piece, w), "jumping over it still counts")
+		assert(not B.inWire(0, piece.height + w.over / 2 + 0.01, 0, piece, w), "clear over it")
+	end,
 	["the wire: only the enemy is hurt, its own team only slowed"] = function()
 		assert(B.wireHarm(5, 0.25, C.Wire, true) == 0, "a teammate moving through it")
 		assert(B.wireHarm(5, 0.25, C.Wire, false) > 0, "an enemy moving through it")
@@ -1167,6 +1190,23 @@ return {
 		assert(shown(10, false) == "0,0" and shown(25, false) == "1,0", "a stage at each quarter (user 2026-11-03)")
 		assert(shown(50, false) == "2,0" and shown(90, false) == "3,0" and shown(100, false) == "4,0", "built by HP")
 		assert(shown(100, true) == "4,0", "whole")
+		-- boarded up from the first cut until it has stood whole; worn after that it stays open (user 2026-11-09)
+		assert(not B.dugoutBarred(0, false), "laid: nothing dug yet")
+		assert(B.dugoutBarred(1, false) and B.dugoutBarred(4, false), "being built: boarded up, even at 99%")
+		assert(not B.dugoutBarred(4, true) and not B.dugoutBarred(1, true), "stood: open, worn or not")
+		local T0 = C.Trench
+		local run0 = B.trenchTop(T0) - T0.floor
+		local bz, b0, b1 = B.dugoutBar(d, run0, T0.depth)
+		assert(bz > 0 and bz < d.stair, "across the tunnel, behind the wall's foot")
+		assert(near(b1, d.lintel) and b0 < -d.drop * bz / d.stair, "from under the steps up to the lintel")
+		-- earth kept over its cut (user 2026-11-09: a half-built one left bare on a slope): none in front of the wall's
+		-- face, over the room a whole voxel and `earth` over its cut's top, never over level ground's
+		assert(B.dugoutEarth(run0 - 0.1, d, piece.height, run0, T0.depth) == nil, "the open trench: nothing raised")
+		local roomEarth = assert(B.dugoutEarth(d.stair + 1, d, piece.height, run0, T0.depth))
+		assert(near(roomEarth, piece.height - d.drop + d.cutTop + 2 + d.cover.earth), "over the room")
+		assert(roomEarth <= T0.depth, "level ground already holds it: nothing raised there")
+		local tunnel = assert(B.dugoutEarth(run0 + 0.5, d, piece.height, run0, T0.depth))
+		assert(tunnel > roomEarth, "more over the tunnel's higher roof")
 		assert(shown(d.fillFrom, true) == "4,0" and shown(90, true) == "4,0", "a hit or two leaves it clear")
 		local _, half = B.dugoutShown(d.fillFrom / 2, 100, true, d)
 		local _, gone = B.dugoutShown(0, 100, true, d)
