@@ -585,7 +585,8 @@ local Bots = {
 	-- the one furthest under add up to `moveAt` squads. Attackers go by their lane's point `back` studs short of the
 	-- sector (in place of Front.Flank's), gather at the best gather spot within `gatherNear` of it (else on it), and
 	-- converge on the zone for the assault; defenders (those not keeping the zone) hold posts in their lane, else on its
-	-- point `ahead` studs out toward the enemy. While an own sector is being taken, its defenders' share rises from
+	-- point `ahead` studs out toward the enemy; when the enemy's offensive goes in, only the squads in the lane through
+	-- the flag and in lanes with enemies known in them stand to into the zone. While an own sector is being taken, its defenders' share rises from
 	-- Normal.defendShare toward `danger` with how badly (Rules/BotOrders.danger).
 	Lanes = {
 		on = true,

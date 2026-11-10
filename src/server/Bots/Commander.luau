@@ -843,10 +843,11 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 		local lf: BotLanes.Frame? = nil
 		local lt: { number } = {}
 		local have: { number } = {}
+		local foes: { number } = {}
 		if LN.on then
 			local f = BotLanes.frame(s.x, s.z, ltx, ltz, if defend then LN.ahead else -LN.back, laneBounds, LN)
 			lf = f
-			local foes, own = {}, {}
+			local own = {}
 			local seenFoe: { [Model]: boolean } = {}
 			for _, o in squads do
 				if o.side == side then
@@ -1233,6 +1234,13 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 			-- holding a sector the enemy's offensive is going into: it stands to, into its own zone, fighting on the
 			-- move (counter-attackers at its own front, Config/Bots.Offensive; under the barrage they kept to cover)
 			local standTo = Orders.standTo(defend, enemyOff, sector)
+			-- (in a lane: only the lane through the flag and lanes with enemies known in them stand to; the rest hold
+			-- their lane, Config/Bots.Lanes)
+			if standTo and lf and sqs.slot then
+				local slot = sqs.slot :: number
+				standTo = BotLanes.inLane(lf :: BotLanes.Frame, slot, BotLanes.offset(lf :: BotLanes.Frame, c.X, c.Z))
+					or (foes[slot] or 0) > 0
+			end
 			if standTo then
 				sqs.sq.phase = "Assault"
 				if not sqs.stoodTo then
