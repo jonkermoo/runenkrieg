@@ -96,4 +96,69 @@ function BotBuildings.waitForDoor(door: boolean, distance: number, opening: bool
 	return opening or since < cfg.doorWait
 end
 
+-- A building's footprint: a rectangle round (cx, cz), `hu` studs each way along the flat unit (ux, uz) and `hv` across it
+export type Box = { cx: number, cz: number, ux: number, uz: number, hu: number, hv: number }
+
+-- Whether the segment (ax, az)-(bx, bz) (in a box's own studs) passes through the rectangle [-hu, hu] x [-hv, hv]
+local function crosses(ax: number, az: number, bx: number, bz: number, hu: number, hv: number): boolean
+	local t0, t1 = 0, 1
+	local dx, dz = bx - ax, bz - az
+	for _, e in { { -dx, ax + hu }, { dx, hu - ax }, { -dz, az + hv }, { dz, hv - az } } do
+		local p, q = e[1], e[2]
+		if math.abs(p) < 1e-9 then
+			if q < 0 then
+				return false
+			end
+		else
+			local r = q / p
+			if p < 0 then
+				t0 = math.max(t0, r)
+			else
+				t1 = math.min(t1, r)
+			end
+			if t0 > t1 then
+				return false
+			end
+		end
+	end
+	return true
+end
+
+-- Round a building (Config/Bots.Move.Round; user 2026-11-09, photo: "a group of enemy bots is stuck against a house"):
+-- from (px, pz) toward (gx, gz) with `box` in the way, the corner `clear` studs out past the building to walk to first:
+-- of the corners it can walk straight to, the one with the shortest way on to the goal. Nil when the way doesn't
+-- cross the building or no corner can be reached straight.
+function BotBuildings.roundCorner(
+	px: number,
+	pz: number,
+	gx: number,
+	gz: number,
+	box: Box,
+	clear: number
+): (number?, number?)
+	local function loc(x: number, z: number): (number, number)
+		local dx, dz = x - box.cx, z - box.cz
+		return dx * box.ux + dz * box.uz, -dx * box.uz + dz * box.ux
+	end
+	-- (a little inside its walls, so a bot pressed against one, or walking along it, doesn't count as through it)
+	local hu, hv = math.max(box.hu - 0.5, 0), math.max(box.hv - 0.5, 0)
+	local pa, pb = loc(px, pz)
+	local ga, gb = loc(gx, gz)
+	if not crosses(pa, pb, ga, gb, hu, hv) then
+		return nil, nil
+	end
+	local best, bx, bz = math.huge, nil, nil
+	for _, s in { { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } } do
+		local ca, cb = s[1] * (box.hu + clear), s[2] * (box.hv + clear)
+		if not crosses(pa, pb, ca, cb, hu, hv) then
+			local cost = math.sqrt((ca - pa) ^ 2 + (cb - pb) ^ 2) + math.sqrt((ga - ca) ^ 2 + (gb - cb) ^ 2)
+			if cost < best then
+				best = cost
+				bx, bz = box.cx + ca * box.ux - cb * box.uz, box.cz + ca * box.uz + cb * box.ux
+			end
+		end
+	end
+	return bx, bz
+end
+
 return BotBuildings

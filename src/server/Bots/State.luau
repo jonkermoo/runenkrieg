@@ -231,6 +231,7 @@ local stats = {
 	pathFails = 0,
 	stuck = 0,
 	sidesteps = 0,
+	roundHouse = 0, -- walks round a building in the way, with no path or stuck (Config/Bots.Move.Round)
 	shots = 0,
 	deaths = 0,
 	toZone = 0,

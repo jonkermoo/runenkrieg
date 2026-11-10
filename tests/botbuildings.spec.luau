@@ -9,6 +9,21 @@ local function spot(x: number, z: number, fx: number, fz: number, story: number?
 end
 
 return {
+	["roundCorner: the nearer corner on the shorter way round, nil when the way is clear"] = function()
+		local RD = Cfg.Move.Round
+		local box = { cx = 0, cz = 0, ux = 1, uz = 0, hu = 10, hv = 5 }
+		local x, z = R.roundCorner(-20, 1, 20, 0, box, RD.clear)
+		assert(x == -10 - RD.clear and z == 5 + RD.clear, "the near corner, on the side it stands")
+		x, z = R.roundCorner(-20, -1, 20, 0, box, RD.clear)
+		assert(x == -10 - RD.clear and z == -5 - RD.clear, "the other side")
+		assert(R.roundCorner(-20, 10, 20, 10, box, RD.clear) == nil, "the way passes it by")
+		assert(R.roundCorner(-10, 0, -10, 30, box, RD.clear) == nil, "pressed against its wall, walking along it")
+		local turned = { cx = 0, cz = 0, ux = 0, uz = 1, hu = 10, hv = 5 }
+		x, z = R.roundCorner(1, -20, 0, 20, turned, RD.clear)
+		assert(z == -10 - RD.clear and x == 5 + RD.clear, "a near corner of a turned one")
+		x, z = R.roundCorner(0, -5.2, 0, 30, box, RD.clear)
+		assert(z == -5 - RD.clear and x ~= nil, "from right behind it: a corner on its own side")
+	end,
 	["pickHold: a free spot in the zone facing the enemy, upstairs first"] = function()
 		local spots = {
 			spot(0, 10, -1, 0), -- faces away from the enemy (east, +x)

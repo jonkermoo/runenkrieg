@@ -1040,6 +1040,11 @@ local Bots = {
 		-- (`seconds` 25, not 20: a squad waits up to Squads.waitMax 20 s at a waypoint for its members)
 		-- (a reset bot down inside a dugout that isn't its post walks straight up its steps first)
 		Idle = { seconds = 25, studs = 3, post = 4, push = 15 },
+		-- round a building (Rules/BotBuildings.roundCorner; user 2026-11-09, photo: "a group of enemy bots is stuck
+		-- against a house"; chose "walk round the house"): a bot walking with no path (none found yet, or none at all)
+		-- whose straight way crosses a building within `look` studs, or stuck with one there, walks first to the corner
+		-- `clear` studs out past it on the shorter way round (in place of the random step aside), then paths again
+		Round = { look = 10, clear = 4 },
 		-- waiting instead of milling (Rules/BotWait; user 2026-11-05 hand test: "instead of standing idly, they just move
 		-- in the same spot. if they're going to think, at least have them do it in a trench or while they're providing
 		-- fire"): a Normal bot engaging in the open (no cover), inside its zone, at its squad's stop, or `stall` s no

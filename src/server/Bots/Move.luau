@@ -1017,7 +1017,59 @@ Doors.onSwung(function(door: Model)
 	end
 end)
 
+-- round a building (Config/Bots.Move.Round): the corner past the building within Round.look studs of `from` on the
+-- straight way to `to`, nil when none is in the way
+local CollectionService = game:GetService("CollectionService")
+local DestructionCfg = require(Shared.Config.Destruction)
+local RD = MV.Round
+local houseRay = RaycastParams.new()
+houseRay.FilterType = Enum.RaycastFilterType.Include
+local housesAt = -math.huge
+local function roundHouse(from: Vector3, to: Vector3, now: number): Vector3?
+	local way = flat(to - from)
+	if way.Magnitude < 1 then
+		return nil
+	end
+	if now - housesAt > 5 then
+		-- (the buildings, looked up again now and then: a new match puts fresh copies down)
+		housesAt = now
+		houseRay.FilterDescendantsInstances = CollectionService:GetTagged(DestructionCfg.BuildingTag)
+	end
+	local hit = workspace:Raycast(from, way.Unit * math.min(RD.look, way.Magnitude), houseRay)
+	if not hit then
+		return nil
+	end
+	local house: Instance? = hit.Instance
+	while house and not CollectionService:HasTag(house, DestructionCfg.BuildingTag) do
+		house = house.Parent
+	end
+	if not house or not house:IsA("Model") then
+		return nil
+	end
+	local cf, size = (house :: Model):GetBoundingBox()
+	local u = Vector3.new(cf.RightVector.X, 0, cf.RightVector.Z)
+	if u.Magnitude < 1e-3 then
+		return nil
+	end
+	u = u.Unit
+	local v = Vector3.new(-u.Z, 0, u.X)
+	-- (its half sizes along the flat axes, from the bounding box's own, whichever way it is turned)
+	local hu = math.abs(cf.RightVector:Dot(u)) * size.X / 2
+		+ math.abs(cf.UpVector:Dot(u)) * size.Y / 2
+		+ math.abs(cf.LookVector:Dot(u)) * size.Z / 2
+	local hv = math.abs(cf.RightVector:Dot(v)) * size.X / 2
+		+ math.abs(cf.UpVector:Dot(v)) * size.Y / 2
+		+ math.abs(cf.LookVector:Dot(v)) * size.Z / 2
+	local box = { cx = cf.Position.X, cz = cf.Position.Z, ux = u.X, uz = u.Z, hu = hu, hv = hv }
+	local x, z = Buildings.roundCorner(from.X, from.Z, to.X, to.Z, box, RD.clear)
+	if not x or not z then
+		return nil
+	end
+	return Vector3.new(x, from.Y, z)
+end
+
 -- walks along the path (or straight at the goal while there's none); stuck: jumps, then a fresh path, then a step aside
+-- (round the building in the way, if one is: Config/Bots.Move.Round)
 local function follow(b: Bot, now: number)
 	local nav = b.nav
 	local humanoid, root = b.humanoid :: Humanoid, b.root :: BasePart
@@ -1074,6 +1126,16 @@ local function follow(b: Bot, now: number)
 			end
 		else
 			target = nav.goal
+			-- (no path: a building in the straight way is walked round, then a fresh path from past it)
+			if b.mode == "Normal" and nav.goal and now - (nav.roundAt or -math.huge) > 1 then
+				nav.roundAt = now
+				local corner = roundHouse(root.Position, nav.goal :: Vector3, now)
+				if corner then
+					nav.direct, nav.pathAt = corner, -1
+					target = corner
+					stats.roundHouse += 1
+				end
+			end
 		end
 	end
 	if not target or flat((target :: Vector3) - root.Position).Magnitude < 1 then
@@ -1108,8 +1170,19 @@ local function follow(b: Bot, now: number)
 			else
 				stats.sidesteps += 1
 				nav.jumps, nav.repaths = 0, 0
-				local a = random:NextNumber() * 2 * math.pi
-				nav.direct = root.Position + Vector3.new(math.cos(a), 0, math.sin(a)) * MV.Sidestep
+				-- (a building in the way: round it, not a random step, often back into its wall)
+				local wp = nav.waypoints[nav.index]
+				local toward = if wp then wp.Position else nav.goal
+				local corner = if toward and b.mode == "Normal"
+					then roundHouse(root.Position, toward :: Vector3, now)
+					else nil
+				if corner then
+					nav.direct, nav.pathAt = corner, -1
+					stats.roundHouse += 1
+				else
+					local a = random:NextNumber() * 2 * math.pi
+					nav.direct = root.Position + Vector3.new(math.cos(a), 0, math.sin(a)) * MV.Sidestep
+				end
 			end
 		end
 		nav.sampleAt, nav.samplePos = now, root.Position

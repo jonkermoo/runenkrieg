@@ -24,6 +24,7 @@ export type Nav = {
 	repaths: number,
 	direct: Vector3?, -- a point walked to straight, without a path (strafing, a peek, a step aside)
 	doorAt: number, -- when it last opened a door on its way (it waits while the door swings)
+	roundAt: number?, -- when it last looked for a building in its straight way, walking with no path (Move.Round)
 	walkedAt: number?, -- the last think that walked it along (Move.arrived goes on from there between thinks)
 	arrivedAt: number?, -- when Move.arrived last took it on to its next waypoint
 }
