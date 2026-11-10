@@ -38,6 +38,15 @@ return {
 		assert(B.Nest.gap > 0, "a gap is set")
 	end,
 
+	["whereIs: front, behind (its own back from the front) or ahead"] = function()
+		local owner = { "West", "West", "West", "East", "East" }
+		assert(R.whereIs(3, 3, owner, "West") == "front")
+		assert(R.whereIs(1, 3, owner, "West") == "behind")
+		assert(R.whereIs(4, 3, owner, "West") == "ahead")
+		assert(R.whereIs(5, 4, owner, "East") == "behind")
+		assert(R.whereIs(2, nil, owner, "West") == "ahead", "no front")
+	end,
+
 	["closest: the nearest two and the pairs within gap"] = function()
 		local d, under = R.closest({ { x = 0, z = 0 }, { x = 30, z = 40 }, { x = 100, z = 0 } }, 60)
 		assert(d and near(d, 50) and under == 1, "50 apart, one pair within 60")

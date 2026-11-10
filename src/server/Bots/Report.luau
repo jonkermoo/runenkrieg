@@ -662,6 +662,63 @@ local function spotLines()
 				end
 			end
 		end
+		-- (where its living bots stand now and this match, and what those behind its front do there: Rules/BotBuild.whereIs)
+		local owners = fronts.owners
+		local front = if owners then BotBuild.front(Map.sectors, owners, side) else nil
+		local where = State.ByTrench.where[side] or {}
+		State.ByTrench.where[side] = where
+		local whyBehind = State.ByTrench.behindWhy[side] or {}
+		State.ByTrench.behindWhy[side] = whyBehind
+		local nowWhere: { [string]: number } = { front = 0, behind = 0, ahead = 0 }
+		local now = os.clock()
+		for _, b in bots do
+			local m = b.m
+			if b.side == side and m and alive(b) and owners then
+				local p = (b.root :: BasePart).Position
+				local at, best = nil, math.huge
+				for i, s in Map.sectors do
+					local d = (s.x - p.X) ^ 2 + (s.z - p.Z) ^ 2
+					if d < best then
+						at, best = i, d
+					end
+				end
+				local w = BotBuild.whereIs(at, front, owners, side)
+				nowWhere[w] += 1
+				where[w] = (where[w] or 0) + 1
+				if w == "behind" then
+					local job = if b.act and b.act.job then b.act.job elseif b.work then b.work else nil
+					local why = if Artillery.gunOf(m)
+						then "manning a gun"
+						elseif b.gun then "walking to a gun"
+						elseif job and job.fix then "fixing a gun"
+						elseif job and job.job.key == "Trench" then "digging"
+						elseif job then "building"
+						elseif b.pioneer then "pioneer"
+						elseif now - b.spawnedAt < 30 then "just spawned"
+						elseif b.sector and b.sector ~= at then "walking to its order"
+						else `other ({b.order or "-"} {b.role or "-"})`
+					whyBehind[why] = (whyBehind[why] or 0) + 1
+				end
+			end
+		end
+		local seen = math.max((where.front or 0) + (where.behind or 0) + (where.ahead or 0), 1)
+		local whys = {}
+		for why, n in whyBehind do
+			table.insert(whys, { why = why, n = n })
+		end
+		table.sort(whys, function(a, b)
+			return a.n > b.n
+		end)
+		local whyText = {}
+		for _, e in whys do
+			table.insert(whyText, `{e.why} {math.floor(100 * e.n / math.max(where.behind or 0, 1) + 0.5)}%`)
+		end
+		local whereNote =
+			`bots now: {nowWhere.front} at its front S{front or "-"}, {nowWhere.behind} behind it, {nowWhere.ahead} ahead; this match {math.floor(
+				100 * (where.front or 0) / seen + 0.5
+			)}% front, {math.floor(100 * (where.behind or 0) / seen + 0.5)}% behind, {math.floor(
+				100 * (where.ahead or 0) / seen + 0.5
+			)}% ahead; behind: {table.concat(whyText, ", ")}`
 		local nests, guns, onFlag, marked, frames = 0, 0, 0, 0, 0
 		local nestsAt = {}
 		for _, w in if kit then BuildServer.worksOf(kit) else {} do
@@ -703,7 +760,7 @@ local function spotLines()
 			lines,
 			`{side}: holders this match {math.floor(100 * h.flag / n + 0.5)}% within {OP.clear} studs of a flag, {math.floor(
 				100 * h.zone / n + 0.5
-			)}% in a zone; {nests} MG nests ({frames} more going up, {Tactics.crew.nestsOut[side] or 0} at its front too far from the fight to count; {spacing}; {Tactics.crew.nestsTight[side] or 0} spots passed over too close), {guns} guns standing, {marked} of them on marked spots, {onFlag} within {OP.clear} of a flag; {brokenNote}`
+			)}% in a zone; {nests} MG nests ({frames} more going up, {Tactics.crew.nestsOut[side] or 0} at its front too far from the fight to count; {spacing}; {Tactics.crew.nestsTight[side] or 0} spots passed over too close), {guns} guns standing, {marked} of them on marked spots, {onFlag} within {OP.clear} of a flag; {brokenNote}; {whereNote}`
 		)
 	end
 	workspace:SetAttribute(DevCfg.Admin.Spots.readout, table.concat(lines, "\n"))

@@ -138,6 +138,20 @@ function BotBuild.plan(
 	return jobs
 end
 
+-- Where a soldier of `side` standing in sector `i` is (user 2026-11-09: "too many people are at the old sectors that we
+-- dont have enough people to advance"): "front" at its side's `front` sector, "behind" at one its side holds back from
+-- it, "ahead" anywhere else (the enemy's or a neutral one)
+function BotBuild.whereIs(i: number?, front: number?, owner: { string }, side: string): string
+	if i == nil or front == nil then
+		return "ahead"
+	elseif i == front then
+		return "front"
+	elseif owner[i] == side then
+		return "behind"
+	end
+	return "ahead"
+end
+
 -- MG nest spots kept apart (Config/Bots.Build.Nest `gap`; user 2026-11-09: "we need to add a distance requirement for
 -- mg nests too too many are compacted together"): from `cands` in order, each kept that stands at least `gap` studs
 -- from every nest in `standing` (its side's, built or going up) and every one kept already, until `count` are kept.

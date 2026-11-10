@@ -79,6 +79,11 @@ local ByTrench = {
 	idleWhy = {} :: { [string]: { [string]: number } }, -- its samples of idle bots, by why
 	-- each side's samples of its living bots on hold: all, within OffPoint.clear of a flag, in a zone
 	holders = {} :: { [string]: { all: number, flag: number, zone: number } },
+	-- each side's samples of its living bots by where they stand (Rules/BotBuild.whereIs: front, behind, ahead) and,
+	-- behind its front, what they do there (the marked spots readout; user 2026-11-09: "too many people are at the old
+	-- sectors")
+	where = {} :: { [string]: { [string]: number } },
+	behindWhy = {} :: { [string]: { [string]: number } },
 	-- each side's players' planned squares dug this match: seconds from first listed to dug (Config/Bots.Trenches.Plans)
 	planTimes = {} :: { [string]: { number } },
 }
