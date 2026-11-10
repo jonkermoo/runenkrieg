@@ -10,11 +10,14 @@ local SketchMap = {
 	Maps = {
 		-- cropped closer to the spawns (user 2026-10-31: "cut off more unnecessary parts of the map and expand it"); redrawn
 		-- for the longer, narrower map (2026-11-01; was 87971867576424, 1024 x 542 over x 120..1700, z -400..400)
+		-- redrawn for the rebuilt map (2026-11-10: its east HQ at x 2420 fell off the old 120..2330 frame): both HQs
+		-- with room round them (tools/ui/sketchmap_ground.py from tools/ui/sketchmap_export.luau; was 88967963615019,
+		-- the Image behind the uploaded Decal 136207333793204, over x 120..2330)
 		Map1 = {
-			image = 88967963615019, -- (the Image behind the uploaded Decal 136207333793204: a Decal id shows nothing)
-			size = { 1024, 295 },
+			image = 140380853576177, -- (the Image behind the uploaded Decal 124242256197041)
+			size = { 1024, 286 },
 			pad = 24,
-			x = { 120, 2330 },
+			x = { 270, 2570 },
 			z = { -280, 280 },
 		},
 		-- the campaign's opening map (map vote, user 2026-11-02): the same area as Map 1's image, in world z (its middle
