@@ -76,7 +76,8 @@ end
 -- before manning it): every built gun on its side's ground (`held`) under `keep`% of its HP first, however far from the
 -- front, then `near` (the usual repairs near the front) not listed already. Also which of them are such fixes.
 -- (user 2026-11-09: "make sure bots are repairing broken artilleries that may be useful to them": one found of no use,
--- `useful` false, its shot not reaching the enemy, isn't fixed first; nil: not looked at, fixed)
+-- `useful` false, its shot not reaching the enemy, gets no swings at all, not even as a usual repair near the front: a
+-- measured match's useless nest there was fixed to full while a useful one waited; nil: not looked at, fixed)
 export type Fixable = { gun: boolean, built: boolean, held: boolean, hp: number, max: number, useful: boolean? }
 function BotCrew.repairOrder(pieces: { Fixable }, near: { number }, keep: number): ({ number }, { [number]: boolean })
 	local out, fix = {}, {}
@@ -87,7 +88,8 @@ function BotCrew.repairOrder(pieces: { Fixable }, near: { number }, keep: number
 		end
 	end
 	for _, i in near do
-		if not fix[i] then
+		local p = pieces[i]
+		if not fix[i] and not (p and p.gun and p.useful == false) then
 			table.insert(out, i)
 		end
 	end

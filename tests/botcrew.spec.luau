@@ -82,10 +82,7 @@ return {
 		}
 		local order, fix = R.repairOrder(pieces, { 1 }, keep)
 		assert(not fix[1] and fix[2] and fix[3], "only the useful and the unknown fixed first")
-		assert(
-			#order == 3 and order[1] == 2 and order[2] == 3 and order[3] == 1,
-			"the useless one only as a usual repair"
-		)
+		assert(#order == 2 and order[1] == 2 and order[2] == 3, "the useless one not even as a usual repair")
 	end,
 	["captured: used when its shot is clear and it stands safe, else wrecked"] = function()
 		assert(R.captured(true, true) == "use")
