@@ -778,8 +778,9 @@ local Artillery = {
 	-- cannon", by a slower shell whose longest shot is inside it, so it still lays its whole dial; was 1.5 sectors).
 	-- (margin 190, was 90: user 2026-11-06, the map rework, "guns (a)": the gun pits stand 140 behind their point, so
 	-- a gun there reaches the next point, ~520 out on Lantern Meadows, and no further than ~190 past it; two points
-	-- away, 1,040, stays out of reach)
-	Reach = { sectors = 1, margin = 190, guns = {} },
+	-- away, 1,040, stays out of reach; 195 since Map 1's rebuild, 2026-11-10: its points average 518 apart, and the
+	-- field cannon's longest shot, ~712, must stay inside the cap so it lays its whole dial)
+	Reach = { sectors = 1, margin = 195, guns = {} },
 	Wreck = {
 		at = { 75, 50, 25, 0 },
 		dark = 4,

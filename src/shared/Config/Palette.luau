@@ -76,6 +76,7 @@ local Palette = {
 			Canvas = { 200, 184, 148 },
 			RunePaint = { 92, 124, 148 },
 			Lantern = { 232, 196, 120 },
+			Ember = { 236, 120, 44 }, -- Map 1's beacon fire
 			TentGrey = { 124, 126, 120 }, -- Katzmark's tents
 			TentGreen = { 98, 122, 84 }, -- Selvara's
 		},

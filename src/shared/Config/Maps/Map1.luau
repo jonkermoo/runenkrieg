@@ -1,7 +1,11 @@
 --!strict
--- Map 1: natural terrain + trees. Trenches, fortifications and equipment are built by players;
--- natural buildings (village, farm, church) come later into the reserved areas.
--- X runs along the front (west = West team), Z is lateral. Units: studs. Rationale: docs/maps/MAP1.md.
+-- Map 1: the English valley. Rebuilt on the leg pattern (map rework, user approved 2026-11-10, "Yes, build it";
+-- docs/maps/MAP_RULES.md), as Lantern Meadows: points ~520 apart on a step (the chain drops south from S1, runs level
+-- through the valley, drops again to the church), every leg between two points built the same way
+-- (Rules/MapTerrain.legPieces: a crest on each approach, the attackers' sunken lanes, open dig ground, MG knolls, gun
+-- pads; `legs` below), spawns at the front sector's rally and a sector back once it's attacked (Config/Frontline
+-- .Fallback). S1 the beacon farm (West HQ), S2 the oast farm, S3 the coaching crossroads, S4 Ashby, S5 the church
+-- close (East HQ). X runs along the front (west = West team), Z is lateral. Units: studs. Rationale: docs/maps/MAP1.md.
 
 export type Sector = {
 	id: string,
@@ -11,11 +15,65 @@ export type Sector = {
 	radius: number,
 	startOwner: "West" | "East" | "Neutral",
 	isHQ: boolean?,
+	rally: number?,
+	crest: boolean?,
 }
 
 export type Divider = { between: { string }, points: { { number } }?, river: boolean? }
 
 export type Rect = { minX: number, maxX: number, minZ: number, maxZ: number }
+
+local function rect(minX: number, maxX: number, minZ: number, maxZ: number): Rect
+	return { minX = minX, maxX = maxX, minZ = minZ, maxZ = maxZ }
+end
+
+-- The points: a step, the two end legs turning 22° south, the middle two 3° north (user 2026-11-06: "variety in
+-- direction (not too much that the map gets complicated)"), point-symmetric about S3 so each side's legs are alike.
+local PTS = { { 420, 160 }, { 889, -26 }, { 1420, 0 }, { 1951, 26 }, { 2420, -160 } }
+
+-- The leg pattern (Rules/MapTerrain: legPieces, rally, tactics; the numbers explained there and in MAP_RULES.md), as
+-- Lantern Meadows
+local LEGS = {
+	crest = { u = 100, half = 110, height = 8, width = 40, taper = 30 },
+	fold = { u = 170, half = 120, depth = 4.5, floor = 4, wall = 6, ends = 20 },
+	knoll = { u = 90, n = 175, height = 7, top = 6, radius = 30 },
+	guns = { u = 140, n = 110, howitzer = 210, pad = 9, fade = 12 },
+	rally = 60,
+	calm = { width = 230, fade = 80, keep = 0.3 },
+	flagClear = 25, -- no marked spot this close to a flag (the point gets shelled)
+	-- the bots' marked spots (Rules/MapTerrain.tactics), as Lantern Meadows (its comment explains each)
+	spots = {
+		zone = { angle = 45, clear = 10, inset = 8 },
+		crestCover = { back = 4, across = { -80, 0, 80 } },
+		crestSupport = { back = 6, across = { -55, 55 } },
+		zoneMg = 25,
+		rake = 0.7,
+		trench = { back = 3, runs = { { -100, -40 }, { 40, 100 } } },
+		gather = { out = 2, across = { -80, 0, 80 } },
+		laneEnds = { out = 10, past = 40 },
+	},
+}
+
+-- each lane's hedge bank on the side of the point it attacks (dead ground to gather in), with a gap in the middle;
+-- one per approach of every point
+local laneHedges = {}
+for i, s in PTS do
+	for _, j in { i - 1, i + 1 } do
+		local o = PTS[j]
+		if o then
+			local dx, dz = o[1] - s[1], o[2] - s[2]
+			local l = math.sqrt(dx * dx + dz * dz)
+			dx, dz = dx / l, dz / l
+			local u = LEGS.fold.u - LEGS.fold.floor / 2 - LEGS.fold.wall - 3
+			for _, run in { { -110, -14 }, { 14, 110 } } do
+				table.insert(laneHedges, {
+					a = { s[1] + dx * u - dz * run[1], s[2] + dz * u + dx * run[1] },
+					b = { s[1] + dx * u - dz * run[2], s[2] + dz * u + dx * run[2] },
+				})
+			end
+		end
+	end
+end
 
 local Map1 = {
 	name = "Map 1",
@@ -23,230 +81,271 @@ local Map1 = {
 	-- the two nations that fight here (user 2026-11-04, "fixed pair per map": Rules/Frontline.mapPair), Katzmark always
 	-- one of them; the Allies (Selvara, Sowilo) wear the map's own
 	pair = { West = "uniform1", East = "uniform3" },
-	-- playable area: long and narrow (user 2026-11-01: "we need more distance between sectors ... we can make the map less
-	-- wide and longer instead"; was 2,100 x 800)
-	bounds = { minX = -150, maxX = 2550, minZ = -280, maxZ = 280 } :: Rect,
+	bounds = rect(-90, 2930, -420, 420),
 	terrainMargin = 420, -- detailed terrain + forest past the bounds; relief fades to flat at its edge
 	-- Low-detail flat skirt beyond the margin plus distant hills, so the world edge never shows.
 	skirt = {
 		width = 1000,
 		hills = {
-			{ -1243, -680, 300, 110 },
-			{ 429, -1130, 360, 130 },
-			{ 1714, -1080, 320, 100 },
-			{ 3579, -580, 340, 120 },
-			{ 3707, 480, 300, 95 },
-			{ 1971, 1130, 380, 140 },
-			{ 300, 1080, 320, 105 },
-			{ -1307, 380, 340, 125 },
+			{ -1243, -820, 300, 110 },
+			{ 429, -1270, 360, 130 },
+			{ 1714, -1220, 320, 100 },
+			{ 3700, -720, 340, 120 },
+			{ 3800, 620, 300, 95 },
+			{ 1971, 1270, 380, 140 },
+			{ 300, 1220, 320, 105 },
+			{ -1307, 520, 340, 125 },
 		}, -- {x, z, radius, peak height}
 	},
 	fogEnd = 600,
+	legs = LEGS,
 
-	-- Capture points (frontline mode, user 2026-10-27: "somewhere that doesnt provide any tactical advantage to either
-	-- sides"). Each sector's point has the same sprint time from the neighbouring point on each side (within 1.5 s,
-	-- over the real ground: Rules/MapCheck). Points ~420 apart (user 2026-11-01: more distance between sectors), each on
-	-- its own rise (`rise` below) with the wave line behind it on the back slope. S3 off the farm, S4 past the middle
-	-- ford before the village, S5 north of the church square. Five points (user 2026-10-27, Normal mode): S1 is the West
-	-- HQ and S5 the East HQ, S2-S4 are fought over. Reasoning: docs/maps/MAP1.md.
+	-- Capture points ~520 apart, each fair to its two neighbours (tests/sectors.spec.luau: S2 and S4 stand 11 toward
+	-- their HQs, where the farm's walls and the town's houses would slow the attacker from the HQ). The strongpoints and
+	-- the town have bigger zones (user 2026-11-06: "the building should take up a good portion of the sector").
 	sectors = {
-		{ id = "S1", name = "S1", x = 400, z = 0, radius = 45, startOwner = "West", isHQ = true },
-		{ id = "S2", name = "S2", x = 820, z = 30, radius = 45, startOwner = "West" },
-		{ id = "S3", name = "S3", x = 1240, z = -30, radius = 45, startOwner = "Neutral" },
-		{ id = "S4", name = "S4", x = 1660, z = -40, radius = 45, startOwner = "East" },
-		{ id = "S5", name = "S5", x = 2080, z = 40, radius = 45, startOwner = "East", isHQ = true },
+		{ id = "S1", name = "S1", x = PTS[1][1], z = PTS[1][2], radius = 45, startOwner = "West", isHQ = true },
+		-- (S2's spawns stand out past the oast farm's gate walls, 48 out)
+		{ id = "S2", name = "S2", x = PTS[2][1], z = PTS[2][2], radius = 55, startOwner = "West", rally = 79 },
+		{ id = "S3", name = "S3", x = PTS[3][1], z = PTS[3][2], radius = 45, startOwner = "Neutral" },
+		-- (S4 is Ashby: no earth crests, its outer houses are the line; Studio's audit checks its spawns' cover)
+		{ id = "S4", name = "S4", x = PTS[4][1], z = PTS[4][2], radius = 60, startOwner = "East", crest = false },
+		-- (S5's spawns stand out past the churchyard's west wall)
+		{
+			id = "S5",
+			name = "S5",
+			x = PTS[5][1],
+			z = PTS[5][2],
+			radius = 55,
+			startOwner = "East",
+			isHQ = true,
+			rally = 78,
+		},
 	} :: { Sector },
-	-- The invisible blocks between sectors, west to east, one between each pair of neighbours (Rules/Sectors,
-	-- Config/Sectors, built by src/dev/Greybox). Each runs where the sprint times to the two points are equal (on
-	-- average within 0.5 s along it), bent where needed so it never cuts a house; S3|S4 is the river's middle line.
-	-- points: { x, z } from the south edge (bounds.minZ) to the north edge (bounds.maxZ).
+	-- Where the sprint times to the two points are equal (solved over the real ground by tests/solvedividers.luau, on
+	-- average within 0.5 s). points: { x, z } from the south edge to the north edge.
 	dividers = {
-		{ between = { "S1", "S2" }, points = { { 647, -280 }, { 617, -160 }, { 617, 0 }, { 605, 200 }, { 581, 280 } } },
+		{
+			between = { "S1", "S2" },
+			points = {
+				{ 457, -420 },
+				{ 488, -350 },
+				{ 513, -280 },
+				{ 541, -210 },
+				{ 571, -140 },
+				{ 599, -70 },
+				{ 627, 0 },
+				{ 655, 70 },
+				{ 682, 140 },
+				{ 710, 210 },
+				{ 738, 280 },
+				{ 766, 350 },
+				{ 796, 420 },
+			},
+		},
 		{
 			between = { "S2", "S3" },
-			points = { { 971, -280 }, { 1019, -160 }, { 1019, -40 }, { 1043, 40 }, { 1043, 160 }, { 1085, 280 } },
+			points = {
+				{ 1179, -420 },
+				{ 1179, -350 },
+				{ 1170, -280 },
+				{ 1160, -210 },
+				{ 1160, -140 },
+				{ 1156, -70 },
+				{ 1153, 0 },
+				{ 1149, 70 },
+				{ 1149, 140 },
+				{ 1152, 210 },
+				{ 1136, 280 },
+				{ 1130, 350 },
+				{ 1129, 420 },
+			},
 		},
-		{ between = { "S3", "S4" }, river = true },
+		{ between = { "S3", "S4" }, river = true }, -- the river's middle line
 		{
 			between = { "S4", "S5" },
-			points = { { 1937, -280 }, { 1889, -120 }, { 1883, -40 }, { 1853, 80 }, { 1853, 160 }, { 1805, 280 } },
+			points = {
+				{ 2042, -420 },
+				{ 2072, -350 },
+				{ 2100, -280 },
+				{ 2128, -210 },
+				{ 2159, -140 },
+				{ 2183, -70 },
+				{ 2211, 0 },
+				{ 2239, 70 },
+				{ 2267, 140 },
+				{ 2297, 210 },
+				{ 2325, 280 },
+				{ 2350, 350 },
+				{ 2381, 420 },
+			},
 		},
 	} :: { Divider },
-	-- each side's spawn, behind its HQ (S1 / S5) as far out as the old HQ points were from theirs (~225 studs, ~12 s
-	-- sprint; user 2026-10-27: an HQ point too near its spawn is too hard to take)
+	-- each side's spawn 420 behind its HQ, straight back along x (MAP_RULES)
 	spawnZones = {
-		-- ~400 behind each HQ, as far back as its sector goes with room to spare (user 2026-11-02: "can we move the
-		-- spawn even further back? still be in the same sector though"; was ~225, 140..210 and 2240..2310)
-		West = { minX = -40, maxX = 30, minZ = -60, maxZ = 60 } :: Rect,
-		East = { minX = 2420, maxX = 2490, minZ = 120, maxZ = 210 } :: Rect, -- (clear of the village houses and the halt)
+		West = rect(-35, 35, 100, 220),
+		East = rect(2805, 2875, -220, -100),
 	},
 
-	-- Terrain shape
+	-- the valley floor: gentle rolling ground (kept calmer still along the chain: legs.calm)
 	terrain = {
-		minY = -28, -- bottom of the voxel slab
-		maxY = 96, -- top of the voxel slab (room for the hills outside the bounds)
-		baseAmp = 8, -- broad rolling hills
-		baseScale = 260,
-		midAmp = 5, -- swells
-		midScale = 110,
-		detailAmp = 3.2, -- uneven ground
+		minY = -28,
+		maxY = 96,
+		baseAmp = 6,
+		baseScale = 300,
+		midAmp = 4,
+		midScale = 120,
+		detailAmp = 2.6,
 		detailScale = 45,
-		bumpAmp = 1.0, -- small bumps underfoot
+		bumpAmp = 0.9,
 		bumpScale = 16,
-		moundAmp = 7, -- occasional knolls (cover on open ground)
-		moundScale = 70,
-		moundThreshold = 0.25,
-		patchThreshold = 0.45, -- dirt patches where patch noise exceeds this
-		-- the surface material (grass) only in voxels whose top is within this of the ground (was a whole voxel, 4):
-		-- under it is dirt, so a crater shows earth (user 2026-10-17: "dont make the green layer ... so thick")
+		moundAmp = 5,
+		moundScale = 80,
+		moundThreshold = 0.3,
+		patchThreshold = 0.5,
+		-- the surface material (grass) only in voxels whose top is within this of the ground: under it is dirt, so a
+		-- crater shows earth (user 2026-10-17: "dont make the green layer ... so thick")
 		surfaceDepth = 1.5,
 	},
 	-- More extreme ridged hills outside the bounds, for the view. Unwalkable is fine out there.
-	wild = {
-		start = 30, -- studs outside the bounds before hills begin
-		ramp = 150,
-		fall = 80, -- falls back to flat over the last stretch of the margin
-		amp = 46,
-		scale = 170,
-		roughAmp = 6,
-		roughScale = 40,
-	},
-	-- Every point on a rise, its spawn behind it (user 2026-11-01: "most points should be on an elevated position and the
-	-- spawn behind that elevated position (as natural cover)"): a round hill `height` high at the point, falling smoothly
-	-- to the rolling ground `radius` out. The wave line (Config/Frontline.Line.back) stands well behind it, low
-	-- enough that a soldier on the next point's rise sees over its heads (tests/map1.spec.luau).
-	rise = { radius = 110, height = 20, flat = 25 },
-	-- Natural river between S3 and S4, with shallow fords where crossings will be built later.
+	wild = { start = 30, ramp = 150, fall = 80, amp = 46, scale = 170, roughAmp = 6, roughScale = 40 },
+	-- The river: from the north edge south through the open ground between S3 and Ashby, with the road's stone bridge,
+	-- a footbridge to the north, the rock ford by the old lock and the mill to the south, and a narrow ford upstream.
 	river = {
-		x = 1450,
-		meanderAmp = 18,
-		meanderLen = 280,
-		width = 22, -- water surface width
-		bankWidth = 14, -- slope from bed edge to ground
+		x = 1690, -- its middle line, meandering `meanderAmp` either side every `meanderLen` (MapTerrain.riverCenterX)
+		meanderAmp = 12,
+		meanderLen = 300,
+		width = 26,
+		bankWidth = 14,
 		bedY = -7,
 		waterY = -2.5,
 		fords = {
-			{ z = 0, width = 18, bedY = -3.8 }, -- future stone bridge
-			{ z = 188, width = 8, bedY = -3.8 }, -- future footbridge
-			{ z = -210, width = 10, bedY = -3.8 }, -- future collapsed lock
+			{ x = 1690, z = 300, width = 9, bedY = -3.8 }, -- a narrow ford upstream, on the north flank
+			-- the rock ford by the old lock on the south lane: shallow water you can see, flat rocks across
+			{ x = 1682, z = -115, width = 32, bedY = -4.4, rocks = true, sink = 2 },
+		},
+		-- the road's stone bridge and the footbridge on the north lane (src/dev/Greybox/Bridges)
+		bridges = {
+			{ id = "Bridge", x = 1694, z = 15, length = 70, width = 16, deck = true, hump = 3 },
+			{ id = "Footbridge", x = 1691, z = 145, length = 64, width = 12, deck = true, hump = 2 },
 		},
 	},
-	-- Flat, tree-free areas held for buildings designed later.
+	-- tree-free ground: the farms, the inn, the crossings' banks, the town and the church close
 	reserved = {
-		-- Natural (not flattened): buildings will sit on foundations. Kept clear of natural trees.
-		{ id = "Village", minX = 1710, maxX = 2550, minZ = -248, maxZ = 248 },
-		{ id = "Farm", minX = 1180, maxX = 1290, minZ = 30, maxZ = 150, falloff = 30 },
+		{ id = "BeaconFarm", minX = 340, maxX = 450, minZ = 280, maxZ = 340 },
+		{ id = "OastFarm", minX = 830, maxX = 970, minZ = -100, maxZ = 50 },
+		{ id = "Inn", minX = 1370, maxX = 1470, minZ = 120, maxZ = 210 },
+		{ id = "Bridge", minX = 1620, maxX = 1740, minZ = -15, maxZ = 45 },
+		{ id = "Footbridge", minX = 1622, maxX = 1732, minZ = 120, maxZ = 170 },
+		{ id = "RockFord", minX = 1630, maxX = 1750, minZ = -175, maxZ = -85 },
+		{ id = "Town", minX = 1770, maxX = 2110, minZ = -150, maxZ = 210 },
+		{ id = "Church", minX = 2370, maxX = 2525, minZ = -210, maxZ = -90 },
+		{ id = "Halt", minX = 2870, maxX = 2930, minZ = -45, maxZ = 25 },
 	},
 
-	-- Village (references/village): organic core along winding lanes, a planned street of row houses,
-	-- hamlets at lane ends and a farm by S3. Rules/Village turns this into lots, props and trees.
+	-- The road along the step and over the bridge, the crossroads lane, Ashby round S4, the landmarks and the lanes'
+	-- hedge banks (Rules/Village). Map 1's English cottages (Config/Buildings.RoadTemplates).
 	village = {
-		area = { minX = 1710, maxX = 2550, minZ = -248, maxZ = 248 }, -- matches the reserved Village area
-
+		-- (houses only in Ashby round S4, inside the two sunken lanes' hedges ~157 out from its point)
+		area = rect(1800, 2095, -165, 205),
 		roads = {
 			{
 				id = "Main",
-				width = 14,
-				maxLots = 14,
+				width = 10,
+				maxLots = 22,
+				rows = true, -- the High Street's houses in order, a terrace
 				points = {
-					{ 1450, 0 },
-					{ 1660, 0 },
-					{ 1780, -8 },
-					{ 1890, 10 },
-					{ 2000, 3 },
-					{ 2100, -14 },
-					{ 2220, -6 },
-					{ 2360, 0 },
-					{ 2550, 0 },
+					{ -90, 160 },
+					{ 420, 160 },
+					{ 743, 32 }, -- (through the gap in S2's west lane hedge, then the oast farm's two cart gates)
+					{ 800, -26 },
+					{ 978, -26 },
+					{ 1160, -15 },
+					{ 1420, 0 },
+					{ 1680, 15 },
+					{ 1951, 26 },
+					{ 2185, -67 },
+					{ 2274, -102 }, -- (through the gap in S5's west lane hedge)
+					{ 2340, -140 },
+					{ 2378, -150 }, -- (to the church close's lychgate)
 				},
 			},
-			{
-				id = "NorthLane",
-				width = 9,
-				maxLots = 4,
-				lotsFrom = 0.45, -- hamlet: lots only on the far part of the lane
-				points = { { 2000, 3 }, { 2028, 60 }, { 2070, 112 }, { 2140, 154 }, { 2210, 188 } },
-			},
-			{
-				id = "SouthLane",
-				width = 9,
-				maxLots = 4,
-				lotsFrom = 0.4,
-				points = { { 2000, 3 }, { 1985, -60 }, { 2020, -128 }, { 2085, -176 } },
-			},
-			{
-				id = "RowStreet",
-				width = 14,
-				maxLots = 8,
-				rows = true, -- planned street: uniform row houses, evenly spaced, both sides
-				points = { { 2280, -6 }, { 2280, -172 } },
-			},
-			{
-				id = "FarmTrack",
-				width = 7,
-				maxLots = 0,
-				points = { { 1450, 0 }, { 1390, 14 }, { 1340, 26 }, { 1290, 36 } },
-			},
+			-- on from the church close's east gate past the East spawn
+			{ id = "Spawn", width = 10, maxLots = 0, points = { { 2486, -150 }, { 2700, -158 }, { 2930, -160 } } },
+			-- the crossroads lane through S3, north to the inn's yard
+			{ id = "Crossroads", width = 8, maxLots = 0, points = { { 1420, -420 }, { 1420, 140 } } },
+			-- Ashby's two back lanes, ~70 either side of the High Street, two outer ones past them, and the two cross
+			-- lanes ~90 either side of the green
+			{ id = "BackNorth", width = 8, maxLots = 18, points = { { 1815, 115 }, { 1940, 100 }, { 2085, 46 } } },
+			{ id = "BackSouth", width = 8, maxLots = 16, points = { { 1815, -25 }, { 1940, -40 }, { 1995, -60 } } },
+			{ id = "Upper", width = 7, maxLots = 14, points = { { 1820, 172 }, { 1940, 160 }, { 2060, 112 } } },
+			{ id = "Mill", width = 7, maxLots = 8, points = { { 1830, -88 }, { 1940, -104 }, { 2000, -128 } } },
+			{ id = "WestLane", width = 7, maxLots = 6, points = { { 1857, -62 }, { 1843, 128 } } },
+			{ id = "EastLane", width = 7, maxLots = 6, points = { { 2000, -78 }, { 2050, 70 } } },
 		},
-
-		lotSpacing = 26, -- candidate spacing along roads
-		setback = 5, -- front wall distance from the road edge
-		buildingGap = 6, -- minimum clear gap between buildings (players pass between)
-
-		-- Open ground kept clear of buildings: the bridge-head and church squares, the S5 zone (S4's is the inn's yard), the East HQ spawn
-		-- and its approach.
+		lotSpacing = 22,
+		setback = 3,
+		buildingGap = 4,
 		keepClear = {
-			{ x = 1800, z = 0, r = 30 },
-			{ x = 2100, z = -30, r = 34 },
-			{ x = 2080, z = 40, r = 60 },
-			{ x = 2455, z = 165, r = 58 }, -- the East spawn zone (its corners 57 out)
-			{ x = 1943, z = 12, r = 27 }, -- East's wave line while S4 is its front (Config/Frontline.Line.back)
-			{ x = 2400, z = 0, r = 70 },
-			{ x = 2505, z = 0, r = 55 },
+			{ x = PTS[1][1], z = PTS[1][2], r = 50 },
+			{ x = PTS[3][1], z = PTS[3][2], r = 50 },
+			{ x = PTS[4][1], z = PTS[4][2], r = 38 }, -- Ashby's green
+			-- the two little squares where each side's wave stands while S4 is its front sector (MapTerrain.rally)
+			{ x = 2007, z = 4, r = 30 },
+			{ x = 1891, z = 23, r = 30 },
+			{ x = PTS[5][1], z = PTS[5][2], r = 20 },
+			{ x = 2840, z = -160, r = 80 }, -- the East spawn
 		},
-
-		-- Hand-placed landmark buildings (Config/Buildings `blocks` templates, this map's own; user 2026-11-01), one at a
-		-- time. front = direction the door faces. The church south of the church square, facing it.
 		specials = {
-			{ id = "Church", style = "Church", x = 2100, z = -90, front = { 0, 1 } },
-			-- the coaching inn round S4: its yard is the point, open to the main road on the north (user 2026-11-04)
-			{ id = "Inn", style = "CoachingInn", x = 1660, z = -50, front = { 0, 1 } },
-			-- the farm north of S3, on the point's x: the oast house facing the point, its yard behind
-			{ id = "Oast", style = "OastHouse", x = 1240, z = 72, front = { 0, -1 } },
-			{ id = "FarmYard", style = "HayBarn", x = 1240, z = 118, front = { 0, -1 } },
-			-- the watermill on the S3 bank just south of the lock ford, its door to the west, its wheel in the river
-			{ id = "Mill", style = "Watermill", x = 1450, z = -234, front = { -1, 0 } },
-			-- the railway halt behind the East spawn, facing the line at railX (its platform edge 1.65 off the near rail)
-			{ id = "Halt", style = "RailwayHalt", x = 2517, z = 100, front = { 1, 0 } },
+			-- the beacon farm on S1's rear north flank, out of S2's sight
+			{ id = "BeaconFarm", style = "BeaconFarm", x = 393, z = 310, front = { 0, -1 } },
+			-- the oast farm on S2's point, the flag in its yard
+			{ id = "OastFarm", style = "OastFarm", x = PTS[2][1], z = PTS[2][2], front = { 0, -1 } },
+			-- the coaching inn on S3's north flank, its yard open to the crossroads lane
+			{ id = "Inn", style = "CoachingInn", x = PTS[3][1], z = 165, front = { 0, -1 } },
+			-- the watermill on the S3 bank by the rock ford, its door to the west, its wheel in the river
+			{ id = "Mill", style = "Watermill", x = 1666, z = -158, front = { -1, 0 } },
+			-- Ashby's market hall and pub on the green, north and south of the flag
+			{ id = "MarketHall", style = "MarketHall", x = 1955, z = 74, front = { 0, -1 } },
+			{ id = "Plough", style = "Plough", x = 1945, z = -24, front = { 0, 1 } },
+			-- the church close on S5's point (the flag in its churchyard at local -12, -10, clear of East's wave line
+			-- while S5 is its front sector) and the vicarage outside its east wall, on the spawn side
+			{ id = "ChurchClose", style = "ChurchClose", x = PTS[5][1] + 12, z = PTS[5][2] + 10, front = { 0, -1 } },
+			{ id = "Vicarage", style = "TwoStoryHouse", x = 2508, z = -118, front = { 1, 0 } },
+			-- the railway halt behind the East spawn, on the line along the east edge (railX)
+			{ id = "Halt", style = "RailwayHalt", x = 2902, z = -10, front = { 1, 0 } },
 		},
-
-		railX = 2530,
-
-		trees = { cell = 18, density = 0.14, roadClear = 5, buildingClear = 6 },
-		poles = { road = "Main", spacing = 48, side = 1 },
-		cars = 3,
-		-- Fixed village features: a well on the church square, a trough at the bridge-head square.
+		railX = 2915,
+		hedgerows = laneHedges,
+		-- garden trees only in the town (the village area)
+		trees = { cell = 18, density = 0.05, roadClear = 5, buildingClear = 6 },
+		cars = 0,
 		features = {
-			{ kind = "Well", x = 2100, z = -30 },
-			{ kind = "Trough", x = 1812, z = 16, yaw = 90 },
+			-- haystacks outside the oast farm's north corners, a trough and a fingerpost at the crossroads, the well on
+			-- Ashby's green
+			{ kind = "Haystack", x = 825, z = 38, yaw = 15 },
+			{ kind = "Haystack", x = 953, z = 38, yaw = -15 },
+			{ kind = "Trough", x = 1434, z = 14, yaw = 0 },
+			{ kind = "Signpost", x = 1408, z = 14, yaw = 45 },
+			{ kind = "Well", x = 1973, z = 46 },
 		},
 	},
 
-	-- Trees: jittered grid, density from a forest-noise field. Outer = beyond the bounds.
+	-- few trees on the valley floor: lone trees, rare small groves, the forest past the bounds
 	trees = {
 		cell = 14,
 		forestScale = 220,
-		groveThreshold = 0.12, -- forest noise above this = grove
-		groveDensity = 0.5,
-		scatterDensity = 0.03,
-		edgeBand = 120, -- dense forest band just outside the bounds
-		edgeDensity = 0.5,
+		groveThreshold = 0.42,
+		groveDensity = 0.35,
+		scatterDensity = 0.01,
+		edgeBand = 120,
+		edgeDensity = 0.45,
 		outerDensity = 0.1,
-		maxSlope = 34, -- no trees on steeper ground (rock faces)
-		footprint = 2, -- trunk radius sampled for the lowest ground
-		sink = 0.8, -- extra depth below the lowest ground
-		sectorClearFrac = 0.4, -- no trees inside this fraction of a sector radius
-		riverClear = 6, -- extra clearance past the river banks
+		maxSlope = 34,
+		footprint = 2,
+		sink = 0.8,
+		sectorClearFrac = 0.4,
+		riverClear = 6,
 		maxCount = 5000,
 	},
 }

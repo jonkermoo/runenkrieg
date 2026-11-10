@@ -823,6 +823,72 @@ function Geometry.bottleKiln(parent: Instance, ctx: Ctx, at: CFrame, r: number, 
 	mouth:SetAttribute("Swatch", K.dark)
 end
 
+-- Map 1's beacon (Config/Buildings.Beacon): a square stone pier, an iron basket of rods on a plate on top, its fire.
+-- Too tall and sheer to climb; one wall section, so shells knock it down like a wall.
+function Geometry.beacon(parent: Instance, ctx: Ctx, at: CFrame)
+	local K = ctx.B.Beacon
+	local base = ctx.B.Foundation
+	local depth = ctx.B.FoundationDepth
+	Geometry.part(
+		parent,
+		ctx,
+		"Foundation",
+		at * CFrame.new(0, (base - 1 - depth) / 2, 0),
+		Vector3.new(K.pier + 1, base - 1 + depth, K.pier + 1),
+		"Foundation"
+	)
+	local sec = Geometry.section(parent, ctx, "Beacon", "Stone", 0)
+	local pier = Geometry.part(
+		sec,
+		ctx,
+		"Pier",
+		at * CFrame.new(0, K.height / 2, 0),
+		Vector3.new(K.pier, K.height, K.pier),
+		"Wall"
+	)
+	pier:SetAttribute("Swatch", K.wall)
+	local top = at * CFrame.new(0, K.height, 0)
+	local plate =
+		Geometry.part(sec, ctx, "Plate", top * CFrame.new(0, 0.2, 0), Vector3.new(K.basket, 0.4, K.basket), "Wall")
+	plate:SetAttribute("Swatch", K.iron)
+	local r = K.basket / 2 - 0.2
+	for i = 0, K.rods - 1 do
+		local a = i * 2 * math.pi / K.rods
+		local rod = Geometry.part(
+			sec,
+			ctx,
+			"Rod",
+			top * CFrame.new(math.cos(a) * r, 0.4 + K.cage / 2, math.sin(a) * r),
+			Vector3.new(0.3, K.cage, 0.3),
+			"Wall"
+		)
+		rod:SetAttribute("Swatch", K.iron)
+	end
+	local ring = Geometry.part(
+		sec,
+		ctx,
+		"Ring",
+		top * CFrame.new(0, 0.4 + K.cage, 0) * CFrame.Angles(0, 0, math.pi / 2),
+		Vector3.new(0.3, K.basket, K.basket),
+		"Wall",
+		"Part"
+	)
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Transparency = 0.9
+	ring:SetAttribute("Swatch", K.iron)
+	local fire = Geometry.part(
+		sec,
+		ctx,
+		"Fire",
+		top * CFrame.new(0, 0.4 + K.cage * 0.45, 0),
+		Vector3.new(K.basket * 0.7, K.cage * 0.9, K.basket * 0.7),
+		"Festival"
+	)
+	fire.Material = Enum.Material.Neon
+	fire.CanCollide = false
+	fire:SetAttribute("Swatch", K.fire)
+end
+
 -- A wooden waterwheel in `at`'s XY plane (its axle along local Z, into the wall behind it): a rim of `n` straight
 -- pieces, spokes across, a paddle board at every rim joint `width` wide, and the axle. Not turning (a static prop).
 function Geometry.waterwheel(parent: Instance, ctx: Ctx, at: CFrame, r: number, width: number)

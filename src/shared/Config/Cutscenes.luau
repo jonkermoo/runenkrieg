@@ -87,6 +87,12 @@ local Cutscenes = {
 		Loggia = "The loggia",
 		Cascina = "The cascina",
 		Ferry = "The ferry house",
+		OastFarm = "The oast farm",
+		MarketHall = "The market hall",
+		Plough = "The Plough",
+		ChurchClose = "The church",
+		BeaconFarm = "The beacon farm",
+		Vicarage = "The vicarage",
 	},
 
 	-- The pre-match flight (plays over the countdown, Config/Frontline.CountdownSeconds, after a match: a fresh server

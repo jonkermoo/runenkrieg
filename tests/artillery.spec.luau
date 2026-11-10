@@ -714,12 +714,12 @@ return {
 	end,
 	["no shell lands past one sector's spacing plus the margin, on either map (user 2026-11-03)"] = function()
 		local R = C.Reach
-		-- (margin 190, was 90: user 2026-11-06, the map rework, "guns (a)")
-		assert(R.sectors == 1 and R.margin == 190)
+		-- (margin 190, was 90: user 2026-11-06, the map rework, "guns (a)"; 195 for Map 1's rebuild, 2026-11-10)
+		assert(R.sectors == 1 and R.margin == 195)
 		for _, name in { "Map1", "LanternMeadows" } do
 			local map = require(`../src/shared/Config/Maps/{name}`) :: any
 			local span = A.sectorSpan(map.sectors)
-			-- (Map 1 ~420, Lantern Meadows ~520 since the map rework, user 2026-11-06)
+			-- (~520 on both since the map rework, user 2026-11-06 and 2026-11-10)
 			assert(span > 400 and span < 560, `{name} span {span}`)
 			local cap = A.reachCap(span, R)
 			local qcap = A.reachCap(span, R, "artillery_qf18")

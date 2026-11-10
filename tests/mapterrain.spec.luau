@@ -22,10 +22,11 @@ local RT = require("../src/shared/Config/Bots").Routes
 return {
 	["wetSpan: a line over the river is wet where it crosses, one on a bank dry (both kinds of river)"] = function()
 		local W = RT.wet
-		-- Map 1: the river runs north-south near x 1450; S4's point (1660) to S3's (1240) crosses it
-		local f, l = T.wetSpan(Map1, 1660, -40, 1240, -30, W.step, W.pad)
+		-- Map 1: the river runs north-south near x 1690; S4's point to S3's crosses it
+		local a, c = Map1.sectors[4], Map1.sectors[3]
+		local f, l = T.wetSpan(Map1, a.x, a.z, c.x, c.z, W.step, W.pad)
 		assert(f and l and f > 0.3 and l < 0.7 and l >= f, "S4 to S3 crosses the river mid-way")
-		assert(T.wetSpan(Map1, 1660, -40, 1560, -40, W.step, W.pad) == nil, "on S4's own bank: dry")
+		assert(T.wetSpan(Map1, a.x, a.z, a.x - 100, a.z, W.step, W.pad) == nil, "on S4's own bank: dry")
 		-- Lantern Meadows: the Aurel's path between S3 and S4
 		local s3, s4 = Meadows.sectors[3], Meadows.sectors[4]
 		local f2, l2 = T.wetSpan(Meadows, s4.x - 60, s4.z, s3.x, s3.z, W.step, W.pad)
@@ -124,26 +125,30 @@ return {
 		local village = roughness(1150, 1900)
 		assert(village > 0.3, `village terrain too flat: {village}`)
 		local open = roughness(-150, 480)
-		assert(open > 0.3, `open ground too flat: {open}`)
+		-- (the valley floor is calmer since the map rework, user approved 2026-11-10; not flattened)
+		assert(open > 0.18, `open ground too flat: {open}`)
 		for _, r in Map1.reserved do
 			assert(r.baseY == nil, `{r.id} is still flattened`)
 		end
 	end,
 	["river is water-deep except at fords, which are wadeable"] = function()
 		local r = Map1.river
-		local midZ = 140 -- between fords
-		local cx = T.riverCenterX(Map1, midZ)
-		assert(r.waterY - T.heightAt(Map1, cx, midZ) > 4, "river too shallow between fords")
+		for _, midZ in { 80, 220, -220 } do -- between the crossings
+			local _, cx, cz = T.riverNearest(Map1, 1690, midZ)
+			assert(r.waterY - T.heightAt(Map1, cx, cz) > 4, `river too shallow between fords at z={midZ}`)
+		end
 		for _, f in r.fords do
-			local depth = r.waterY - T.heightAt(Map1, T.riverCenterX(Map1, f.z), f.z)
-			assert(depth > 0 and depth < 2, `ford at z={f.z} depth {depth}`)
+			local _, cx, cz = T.riverNearest(Map1, f.x, f.z)
+			local depth = r.waterY - T.heightAt(Map1, cx, cz)
+			assert(depth > 0 and depth < 2 + (f.sink or 0), `ford at z={f.z} depth {depth}`)
 		end
 	end,
 	["river banks rise above the water"] = function()
 		local r = Map1.river
 		for z = b.minZ, b.maxZ, 20 do
-			local edge = T.riverCenterX(Map1, z) + r.width / 2 + r.bankWidth + 1
-			assert(T.heightAt(Map1, edge, z) > r.waterY + 1, `bank under water at z={z}`)
+			local _, cx, cz = T.riverNearest(Map1, 1690, z)
+			local edge = cx + r.width / 2 + r.bankWidth + 1
+			assert(T.heightAt(Map1, edge, cz) > r.waterY + 1, `bank under water at z={z}`)
 		end
 	end,
 	["no trees in reserved areas, spawns, river or sector cores"] = function()
