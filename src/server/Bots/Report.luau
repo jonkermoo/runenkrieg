@@ -662,8 +662,9 @@ local function spotLines()
 				end
 			end
 		end
-		local nests, guns, onFlag, marked = 0, 0, 0, 0
+		local nests, guns, onFlag, marked, frames = 0, 0, 0, 0, 0
 		for _, w in if kit then BuildServer.worksOf(kit) else {} do
+			frames += if w.key == "MGNest" and not w.built then 1 else 0
 			if w.built and (w.key == "MGNest" or w.key == "FieldGun" or w.key == "Howitzer") then
 				nests += if w.key == "MGNest" then 1 else 0
 				guns += if w.key == "MGNest" then 0 else 1
@@ -683,7 +684,7 @@ local function spotLines()
 			lines,
 			`{side}: holders this match {math.floor(100 * h.flag / n + 0.5)}% within {OP.clear} studs of a flag, {math.floor(
 				100 * h.zone / n + 0.5
-			)}% in a zone; {nests} MG nests, {guns} guns standing, {marked} of them on marked spots, {onFlag} within {OP.clear} of a flag`
+			)}% in a zone; {nests} MG nests ({frames} more going up, {Tactics.crew.nestsOut[side] or 0} at its front too far from the fight to count), {guns} guns standing, {marked} of them on marked spots, {onFlag} within {OP.clear} of a flag`
 		)
 	end
 	workspace:SetAttribute(DevCfg.Admin.Spots.readout, table.concat(lines, "\n"))

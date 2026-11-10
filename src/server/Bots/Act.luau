@@ -127,9 +127,11 @@ local function pickFrom(
 	end
 	local list: { BotBuild.Job } = {}
 	local taken: { [number]: boolean } = {}
+	local left: { [number]: number } = {}
 	for k, r in open do
 		local at = r.at
 		local j = r.job
+		left[k] = r.left
 		list[k] = {
 			key = j.key,
 			x = if at then at.X else j.x,
@@ -170,7 +172,9 @@ local function pickFrom(
 					else r.job.key == "Dugout"
 				notGun[k] = taken[k] or not wanted
 			end
-			local g = BotBuild.pick(list, root.X, root.Z, math.huge, notGun, {}, nil)
+			-- (a nest going up finished first, the fullest of them)
+			local g = (if nest then BotBuild.mostBuilt(list, root.X, root.Z, math.huge, notGun, left) else nil)
+				or BotBuild.pick(list, root.X, root.Z, math.huge, notGun, {}, nil)
 			if g then
 				return open[g]
 			end
@@ -189,7 +193,8 @@ local function pickFrom(
 				local wanted = if want == "" then r.job.key ~= "Dugout" else r.job.key == want
 				notOwn[k] = taken[k] or Kinds.small[r.job.key] == true or not wanted
 			end
-			local e = BotBuild.pick(list, root.X, root.Z, reach, notOwn, {}, nil)
+			local e = (if want == "MGNest" then BotBuild.mostBuilt(list, root.X, root.Z, reach, notOwn, left) else nil)
+				or BotBuild.pick(list, root.X, root.Z, reach, notOwn, {}, nil)
 			if e then
 				return open[e]
 			end

@@ -810,6 +810,9 @@ function Crew.report(): string
 	return s
 end
 
+-- each side's nests in its front sector too far from the fight to count (Commander; the marked spots readout)
+Crew.nestsOut = {} :: { [string]: number }
+
 -- each side's MG fire this match (the Bots' MGs readout)
 function Crew.mgCounts(): { [string]: MgFire }
 	return mgFire
@@ -844,6 +847,7 @@ function Crew.clear()
 	end
 	table.clear(targets)
 	table.clear(mgFire)
+	table.clear(Crew.nestsOut)
 end
 
 function Crew.init(c: Context)

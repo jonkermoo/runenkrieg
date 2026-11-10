@@ -1218,6 +1218,10 @@ local Bots = {
 			-- New gunners go first to guns with known enemies within `min` to `reach` studs (Rules/BotCrew.assign).
 			leave = 30,
 			leaveWait = 30,
+			-- Where the fight is for its nests: `fightAt` of the way from its front flag to the enemy's next sector. A nest in
+			-- its front sector more than `reach` from there doesn't count toward its `caps.MGNest`, so a nearer one is planned,
+			-- and no new one goes on a marked spot that far off. Engineers finish the fullest nest going up first.
+			fightAt = 0.7,
 			sight = 0.6,
 			startOut = 8,
 			clear = 3,
