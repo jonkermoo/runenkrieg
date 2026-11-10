@@ -254,6 +254,23 @@ return {
 		assert(math.abs(fx - 1) < 1e-6 and math.abs(fz) < 1e-6, "90 is +x")
 		assert(B and Cfg.OffPoint.clear >= 25 and Cfg.OffPoint.inZone == 4, "a squad of 4 stays in the zone")
 	end,
+	["markedPlace: a marked spot's holders stand gap apart across the enemy's way"] = function()
+		local gap = Cfg.OffPoint.gap
+		assert(gap >= 12, "user 2026-11-10 chose 12")
+		local x0, z0 = R.markedPlace(10, 20, 0, gap, 1, 0)
+		assert(x0 == 10 and z0 == 20, "the first on it")
+		-- (the enemy along +x: across is along z)
+		local x1, z1 = R.markedPlace(10, 20, 1, gap, 1, 0)
+		local x2, z2 = R.markedPlace(10, 20, 2, gap, 1, 0)
+		assert(x1 == 10 and x2 == 10 and z1 == 20 - gap and z2 == 20 + gap, "one each side")
+		local _, z3 = R.markedPlace(10, 20, 3, gap, 1, 0)
+		assert(z3 == 20 - 2 * gap, "then twice as far")
+	end,
+	["crowd: posts within the gap"] = function()
+		local posts = { { x = 0, z = 0 }, { x = 11, z = 0 }, { x = 30, z = 0 } }
+		assert(R.crowd(0, 0, posts, 12) == 2)
+		assert(R.crowd(100, 0, posts, 12) == 0)
+	end,
 	["gunSpots: spots given are kept and kept clear of"] = function()
 		local zone = { x = 0, z = 0, radius = 40 }
 		local C = { back = { 30 }, across = { 0, 40 } }

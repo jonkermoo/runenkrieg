@@ -179,18 +179,39 @@ local function markedPost(side: string, i: number, p: Vector3, inZone: boolean):
 		end
 		list = BotBuild.aheadOf(list, s.x, s.z, tx, tz)
 	end
-	local used = {}
+	-- (its holders stand OP.gap apart across the enemy's way: Rules/BotBuild.markedPlace)
+	local tx, tz = BotBuild.toward(Map.sectors, i, side)
+	local used, free = {}, {}
 	for k, sp in list do
-		local n, at = 0, Vector3.new(sp.x, 0, sp.z)
+		local held = {}
 		for _, b in bots do
-			if b.side == side and b.role == "Hold" and b.post and flat(b.post :: Vector3 - at).Magnitude <= OP.held then
+			if b.side == side and b.role == "Hold" and b.post then
+				local bp = b.post :: Vector3
+				for m = 0, (sp.n or OP.room) - 1 do
+					local x, z = BotBuild.markedPlace(sp.x, sp.z, m, OP.gap, tx, tz)
+					if not held[m] and (bp.X - x) ^ 2 + (bp.Z - z) ^ 2 <= OP.held ^ 2 then
+						held[m] = true
+						break
+					end
+				end
+			end
+		end
+		local n = 0
+		for m = 0, (sp.n or OP.room) - 1 do
+			if held[m] then
 				n += 1
+			elseif free[k] == nil then
+				free[k] = m
 			end
 		end
 		used[k] = n
 	end
 	local k = BotBuild.pickMarked(list, used, p.X, p.Z, OP.room)
-	return if k then Routes.ground(list[k].x, list[k].z) else nil
+	if not k then
+		return nil
+	end
+	local x, z = BotBuild.markedPlace(list[k].x, list[k].z, free[k] or 0, OP.gap, tx, tz)
+	return Routes.ground(x, z)
 end
 
 -- a defender's hold spot in sector `i`: the best one fewest of the side's defenders stand on, off the flag
@@ -206,14 +227,21 @@ local function holdSpot(side: string, i: number, taken: { [Vector3]: number }): 
 	for _, sp in spots :: { Routes.Spot } do
 		anyOff = anyOff or flat(sp.pos - flag).Magnitude >= OP.clear
 	end
-	local best, bestAt = -math.huge, nil
+	-- (one holder a spot while one is free: the fewest posts within OP.gap first, user 2026-11-10: "when they are in
+	-- groups, they are super close together")
+	local posts = {}
+	for at in taken do
+		table.insert(posts, { x = at.X, z = at.Z })
+	end
+	local best, bestCrowd, bestAt = -math.huge, math.huge, nil
 	for _, sp in spots :: { Routes.Spot } do
 		if anyOff and flat(sp.pos - flag).Magnitude < OP.clear then
 			continue
 		end
-		local v = Squads.scoreSpot(sp, taken[sp.pos] or 0, random:NextNumber(), RT.weights, RT.nearCap)
-		if v > best then
-			best, bestAt = v, sp.pos
+		local crowd = BotBuild.crowd(sp.pos.X, sp.pos.Z, posts, OP.gap)
+		local v = Squads.scoreSpot(sp, crowd, random:NextNumber(), RT.weights, RT.nearCap)
+		if crowd < bestCrowd or (crowd == bestCrowd and v > best) then
+			best, bestCrowd, bestAt = v, crowd, sp.pos
 		end
 	end
 	if bestAt then
@@ -665,8 +693,8 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 	end
 	local taken: { [Vector3]: number } = {}
 	for _, b in bots do
-		if b.side == side and (b.postFace or b.postKind == "reserve") and b.post then
-			-- (windows, fire steps and support-line places held already)
+		if b.side == side and (b.postFace or b.postKind == "reserve" or b.postKind == "open") and b.post then
+			-- (windows, fire steps, support-line places and open hold spots held already)
 			taken[b.post :: Vector3] = (taken[b.post :: Vector3] or 0) + 1
 		end
 	end

@@ -524,6 +524,28 @@ function BotBuild.pickMarked(list: { any }, used: { number }, x: number, z: numb
 	return best
 end
 
+-- Where the `n`th soldier (0 the first) of a marked spot at (x, z) stands (Config/Bots.OffPoint.gap): the first on it,
+-- the next `gap` studs to one side across the enemy's way (tx, tz: a flat unit direction), then the other side, then
+-- twice as far, and so on.
+function BotBuild.markedPlace(x: number, z: number, n: number, gap: number, tx: number, tz: number): (number, number)
+	if n <= 0 then
+		return x, z
+	end
+	local k = math.ceil(n / 2) * (if n % 2 == 1 then 1 else -1)
+	return x + tz * gap * k, z - tx * gap * k
+end
+
+-- How many of `posts` stand within `gap` studs of (x, z).
+function BotBuild.crowd(x: number, z: number, posts: { { x: number, z: number } }, gap: number): number
+	local n = 0
+	for _, p in posts do
+		if (p.x - x) ^ 2 + (p.z - z) ^ 2 < gap * gap then
+			n += 1
+		end
+	end
+	return n
+end
+
 -- The unit way (x, z) of a bearing in degrees (0 = +z, 90 = +x)
 function BotBuild.bearingWay(degrees: number): (number, number)
 	local a = math.rad(degrees)

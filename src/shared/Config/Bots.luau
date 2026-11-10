@@ -171,7 +171,10 @@ local Bots = {
 	-- hold spots); the rest take trench posts or the marked cover and support spots ahead of the point. No hold spot and no
 	-- MG nest within `clear` studs of the flag. A marked spot holds `room` soldiers unless it says (`n`); a holder's post
 	-- within `held` studs of a spot is on it; a nest within `nestGap` studs of a marked spot has it.
-	OffPoint = { clear = 25, inZone = 4, room = 2, held = 3, nestGap = 12 },
+	-- One holder a spot (user 2026-11-10: "when they are in groups, they are super close together"; chose one per
+	-- spot): a holder takes a hold spot no other holder's post stands within `gap` studs of while one is free; the
+	-- holders of one marked spot stand `gap` apart across the enemy's way (Rules/BotBuild.markedPlace).
+	OffPoint = { clear = 25, inZone = 4, room = 2, held = 3, nestGap = 12, gap = 12 },
 
 	Squads = {
 		size = 4,
@@ -183,7 +186,9 @@ local Bots = {
 		boundMax = 7,
 		hop = 30,
 		arrive = 6,
-		spread = 8, -- (5 to 8, user 2026-11-06: one shell must not catch a whole squad)
+		-- (5 to 8, user 2026-11-06: one shell must not catch a whole squad; 8 to 12, user 2026-11-10: "when they are in
+		-- groups, they are super close together", chose 12: a field gun shell kills within 12)
+		spread = 12,
 		-- a squad moves on from a point on its way (its waypoint, its approach spot) once `readyShare` of its free
 		-- members (not building, rescuing or guarding) are there, or anyone has waited there `waitMax` s (user
 		-- 2026-11-03 play test: "a lot of AI's frozen after a sector taken": members off on jobs kept the rest waiting)
@@ -255,8 +260,9 @@ local Bots = {
 	--   goes (user: "Swap for ~0.6 s"); aimed `short` of the spot (it rolls on) on the low arc.
 	-- Spreading out (user 2026-11-02 hand test: "bots walk neck to neck. make them spread out a little even if they are
 	-- going to the same place"): walking a path with a teammate within `apart` studs, a bot's next step goes `push`
-	-- studs aside, away from them.
-	Spread = { apart = 3.5, push = 2.5 },
+	-- studs aside, away from them. (3.5 and 2.5 to 7 and 4, user 2026-11-10: "when they are in groups, they are super
+	-- close together"; with Squads.spread 12)
+	Spread = { apart = 7, push = 4 },
 	-- Firing only with a line of sight (user 2026-11-02 hand test: "some bots are shooting through terrain even though
 	-- they cant physicall see the enemy"): each shot needs a clear line from the muzzle to the target (anything in the
 	-- way, terrain too); covering fire at a known spot a clear line to within `near` studs of it.
@@ -1023,7 +1029,7 @@ local Bots = {
 		-- The stuck readout lists bots `mill.seconds` s inside `mill.radius` studs off post (shuffling, not standing
 		-- still), and how many stand in a clump (`clump.count` others within `clump.within` studs).
 		Wait = {
-			gap = 5,
+			gap = 10, -- (5 to 10, user 2026-11-10: "when they are in groups, they are super close together")
 			step = 6,
 			fight = 30,
 			stop = 8,
