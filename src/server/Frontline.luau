@@ -299,22 +299,31 @@ end
 -- (Map.legs) at its front sector's rally behind that sector's forward crest (Rules/MapTerrain.rally; the HQ's too once
 -- the match has a capture and nobody attacks the HQ); else by the sector's flag, its zone's point and the one behind it
 -- (Rules/Frontline.lineCentre, Line.back of the way back); facing the sector it attacks
-local function lineOf(side: Rules.Side): (Vector3, Vector3)
-	local i = spawnSector(side)
+local function centreAt(i: number, side: Rules.Side): Vector3
 	local home = if side == "West" then 1 else #sectors
-	local centre: Vector3
 	local rx, rz = nil, nil
 	if Map.legs and not (i == home and (not captured or attackedFor(side)[home])) then
 		rx, rz = MapTerrain.rally(Map, i, side)
 	end
 	if rx and rz then
-		centre = Vector3.new(rx, 0, rz)
+		return Vector3.new(rx, 0, rz)
 	elseif i == home then
 		local r = Map.spawnZones[side]
-		centre = Vector3.new((r.minX + r.maxX) / 2, 0, (r.minZ + r.maxZ) / 2)
-	else
-		local cx, cz = Rules.lineCentre(sectors, i, side, Cfg.Line)
-		centre = Vector3.new(cx, 0, cz)
+		return Vector3.new((r.minX + r.maxX) / 2, 0, (r.minZ + r.maxZ) / 2)
+	end
+	local cx, cz = Rules.lineCentre(sectors, i, side, Cfg.Line)
+	return Vector3.new(cx, 0, cz)
+end
+local function lineOf(side: Rules.Side): (Vector3, Vector3)
+	local i = spawnSector(side)
+	local centre = centreAt(i, side)
+	-- (fallen back from an attacked sector: `Fallback.at` of the way from that sector's line back to this one's, not
+	-- the whole way; user 2026-11-09: "too many people are at the old sectors that we dont have enough people to
+	-- advance", chose halfway)
+	local ahead = Rules.fallbackFrom(state, side, captured, i)
+	if ahead then
+		local a = centreAt(ahead, side)
+		centre = a:Lerp(centre, Cfg.Fallback.at)
 	end
 	local aim = sectors[Rules.target(state, side) or i]
 	local face = Vector3.new(aim.x - centre.X, 0, aim.z - centre.Z)
