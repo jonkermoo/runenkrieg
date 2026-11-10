@@ -725,7 +725,7 @@ local function spotLines()
 			if b.side == side and b.m and alive(b) then
 				local p = (b.root :: BasePart).Position
 				table.insert(pts, { x = p.X, z = p.Z })
-				table.insert(roles, b.role or "none")
+				table.insert(roles, if b.role == "Hold" then `Hold {b.postKind or "-"}` else b.role or "none")
 			end
 		end
 		local gaps = State.ByTrench.gaps[side] or {}

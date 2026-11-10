@@ -281,11 +281,20 @@ end
 
 -- the nearest free fire step (`want` "step") or support-line place ("reserve") of a side's trenches to `p`, taken
 local function trenchPost(sb: SideBuild, want: string, taken: { [Vector3]: number }, p: Vector3): TrenchPost?
-	local best, bestD = nil, math.huge
+	-- (one with no held post within OP.gap first, every other square: user 2026-11-10, "when they are in groups, they
+	-- are super close together")
+	local posts = {}
+	for at in taken do
+		table.insert(posts, { x = at.X, z = at.Z })
+	end
+	local best, bestD, bestCrowd = nil, math.huge, math.huge
 	for _, tp in (if want == "step" then sb.steps else sb.reserve) do
 		local d = flat(tp.pos - p).Magnitude
-		if (taken[tp.pos] or 0) == 0 and d < bestD then
-			best, bestD = tp, d
+		if (taken[tp.pos] or 0) == 0 then
+			local crowd = math.min(BotBuild.crowd(tp.pos.X, tp.pos.Z, posts, OP.gap), 1)
+			if crowd < bestCrowd or (crowd == bestCrowd and d < bestD) then
+				best, bestD, bestCrowd = tp, d, crowd
+			end
 		end
 	end
 	if best then
@@ -1343,7 +1352,14 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					end
 					b.goal = b.post
 				elseif role == "Assault" then
-					b.goal = sqs.clear or sqs.cut or b.stand
+					-- (on the defenders' approach spot: side by side across its way, SQ.spread apart)
+					local cut = if sqs.cut and not sqs.clear
+						then Routes.ground(
+							(sqs.cut :: Vector3).X + right.X * (idx - (#members + 1) / 2) * SQ.spread,
+							(sqs.cut :: Vector3).Z + right.Z * (idx - (#members + 1) / 2) * SQ.spread
+						)
+						else nil
+					b.goal = sqs.clear or cut or b.stand
 				elseif role == "Support" then
 					if b.roleWas ~= "Support" then
 						b.post = p -- (it holds where it stands, covering the others)
