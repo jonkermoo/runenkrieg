@@ -1076,6 +1076,26 @@ local function roundHouse(from: Vector3, to: Vector3, now: number): Vector3?
 			return Vector3.new(x, from.Y, z)
 		end
 	end
+	-- (inside the building, with nothing to go round: out by its nearest ground-floor doorway first)
+	local cf, size = chain[1]:GetBoundingBox()
+	local rel = cf:PointToObjectSpace(from)
+	if math.abs(rel.X) > size.X / 2 or math.abs(rel.Z) > size.Z / 2 then
+		return nil
+	end
+	local best, bestD = nil, math.huge
+	local low = math.huge
+	for _, sp in Indoors.spots(chain[1]) do
+		low = math.min(low, sp.story)
+	end
+	for _, sp in Indoors.spots(chain[1]) do
+		local d = flat(sp.at - from).Magnitude
+		if sp.kind == "Doorway" and sp.story == low and d < bestD then
+			best, bestD = sp, d
+		end
+	end
+	if best and bestD > 1 then
+		return best.at + best.face * (RD.clear + IndoorCfg.Spots.stand)
+	end
 	return nil
 end
 
