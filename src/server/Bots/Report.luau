@@ -692,7 +692,10 @@ local function spotLines()
 		-- fixed: Crew.useful, Crew.fixes)
 		local bk = Tactics.crew.broken[side] or { fixing = 0, left = 0, captured = 0 }
 		local brokenNote =
-			`broken guns: {bk.fixing} of its own to fix, {bk.left} of its own left (can't reach the enemy), {bk.captured} captured to fix`
+			`broken guns: {bk.fixing} of its own to fix, {bk.left} of its own left (can't reach the enemy), {bk.captured} captured to fix; of no use: {table.concat(
+				Tactics.crew.useless(side),
+				", "
+			)}`
 		local spacing = if near
 			then `nearest two {math.floor(near + 0.5)} studs apart, {tight} pairs within {gap}`
 			else "fewer than two"

@@ -785,7 +785,7 @@ end
 -- broken artilleries that may be useful to them"): a field gun or howitzer whose shot, low or lobbed (`fly`), reaches
 -- `target` (the enemy sector it shells), an MG within reach of its side's fight (`mgReach`). Looked at again each
 -- `captured.every` s; by where the gun stands (its Build work stands at it, not the same model).
-type Useful = { side: string, at: Vector3, ok: boolean, when: number }
+type Useful = { side: string, key: string, at: Vector3, ok: boolean, when: number }
 local usefulOf: { [Model]: Useful } = {}
 
 function Crew.useful(
@@ -819,8 +819,20 @@ function Crew.useful(
 				target,
 				"high"
 			)
-		usefulOf[g.model] = { side = side, at = at, ok = ok, when = now }
+		usefulOf[g.model] = { side = side, key = g.key, at = at, ok = ok, when = now }
 	end
+end
+
+-- The guns on `side`'s ground found of no use at the last look (Crew.useful): "key x/z" each (the marked spots readout)
+function Crew.useless(side: string): { string }
+	local out = {}
+	for model, u in usefulOf do
+		if u.side == side and not u.ok then
+			table.insert(out, `{u.key} {math.floor(u.at.X)}/{math.floor(u.at.Z)}`)
+		end
+	end
+	table.sort(out)
+	return out
 end
 
 -- Whether the gun standing at `at` (within `near` studs) is of use to `side` (Crew.useful): nil when not looked at

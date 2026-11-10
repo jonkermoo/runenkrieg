@@ -3705,8 +3705,10 @@ local function command()
 		formSquads(side, counts)
 		-- (which guns on its ground can still reach the enemy: those that can't aren't fixed first, Crew.useful)
 		local reachAt = if shell and Map.sectors[shell] then sectorPoint(shell) else nil
-		local fightX, fightZ =
-			if front then BotBuild.fightPoint(Map.sectors, front, side, Cfg.Crew.MG.fightAt) else 0, 0
+		local fightX, fightZ = 0, 0
+		if front then
+			fightX, fightZ = BotBuild.fightPoint(Map.sectors, front, side, Cfg.Crew.MG.fightAt)
+		end
 		Tactics.crew.useful(side, owner, if front then reachAt else nil, function(g, k, a, t, arc)
 			return Guns.flyShot(g, k, a, t, arc, true)
 		end, function(at)
