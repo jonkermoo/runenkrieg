@@ -15,6 +15,7 @@ local Map = require(Shared.LiveMap).map -- (the match's map)
 local BotBuild = require(Shared.Rules.BotBuild)
 local BotTrenches = require(Shared.Rules.BotTrenches)
 local BotWait = require(Shared.Rules.BotWait)
+local BotLanes = require(Shared.Rules.BotLanes)
 local MapTerrain = require(Shared.Rules.MapTerrain)
 local Trenches = require(script.Parent.Parent.Trenches)
 local BuildServer = require(script.Parent.Parent.Build)
@@ -754,6 +755,41 @@ local function spotLines()
 		end
 		table.sort(gapText)
 		local gapNote = `nearest teammate (studs, middle): {table.concat(gapText, "; ")}`
+		-- (how far across from the line through the flags its living bots stand, now and this match, and its lanes now:
+		-- Config/Bots.Lanes; user 2026-11-10: "still too many are just in the center")
+		local bands = { 40, 100, 200 }
+		local across = State.ByTrench.across[side] or { 0, 0, 0, 0 }
+		State.ByTrench.across[side] = across
+		local nowAcross = { 0, 0, 0, 0 }
+		for _, pt in pts do
+			local d = BotLanes.fromLine(Map.sectors, pt.x, pt.z)
+			local k = #bands + 1
+			for j, edge in bands do
+				if d < edge then
+					k = j
+					break
+				end
+			end
+			nowAcross[k] += 1
+			across[k] += 1
+		end
+		local function shares(t: { number }): string
+			local n = math.max(t[1] + t[2] + t[3] + t[4], 1)
+			local out = {}
+			for j = 1, 4 do
+				table.insert(out, `{math.floor(100 * t[j] / n + 0.5)}%`)
+			end
+			return table.concat(out, " / ")
+		end
+		local laneText = {}
+		for what, t in State.ByTrench.lanesNow[side] or {} do
+			table.insert(laneText, `{what} {t}`)
+		end
+		table.sort(laneText)
+		local acrossNote =
+			`across from the flags' line (under 40 / 100 / 200 / more): now {shares(nowAcross)}, this match {shares(
+				across
+			)}; lanes now (squads/share): {table.concat(laneText, "; ")}; {stats.laneMoves} lane moves`
 		local nests, guns, onFlag, marked, frames = 0, 0, 0, 0, 0
 		local nestsAt = {}
 		for _, w in if kit then BuildServer.worksOf(kit) else {} do
@@ -795,7 +831,7 @@ local function spotLines()
 			lines,
 			`{side}: holders this match {math.floor(100 * h.flag / n + 0.5)}% within {OP.clear} studs of a flag, {math.floor(
 				100 * h.zone / n + 0.5
-			)}% in a zone; {nests} MG nests ({frames} more going up, {Tactics.crew.nestsOut[side] or 0} at its front too far from the fight to count; {spacing}; {Tactics.crew.nestsTight[side] or 0} spots passed over too close), {guns} guns standing, {marked} of them on marked spots, {onFlag} within {OP.clear} of a flag; {brokenNote}; {whereNote}; {gapNote}`
+			)}% in a zone; {nests} MG nests ({frames} more going up, {Tactics.crew.nestsOut[side] or 0} at its front too far from the fight to count; {spacing}; {Tactics.crew.nestsTight[side] or 0} spots passed over too close), {guns} guns standing, {marked} of them on marked spots, {onFlag} within {OP.clear} of a flag; {brokenNote}; {whereNote}; {gapNote}; {acrossNote}`
 		)
 	end
 	workspace:SetAttribute(DevCfg.Admin.Spots.readout, table.concat(lines, "\n"))

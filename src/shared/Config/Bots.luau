@@ -574,6 +574,36 @@ local Bots = {
 		Flank = { share = 1 / 3, offset = 90, every = 3, gunFrom = 120 },
 	},
 
+	-- Lanes across the front (Rules/BotLanes; user 2026-11-10: "can you make the bots just more spread out? ... considering
+	-- how big the map is, still too many are just in the center. it should be a almost even spread, with the area that
+	-- needs most attention with more bots accordingly to how desperate the situation is"; chose 5 lanes over the whole
+	-- width, lane odds and sector danger, up to 3x). The squads of each sector a side attacks or defends share `count`
+	-- lanes across the enemy's way, over the map's width there (its bounds less `margin`, at most `reach` studs each way);
+	-- `least` squads a lane while there are enough, the rest by weight: 1, up to `most` as the enemies the side knows of
+	-- in a lane (within `depth` studs of the sector) outnumber its bots there `odds` to 1. A new squad takes the lane
+	-- furthest under its share; every `every` s one squad (not pushing in) moves over once the lane furthest over and
+	-- the one furthest under add up to `moveAt` squads. Attackers go by their lane's point `back` studs short of the
+	-- sector (in place of Front.Flank's), gather at the best gather spot within `gatherNear` of it (else on it), and
+	-- converge on the zone for the assault; defenders (those not keeping the zone) hold posts in their lane, else on its
+	-- point `ahead` studs out toward the enemy. While an own sector is being taken, its defenders' share rises from
+	-- Normal.defendShare toward `danger` with how badly (Rules/BotOrders.danger).
+	Lanes = {
+		on = true,
+		count = 5,
+		reach = 350,
+		margin = 40,
+		least = 1,
+		most = 3,
+		odds = 2,
+		depth = 300,
+		every = 20,
+		moveAt = 1.5,
+		back = 110,
+		ahead = 30,
+		gatherNear = 60,
+		danger = 0.8,
+	},
+
 	-- A sap that gets nowhere is given up (user 2026-11-04: "why are they not pushing": saps at a river bank, uphill,
 	-- refused run after run): a run refused `Build.tries` times, a run through water (looked at every `waterStep` studs
 	-- along it), or no run dug in `dig` s; the squad then presses on (Squads.Open.press) and starts no sap for `rest` s

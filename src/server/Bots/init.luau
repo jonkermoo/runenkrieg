@@ -1652,6 +1652,8 @@ function Bots.forgetMap()
 	table.clear(ByTrench.where)
 	table.clear(ByTrench.behindWhy)
 	table.clear(ByTrench.gaps)
+	table.clear(ByTrench.across)
+	table.clear(ByTrench.lanesNow)
 	ByTrench.counts = {}
 	table.clear(sharedPaths)
 	-- (each side back to walking until its first contact there: Config/Bots.Front)
