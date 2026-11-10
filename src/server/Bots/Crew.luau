@@ -826,7 +826,7 @@ end
 -- The guns on `side`'s ground found of no use at the last look (Crew.useful): "key x/z" each (the marked spots readout)
 function Crew.useless(side: string): { string }
 	local out = {}
-	for model, u in usefulOf do
+	for _, u in usefulOf do
 		if u.side == side and not u.ok then
 			table.insert(out, `{u.key} {math.floor(u.at.X)}/{math.floor(u.at.Z)}`)
 		end
