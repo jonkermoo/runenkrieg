@@ -1387,12 +1387,14 @@ local Buildings = {
 			},
 			description = "The old tithe barn: long stone walls, a deep thatch, wagon doors front and back.",
 		},
-		-- Map 1's S1 (user approved 2026-11-10): the beacon farm on the HQ's rear flank, out of S2's sight: a long stone
-		-- farmhouse, a barn and the beacon (a stone pier with an iron fire basket, not climbable) between them.
+		-- Map 1's S1, Beacon Hill Mill (user approved 2026-11-11, the landmark design sheet; the beacon farm since
+		-- 2026-11-10): on the HQ's rear flank, out of S2's sight, a tarred tower mill with white sails over the West, its
+		-- top about 70 (trees 34-46); a two-storey stone farmhouse, a threshing barn with wagon doors front and back, the
+		-- beacon at the crest between them, an orchard behind.
 		BeaconFarm = {
 			folder = "Landmarks",
-			width = 72,
-			depth = 34,
+			width = 120,
+			depth = 44,
 			stories = 1,
 			roofPitch = 42,
 			class = "Stone",
@@ -1402,33 +1404,41 @@ local Buildings = {
 			blocks = {
 				{
 					name = "Farmhouse",
-					x = -20,
+					x = -42,
 					z = 6,
 					width = 30,
 					depth = 13,
-					stories = 1,
+					stories = 2,
 					storyHeight = 10,
 					roofPitch = 42,
 					roofStyle = "Tile",
 					quoins = true,
 					gableChimney = -1,
+					chimneys = { 0.7 },
 					doors = { { center = -6 }, { center = 6 } },
 				},
 				{
 					name = "Barn",
-					x = 21,
+					x = -2,
 					z = 7,
-					width = 26,
+					width = 36,
 					depth = 16,
 					stories = 1,
-					storyHeight = 13,
-					roofPitch = 40,
+					storyHeight = 14,
+					roofPitch = 45,
 					roofStyle = "Tile",
-					doors = { { center = 0, w = 7, h = 9 } },
+					wall = "BarnRed",
+					windows = 0,
+					doors = { { center = 0, w = 8, h = 10 } },
+					backDoor = { { center = 0, w = 8, h = 10 } },
 				},
 			},
-			features = { { kind = "Beacon", x = 0, z = -10 } },
-			description = "The beacon farm: a stone farmhouse and barn with the beacon between them.",
+			features = {
+				{ kind = "Beacon", x = 22, z = -12 },
+				{ kind = "TowerMill", x = 42, z = 4, r0 = 9, r1 = 6.2, height = 44, sail = 23 },
+				{ kind = "Orchard", x = -50, z = 22, rows = 2, cols = 6, gap = 9 },
+			},
+			description = "Beacon Hill Mill: a tower mill with white sails, a farmhouse, a threshing barn and the beacon.",
 		},
 	} :: { [string]: Template },
 

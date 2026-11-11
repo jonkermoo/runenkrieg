@@ -268,6 +268,10 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.stage(model, ctx, at, f.width, f.depth, f.height, f.posts)
 			elseif f.kind == "Bellcote" then
 				Geometry.bellcote(model, ctx, at * CFrame.new(0, f.y, 0), f.width, f.height)
+			elseif f.kind == "TowerMill" then
+				Geometry.towerMill(model, ctx, at, f.r0, f.r1, f.height, f.sail)
+			elseif f.kind == "Orchard" then
+				Geometry.orchard(model, ctx, at, f.rows, f.cols, f.gap)
 			elseif f.kind == "Yew" then
 				Geometry.yew(model, ctx, at, f.height)
 			elseif f.kind == "Waterwheel" then
@@ -306,6 +310,7 @@ function Buildings.paint(model: Instance, scheme: any, palette: any)
 		Cloth = rgb(P.Cloth),
 		Hay = rgb(P.Hay),
 		Foliage = rgb(P.Foliage),
+		Orchard = rgb(P.Orchard),
 	}
 	local door = rgb(P.Doors[scheme.door])
 	colors.DoorDark = Color3.new(door.R * 0.86, door.G * 0.86, door.B * 0.86)

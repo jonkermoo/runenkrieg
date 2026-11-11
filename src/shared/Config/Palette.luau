@@ -74,6 +74,7 @@ local Palette = {
 		Cloth = { 140, 64, 54 },
 		Hay = { 194, 166, 98 },
 		Foliage = { 44, 70, 52 }, -- a churchyard yew's crown (Geometry.yew)
+		Orchard = { 98, 132, 66 }, -- a fruit tree's crown (Geometry.orchard)
 		-- the lantern festival's pieces (Lantern Meadows' stage, lantern poles; a part's Paint "Festival", its Swatch the key)
 		Festival = {
 			Canvas = { 200, 184, 148 },

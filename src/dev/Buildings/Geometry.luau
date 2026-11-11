@@ -1615,4 +1615,131 @@ function Geometry.yew(parent: Instance, ctx: Ctx, at: CFrame, H: number)
 	end
 end
 
+-- A tower mill (Map 1's Beacon Hill Mill, user approved 2026-11-11): an eight-sided tarred tower in four stages
+-- tapering from radius `r0` to `r1` over `H`, a gallery round it at the first stage's top, small windows, a white cap,
+-- and four sails `sail` long on a hub facing the frame's -Z. The sails don't collide (nobody stands on them).
+function Geometry.towerMill(parent: Instance, ctx: Ctx, at: CFrame, r0: number, r1: number, H: number, sail: number)
+	local T = ctx.T
+	local stages = 4
+	local h = H / stages
+	Geometry.part(
+		parent,
+		ctx,
+		"Foundation",
+		at * CFrame.new(0, -ctx.B.FoundationDepth / 2, 0),
+		Vector3.new(2 * r0 + 1, ctx.B.FoundationDepth + 0.2, 2 * r0 + 1),
+		"Foundation"
+	)
+	for k = 0, stages - 1 do
+		local r = r0 + (r1 - r0) * (k + 0.5) / stages
+		local side = 2 * r * math.tan(math.pi / 8)
+		for i = 0, 7 do
+			local sec = Geometry.section(parent, ctx, "Mill", "Wood", k)
+			local face = at * CFrame.Angles(0, i * math.pi / 4, 0)
+			local p = Geometry.part(
+				sec,
+				ctx,
+				"Tower",
+				face * CFrame.new(0, k * h + h / 2, -(r - T / 2)),
+				Vector3.new(side + T * 0.9, h + 0.05, T),
+				"Wall"
+			)
+			p:SetAttribute("Swatch", "TarBoard")
+			if k > 0 and i % 2 == 0 then
+				Geometry.part(
+					sec,
+					ctx,
+					"Window",
+					face * CFrame.new(0, k * h + h * 0.55, -(r + 0.05)),
+					Vector3.new(1.6, 2.4, 0.3),
+					"Glass"
+				)
+			end
+		end
+		if k == 0 then
+			local front = Geometry.section(parent, ctx, "Mill", "Wood", 0)
+			Geometry.part(front, ctx, "Door", at * CFrame.new(0, 3.6, -(r0 + 0.1)), Vector3.new(3.6, 7.2, 0.4), "Door")
+		end
+	end
+	-- the gallery round the first stage's top: boards out on brackets, a rail
+	local gr = r0 + (r1 - r0) / stages + 2.4
+	local gs = 2 * gr * math.tan(math.pi / 8)
+	for i = 0, 7 do
+		local sec = Geometry.section(parent, ctx, "Gallery", "Wood", 1)
+		local face = at * CFrame.Angles(0, i * math.pi / 4, 0)
+		Geometry.part(sec, ctx, "Boards", face * CFrame.new(0, h, -(gr - 1.4)), Vector3.new(gs, 0.4, 2.8), "Wood")
+		Geometry.part(sec, ctx, "Rail", face * CFrame.new(0, h + 1.6, -(gr - 0.1)), Vector3.new(gs, 0.3, 0.3), "Trim")
+	end
+	-- the cap: a white boarded hood, its ridge along the sails' line
+	local cap = Geometry.section(parent, ctx, "Cap", "Wood", 99)
+	local cw = 2 * r1 + 2
+	local curb = Geometry.part(cap, ctx, "Curb", at * CFrame.new(0, H + 0.6, 0), Vector3.new(cw, 1.2, cw), "Wall")
+	curb:SetAttribute("Swatch", "WhiteBoard")
+	Geometry.roof(cap, ctx, at * CFrame.Angles(0, math.pi / 2, 0), cw, cw, H + 1.2, 52, "Tile")
+	for _, d in cap:GetDescendants() do
+		if d:IsA("BasePart") and d ~= curb then
+			d:SetAttribute("Paint", "Wall")
+			d:SetAttribute("Swatch", "WhiteBoard")
+		end
+	end
+	-- the sails on a hub out in front of the cap
+	local hub = at * CFrame.new(0, H + 3.2, -(r1 + 2.2))
+	local sails = Geometry.section(parent, ctx, "Sails", "Wood", 99)
+	local axle =
+		Geometry.part(sails, ctx, "Hub", hub * CFrame.Angles(0, math.pi / 2, 0), Vector3.new(2.6, 1.6, 1.6), "Metal")
+	axle.Shape = Enum.PartType.Cylinder
+	local L = sail * 0.74
+	for i = 0, 3 do
+		local arm = hub * CFrame.Angles(0, 0, math.pi / 4 + i * math.pi / 2)
+		local stock =
+			Geometry.part(sails, ctx, "Stock", arm * CFrame.new(0, sail / 2, -0.4), Vector3.new(0.7, sail, 0.5), "Wood")
+		stock.CanCollide = false
+		local frame = Geometry.part(
+			sails,
+			ctx,
+			"Sail",
+			arm * CFrame.new(1.7, sail - L / 2, -0.6),
+			Vector3.new(2.8, L, 0.25),
+			"Wall"
+		)
+		frame:SetAttribute("Swatch", "WhiteBoard")
+		frame.CanCollide = false
+		for b = 1, 5 do
+			local bar = Geometry.part(
+				sails,
+				ctx,
+				"Bar",
+				arm * CFrame.new(1.7, sail - L * b / 6, -0.8),
+				Vector3.new(3.2, 0.25, 0.25),
+				"Trim"
+			)
+			bar.CanCollide = false
+		end
+	end
+end
+
+-- An orchard: `rows` x `cols` small fruit trees `gap` apart from `at` along its X and Z, each a short trunk under a
+-- round crown (Palette.Buildings.Orchard), set on the real ground.
+function Geometry.orchard(parent: Instance, ctx: Ctx, at: CFrame, rows: number, cols: number, gap: number)
+	for r = 0, rows - 1 do
+		for c = 0, cols - 1 do
+			local sec = Geometry.section(parent, ctx, "FruitTree", "Wood", 0)
+			sec:SetAttribute("OnGround", true)
+			local h = 7 + 1.5 * jitter(ctx, 17)
+			local spot = at * CFrame.new(c * gap + (r % 2) * gap / 2, 0, r * gap)
+			Geometry.part(sec, ctx, "Trunk", spot * CFrame.new(0, h * 0.25, 0), Vector3.new(0.9, h * 0.5, 0.9), "Trim")
+			local crown = Geometry.part(
+				sec,
+				ctx,
+				"Crown",
+				spot * CFrame.new(0, h * 0.68, 0),
+				Vector3.new(h * 0.8, h * 0.6, h * 0.8),
+				"Orchard"
+			)
+			crown.Shape = Enum.PartType.Ball
+			crown.CanCollide = false
+		end
+	end
+end
+
 return Geometry
