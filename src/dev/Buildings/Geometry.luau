@@ -2116,9 +2116,29 @@ end
 
 -- A town gate tower (Config/Buildings.GateTower) `W` across, `D` deep (its way through along local Z) and `H` to its
 -- merlons' tops: two piers, the way `way` { width, height } between them under a stepped arch head, the tower over it,
--- a string course, quoins, arrow slits front and back, a battlemented top. Solid; the road runs through.
-function Geometry.gateTower(parent: Instance, ctx: Ctx, at: CFrame, W: number, D: number, H: number, way: { number })
+-- a string course, quoins, arrow slits front and back, a battlemented top. Solid; the road runs through. `wallKey`: its
+-- own wall colour; `onGround`: the whole of it on the real ground where it stands.
+function Geometry.gateTower(
+	parent: Instance,
+	ctx: Ctx,
+	at: CFrame,
+	W: number,
+	D: number,
+	H: number,
+	way: { number },
+	wallKey: string?,
+	onGround: boolean?
+)
 	local K = ctx.B.GateTower
+	local wall = wallKey or K.wall
+	if onGround then
+		-- (all of it on the real ground where it stands: a burg's gatehouse out on its slope)
+		local m = Instance.new("Model")
+		m.Name = "Gatehouse"
+		m:SetAttribute("OnGround", true)
+		m.Parent = parent
+		parent = m
+	end
 	local depth = ctx.B.FoundationDepth
 	local ww, wh = way[1], way[2]
 	local pw = (W - ww) / 2
@@ -2132,7 +2152,7 @@ function Geometry.gateTower(parent: Instance, ctx: Ctx, at: CFrame, W: number, D
 			at * CFrame.new(s * (ww / 2 + pw / 2), (wh - depth) / 2, 0),
 			Vector3.new(pw, wh + depth, D),
 			"Wall",
-			K.wall
+			wall
 		)
 		for k, share in K.steps do
 			swatched(
@@ -2142,7 +2162,7 @@ function Geometry.gateTower(parent: Instance, ctx: Ctx, at: CFrame, W: number, D
 				at * CFrame.new(s * (ww / 2 - share * ww / 2), wh + (k - 0.5) * K.corbel, 0),
 				Vector3.new(share * ww, K.corbel, D),
 				"Wall",
-				K.wall
+				wall
 			)
 		end
 	end
@@ -2161,7 +2181,7 @@ function Geometry.gateTower(parent: Instance, ctx: Ctx, at: CFrame, W: number, D
 				at * CFrame.new(s * (ww / 2 + pw / 2), (a + b) / 2, 0),
 				Vector3.new(pw, per + 0.05, D),
 				"Wall",
-				K.wall
+				wall
 			)
 		end
 		local a2 = math.max(a, headY)
@@ -2172,7 +2192,7 @@ function Geometry.gateTower(parent: Instance, ctx: Ctx, at: CFrame, W: number, D
 			at * CFrame.new(0, (a2 + b) / 2, 0),
 			Vector3.new(ww + 0.1, b - a2 + 0.05, D),
 			"Wall",
-			K.wall
+			wall
 		)
 		-- arrow slits front and back: one over each pier, one over the way
 		for _, face in { 0, math.pi } do
@@ -2228,7 +2248,7 @@ function Geometry.gateTower(parent: Instance, ctx: Ctx, at: CFrame, W: number, D
 				at * r[1] * CFrame.new(-L / 2 + (i + 0.5) * L / n, body + K.merlon[2] / 2, 0),
 				Vector3.new(L / n, K.merlon[2], 1.2),
 				"Wall",
-				K.wall
+				wall
 			)
 		end
 	end
@@ -2525,6 +2545,136 @@ function Geometry.stall(parent: Instance, ctx: Ctx, at: CFrame, L: number, D: nu
 	for _, x in { -L / 4, L / 4 } do
 		lantern(sec, ctx, at, x, K.height - 0.1, -D / 2 - 0.3)
 	end
+end
+
+-- A burg's round corner tower on the real ground (Config/Buildings.RoundTower), `r` out and `H` to its eaves: a
+-- many-sided stone drum round a solid core, a string course, arrow slits, a slate cone `cone` high with a finial.
+function Geometry.roundTower(parent: Instance, ctx: Ctx, at: CFrame, r: number, H: number, coneH: number)
+	local K = ctx.B.RoundTower
+	local tower = Instance.new("Model")
+	tower.Name = "RoundTower"
+	tower:SetAttribute("OnGround", true)
+	tower.Parent = parent
+	local n = K.sides
+	local side = 2 * r * math.tan(math.pi / n)
+	local tiers = 2
+	for i = 0, tiers - 1 do
+		local y0, y1 = if i == 0 then -1 else H * i / tiers, H * (i + 1) / tiers
+		local sec = Geometry.section(tower, ctx, "Tower", "Stone", i)
+		swatched(
+			sec,
+			ctx,
+			"Core",
+			at * CFrame.new(0, (y0 + y1) / 2, 0),
+			Vector3.new(1.4 * r, y1 - y0, 1.4 * r),
+			"Wall",
+			K.wall
+		)
+		for k = 0, n - 1 do
+			local face = at * CFrame.Angles(0, k * 2 * math.pi / n, 0)
+			swatched(
+				sec,
+				ctx,
+				"Drum",
+				face * CFrame.new(0, (y0 + y1) / 2, -(r - K.thick / 2)),
+				Vector3.new(side + 0.4, y1 - y0, K.thick),
+				"Wall",
+				K.wall
+			)
+			if k % 3 == 0 then
+				swatched(
+					sec,
+					ctx,
+					"Slit",
+					face * CFrame.new(0, (y0 + y1) / 2 + 1, -r - 0.05),
+					Vector3.new(K.slit[1], K.slit[2], 0.2),
+					"Wall",
+					K.dark
+				)
+			end
+		end
+	end
+	local top = Geometry.section(tower, ctx, "Roof", "Tile", 99)
+	for k = 0, n - 1 do
+		local face = at * CFrame.Angles(0, k * 2 * math.pi / n, 0)
+		swatched(
+			top,
+			ctx,
+			"Course",
+			face * CFrame.new(0, H * 0.55, -r - 0.1),
+			Vector3.new(side + 0.6, K.course, 0.6),
+			"Wall",
+			K.trim
+		)
+	end
+	for _, face in cone(top, ctx, at * CFrame.new(0, H, 0), r + K.eave, coneH, n, 0.5) do
+		for _, p in face do
+			p:SetAttribute("Swatch", K.roof)
+		end
+	end
+	Geometry.part(top, ctx, "Finial", at * CFrame.new(0, H + coneH + 0.8, 0), Vector3.new(0.4, 2, 0.4), "Metal")
+end
+
+-- Arrow slits on the four faces of a square block `size` across centred on `at` (a keep with no windows): `per` on
+-- each face every `step` from `y0` to `y1`, every other storey's set shifted, each a dark slit in a stone surround.
+function Geometry.slits(
+	parent: Instance,
+	ctx: Ctx,
+	at: CFrame,
+	size: number,
+	y0: number,
+	y1: number,
+	step: number,
+	per: number
+)
+	local K = ctx.B.Slits
+	local sec = Geometry.section(parent, ctx, "Slits", ctx.class, 99)
+	local i = 0
+	for y = y0, y1, step do
+		local shift = if i % 2 == 0 then 0 else size / (2 * per + 2)
+		for k = 0, 3 do
+			local face = at * CFrame.Angles(0, k * math.pi / 2, 0) * CFrame.new(0, 0, -size / 2)
+			for j = 1, per do
+				local x = -size / 2 + j * size / (per + 1) - shift
+				Geometry.part(
+					sec,
+					ctx,
+					"Surround",
+					face * CFrame.new(x, y, -0.08),
+					Vector3.new(K.slit[1] + 2 * K.surround, K.slit[2] + 2 * K.surround, 0.16),
+					"Quoin"
+				)
+				local s = Geometry.part(
+					sec,
+					ctx,
+					"Slit",
+					face * CFrame.new(x, y, -0.2),
+					Vector3.new(K.slit[1], K.slit[2], 0.12),
+					"Wall"
+				)
+				s:SetAttribute("Swatch", K.dark)
+			end
+		end
+		i += 1
+	end
+end
+
+-- A flag mast on the real ground (Config/Buildings.FlagMast): a pole `H` high on a stone base, a cross-yard, a flag.
+function Geometry.flagMast(parent: Instance, ctx: Ctx, at: CFrame, H: number)
+	local K = ctx.B.FlagMast
+	local sec = Geometry.section(parent, ctx, "Mast", "Wood", 0)
+	sec:SetAttribute("OnGround", true)
+	Geometry.part(sec, ctx, "Base", at * CFrame.new(0, 0.2, 0), Vector3.new(2.4, 1.6, 2.4), "Foundation")
+	Geometry.part(sec, ctx, "Mast", at * CFrame.new(0, H / 2, 0), Vector3.new(0.5, H, 0.5), "Trim")
+	Geometry.part(sec, ctx, "Yard", at * CFrame.new(0, H - 2.4, 0), Vector3.new(3.6, 0.25, 0.25), "Trim")
+	Geometry.part(
+		sec,
+		ctx,
+		"Flag",
+		at * CFrame.new(K.flag[1] / 2 + 0.3, H - 0.4 - K.flag[2] / 2, 0),
+		Vector3.new(K.flag[1], K.flag[2], 0.12),
+		"Cloth"
+	)
 end
 
 -- A carousel pavilion on the real ground (Config/Buildings.Carousel), `r` out to its posts: a round deck you hop

@@ -59,7 +59,9 @@ export type Template = {
 	-- door's opening kept), { kind = "Fountain", x, z, radius } (on the real ground), { kind = "GateTower", x, z,
 	-- width, depth, height, way } (a gate tower, its way { width, height } through it along local Z), { kind =
 	-- "TownWall", x, z, thick, pieces = { { from, to, height } } along local X, tower = { x, radius, height }? } (each
-	-- piece and the tower on the real ground), { kind = "LatticeTower", x, z, base, top, height, stages } (a timber
+	-- piece and the tower on the real ground; a GateTower may take `wall` and `onGround` too), { kind = "RoundTower", x,
+	-- z, radius, height, cone } and { kind = "FlagMast", x, z, height } (on the real ground), { kind = "Slits", x, z,
+	-- size, from, to, step, per } (arrow slits on a square block's faces), { kind = "LatticeTower", x, z, base, top, height, stages } (a timber
 	-- lattice tower, `base` across at its foot, `top` at its deck), { kind = "LanternString", x, z, from = { x, y, z }, to = {
 	-- x, z }, up } (lanterns on a cord to `up` over the real ground at `to`), { kind = "Stall", x, z, yaw?, length, depth }
 	-- and { kind = "Carousel", x, z, radius } (on the real ground).
@@ -332,6 +334,21 @@ local Buildings = {
 		horses = 6,
 		canvas = { "Canvas", "RunePaint" },
 	},
+	-- Katzmark Burg (S1's hero, user approved 2026-11-11): a round corner tower of `sides` sides, its drum `thick`
+	-- thick, slits `slit` (w, h), a string course, a cone `eave` past the drum; a flag mast's flag (long, high)
+	RoundTower = {
+		sides = 12,
+		thick = 1.4,
+		slit = { 0.7, 2.8 },
+		course = 0.7,
+		eave = 0.8,
+		wall = "Stone",
+		trim = "Ochre",
+		dark = "TarBoard",
+		roof = "Slate",
+	},
+	FlagMast = { flag = { 5, 3.2 } },
+	Slits = { slit = { 0.8, 2.8 }, surround = 0.35, dark = "TarBoard" }, -- a keep's arrow slits (w, h) in their surrounds
 	-- a town gate tower: the arch's head in two corbel steps `corbel` high (each a share of the way), a string course,
 	-- quoins `quoin` wide, arrow slits `slit`, merlons `merlon` (long, high); colours
 	GateTower = {
@@ -1032,6 +1049,110 @@ local Buildings = {
 				{ kind = "Crates", x = 9, z = -10, yaw = 20, count = 2 },
 			},
 			description = "The old watchtower: a square stone tower with a climbable battlemented roof walk, Katzmark's tents and crates round it.",
+		},
+		-- Katzmark Burg, S1's hero (Lantern Meadows' landmarks, user approved 2026-11-11): the hill fort behind S1 under
+		-- the mountains, its front (-Z) toward the point. A square battlemented stone keep 56 high (seven stages, a stair
+		-- up through it to the roof walk: the West's lookout), a timber barrack hut beside it; round them a broken
+		-- curtain wall, a gatehouse with its arched way in the front wall, a round corner tower under a slate cone;
+		-- Katzmark's grey tents, crates and flag mast in the bailey. The footprint is the keep and the hut (the copy
+		-- stands on that ground); the walls, gatehouse, tower and camp stand on their own ground.
+		KatzmarkBurg = {
+			folder = "Landmarks",
+			width = 44,
+			depth = 34,
+			stories = 1,
+			roofPitch = 0,
+			class = "Stone",
+			wallThickness = 1.6,
+			walls = { "Stone" },
+			roofs = { "Slate" },
+			blocks = {
+				{
+					name = "Keep",
+					x = -10,
+					z = 8,
+					width = 16,
+					depth = 16,
+					stories = 7,
+					storyHeight = 7.4,
+					windows = 0, -- arrow slits instead (the Slits feature)
+					roofPitch = 0,
+					roofStyle = "Battlement",
+					quoins = true,
+					climb = true,
+				},
+				{
+					name = "Barracks",
+					x = 13,
+					z = 9,
+					width = 18,
+					depth = 10,
+					stories = 1,
+					storyHeight = 9,
+					roofPitch = 28,
+					roofStyle = "Tile",
+					class = "Wood",
+					wall = "TarBoard",
+					roof = "DarkTile",
+					windows = 2,
+					doors = { { center = -4 }, { center = 4 } },
+					gableChimney = 1,
+				},
+			},
+			features = {
+				-- the curtain wall round the bailey (local X -30..30, Z -28..28), broken in places
+				{
+					kind = "TownWall",
+					x = 0,
+					z = -28,
+					thick = 2.4,
+					pieces = { { -30, -19, 7 }, { -15, -9, 4 }, { 9, 16, 7.5 }, { 21, 30, 3.5 } },
+				},
+				{
+					kind = "TownWall",
+					x = 0,
+					z = 28,
+					thick = 2.4,
+					pieces = { { -30, -12, 7 }, { -12, -4, 3 }, { 2, 20, 7 }, { 24, 30, 4.5 } },
+				},
+				{
+					kind = "TownWall",
+					x = -30,
+					z = 0,
+					yaw = 90,
+					thick = 2.4,
+					pieces = { { -28, -10, 7 }, { -6, 4, 4 }, { 8, 28, 7 } },
+				},
+				{
+					kind = "TownWall",
+					x = 30,
+					z = 0,
+					yaw = 90,
+					thick = 2.4,
+					pieces = { { -24, -8, 7.5 }, { -4, 8, 2.8 }, { 12, 22, 7 } },
+				},
+				{
+					kind = "GateTower",
+					x = 0,
+					z = -28,
+					width = 16,
+					depth = 9,
+					height = 22,
+					way = { 6, 8 },
+					wall = "Stone",
+					onGround = true,
+				},
+				{ kind = "RoundTower", x = 30, z = -28, radius = 5, height = 20, cone = 9 },
+				{ kind = "Slits", x = -10, z = 8, size = 16, from = 12, to = 52, step = 7.4, per = 2 },
+				{ kind = "Tent", x = -18, z = -14, length = 9, width = 7, height = 5.5 },
+				{ kind = "Tent", x = -6, z = -16, length = 9, width = 7, height = 5.5 },
+				{ kind = "Tent", x = 16, z = -14, yaw = 180, length = 8, width = 6, height = 5 },
+				{ kind = "Crates", x = 24, z = -4, count = 3 },
+				{ kind = "Crates", x = 5, z = -8, yaw = 20, count = 2 },
+				{ kind = "Crates", x = -24, z = 6, yaw = -15, count = 3 },
+				{ kind = "FlagMast", x = 4, z = 4, height = 18 },
+			},
+			description = "Katzmark Burg: a battlemented stone keep 56 high with a roof walk, a broken curtain wall, a gatehouse, a round tower, Katzmark's camp.",
 		},
 		-- The field barn among S2's hedgerows, south of the point on its x, facing it: a Selvaran hay barn, two storeys
 		-- of brick under a low terracotta roof, three wide barn doors below and brick lattice vents in the hayloft

@@ -280,7 +280,13 @@ function Buildings.build(name: string, deps: Deps): Model
 			elseif f.kind == "Fountain" then
 				Geometry.fountain(model, ctx, at, f.radius)
 			elseif f.kind == "GateTower" then
-				Geometry.gateTower(model, ctx, at, f.width, f.depth, f.height, f.way)
+				Geometry.gateTower(model, ctx, at, f.width, f.depth, f.height, f.way, f.wall, f.onGround)
+			elseif f.kind == "RoundTower" then
+				Geometry.roundTower(model, ctx, at, f.radius, f.height, f.cone)
+			elseif f.kind == "Slits" then
+				Geometry.slits(model, ctx, at, f.size, f.from, f.to, f.step, f.per)
+			elseif f.kind == "FlagMast" then
+				Geometry.flagMast(model, ctx, at, f.height)
 			elseif f.kind == "TownWall" then
 				Geometry.townWall(model, ctx, at, f.thick, f.pieces, f.tower)
 			elseif f.kind == "LatticeTower" then

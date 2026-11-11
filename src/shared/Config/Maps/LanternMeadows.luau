@@ -444,8 +444,9 @@ local LanternMeadows = {
 			{ id = "LanternHall", style = "LanternHall", x = S3[1], z = CZ + 262, front = { 0, -1 } },
 			-- the Lantern Tower between them (S3's hero, user approved 2026-11-11), its strings, carousel and stalls
 			{ id = "LanternTower", style = "LanternTower", x = S3[1], z = CZ + 232, front = { 0, -1 } },
-			-- the old watchtower behind S1's point on its north side, Katzmark's camp round it
-			{ id = "Watchtower", style = "Watchtower", x = 340, z = CZ - 84, front = { 1, 0 } },
+			-- Katzmark Burg behind S1's point on its north side (S1's hero, user approved 2026-11-11), its keep where the
+			-- old watchtower stood (340, -84), Katzmark's camp in its bailey
+			{ id = "Burg", style = "KatzmarkBurg", x = 348, z = CZ - 74, front = { 1, 0 } },
 			-- the brickfield farm on S2's point, the flag in its yard (user approved 2026-11-06)
 			{ id = "BrickfieldFarm", style = "BrickfieldFarm", x = PTS[2][1], z = CZ + PTS[2][2], front = { 0, -1 } },
 			-- Fornace Aurelia behind it, north of the point on its x (S2's hero, user approved 2026-11-11): the ring kiln and

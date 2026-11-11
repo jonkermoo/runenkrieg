@@ -1405,6 +1405,13 @@ local Assets = {
 			generator = "src/dev/Buildings/init.luau",
 			description = "Lantern Meadows' brickworks workers' row behind S2 (a landmark)",
 		},
+		KatzmarkBurg = {
+			category = "Buildings",
+			folder = "Landmarks",
+			template = "KatzmarkBurg",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Lantern Meadows' Katzmark Burg behind S1: keep, curtain wall, gatehouse, round tower, camp (S1's hero)",
+		},
 		LanternTower = {
 			category = "Buildings",
 			folder = "Landmarks",
