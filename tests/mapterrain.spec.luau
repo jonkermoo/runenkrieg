@@ -189,7 +189,9 @@ return {
 		assert(inside > 200 and outsideN > inside, `inside {inside}, outside {outsideN}`)
 	end,
 	["trees keep a minimum spacing"] = function()
-		local min = Map1.trees.cell * 0.5 - 0.01
+		-- (a clump's trees drawn in toward its centre stand closer by its `pull`: trunks still well apart)
+		local K = Map1.trees.clumps
+		local min = Map1.trees.cell * 0.5 * (1 - (if K then K.pull else 0)) - 0.01
 		local grid: { [string]: { any } } = {}
 		local function key(cx: number, cz: number): string
 			return cx .. ":" .. cz

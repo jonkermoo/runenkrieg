@@ -449,12 +449,14 @@ function Village.layout(map: any, B: any, M: any, MT: any, P: any): Layout
 	-- 3d. The fields on the flanks (a map's `fields`, Rules/MapTerrain.fieldLayout): their hedges, fences and walls
 	-- and the meadows' haystacks, none across a road, the river, a house or a kept-clear square
 	if map.fields then
+		-- (`lotPad` from a house: the ground outside its doors stays walkable, Buildings.Audit.walkOut)
+		local lotPad = B.Audit.walkOut + 2
 		local function clear(x: number, z: number, pad: number): boolean
 			if roadDistance(x, z) < pad or MT.isRiver(map, x, z) then
 				return false
 			end
 			for _, l in lots do
-				if Village.pointInQuad(x, z, Village.corners(l, B.RoofOverhang + pad)) then
+				if Village.pointInQuad(x, z, Village.corners(l, B.RoofOverhang + lotPad)) then
 					return false
 				end
 			end

@@ -76,7 +76,7 @@ local LEGS = {
 	-- no sunken lane cut here (user 2026-11-10: "remove the old trenches"): `depth` 0; the line still marks where the
 	-- enemy's attack forms up (the bots' gather spots)
 	fold = { u = 170, half = 120, depth = 0, floor = 4, wall = 6, ends = 20 },
-	knoll = { u = 90, n = 175, height = 9, top = 6, radius = 30 },
+	knoll = { u = 90, n = 175, height = 7, top = 6, radius = 30 },
 	guns = { u = 140, n = 110, howitzer = 210, pad = 9, fade = 12 },
 	rally = 60,
 	calm = { width = 230, fade = 80, keep = 0.55 },
@@ -131,13 +131,18 @@ local Map1 = {
 		}, -- {x, z, radius, peak height}
 	},
 	fogEnd = 600,
+	-- the clear sky's haze, thicker than the place's (0.38): the points beyond the next fade (user 2026-11-10: "the mix
+	-- of environment and lighting and settings should make not every sector visible"; src/client/Environment)
+	haze = { density = 0.48, haze = 1.6, color = { 206, 218, 226 }, decay = { 126, 146, 160 } },
 	legs = LEGS,
 	-- uneven ground all over, the way between the points lower (user 2026-11-10: "make it just a overall uneven terrain,
 	-- with this area more unelevated (does not have to be a perfect line, make it natural)"): the rolling ground bent by
 	-- noise, the flanks lifted and rougher past a wandering edge (Rules/MapTerrain.valleyAt, warped)
 	ground = {
 		warp = { amp = 45, scale = 220 },
-		valley = { lift = 12, near = 120, far = 330, edge = 55, edgeScale = 160, rough = 1.8 },
+		valley = { lift = 16, near = 200, far = 400, edge = 40, edgeScale = 160, rough = 2.5 },
+		-- each landmark's plot on settled ground (Rules/MapTerrain.landRaw)
+		settle = { radius = 60, fade = 50, floor = 0.15 },
 	},
 	-- the farmland up the flanks (user 2026-11-10: "it can be open, it just cant look empty"; Rules/MapTerrain.fieldAt,
 	-- fieldLayout; Historic England: hedged closes round the farms): ploughland, hay meadows with ricks, pasture,
@@ -146,6 +151,7 @@ local Map1 = {
 		angle = 6,
 		size = { 130, 90 },
 		near = 170,
+		beyond = 60, -- (past the bounds no further than this: the forest frames the map)
 		pointClear = 60,
 		kinds = { Plough = 0.3, Meadow = 0.3, Pasture = 0.4 },
 		edges = { Hedge = 0.35, RailFence = 0.25, StoneWall = 0.15 },
@@ -404,8 +410,8 @@ local Map1 = {
 		riverClear = 6,
 		maxCount = 5000,
 		-- clumps instead of lone trees (user 2026-11-10: "the minimum tree cluster has too little trees, some are just
-		-- alone"; Rules/MapTerrain.clumpAt): most of 4-7 trees, a few of 15-20
-		clumps = { cell = 80, chance = 0.22, radius = { 18, 40 }, tail = 2.2, density = 0.8 },
+		-- alone"; Rules/MapTerrain.clumpAt): most of 4-7 trees, a few of 15-20, drawn `pull` in toward the middle
+		clumps = { cell = 90, chance = 0.16, radius = { 24, 48 }, tail = 2.2, density = 0.85, pull = 0.25 },
 	},
 }
 
