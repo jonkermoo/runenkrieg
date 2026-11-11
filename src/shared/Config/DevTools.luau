@@ -430,6 +430,7 @@ local DevTools = {
 		-- "Loadout" rows (src/server/Loadouts): give yourself these match points, or be one class every life (any class,
 		-- locked or not, free; `Normal` goes back to your picks), on the Player as `ClassAttribute`
 		Points = { 50, 200 },
+		ZeroPoints = 1000000, -- "Zero my match points" takes this many away (never below 0)
 		ClassAttribute = "DevClass",
 		Normal = "Normal",
 		-- "Shovel" build-anything switch (user 2026-10-27: "add admin shovel option to build anything"): lay and build

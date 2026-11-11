@@ -151,7 +151,7 @@ function DevActions.valid(cfg: any, action: any, value: any, defs: { modes: any,
 	elseif action == "ZoneScore" then
 		return table.find(cfg.Admin.ZoneScore, value) ~= nil
 	elseif action == "Points" then
-		return table.find(cfg.Admin.Points, value) ~= nil
+		return table.find(cfg.Admin.Points, value) ~= nil or value == -cfg.Admin.ZeroPoints
 	elseif action == "Grenade" then
 		return table.find(cfg.Admin.Grenades, value) ~= nil
 	elseif action == "MGBurst" then
