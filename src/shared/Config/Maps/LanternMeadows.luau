@@ -378,7 +378,7 @@ local LanternMeadows = {
 		{ id = "Festival", minX = 1360, maxX = 1480, minZ = CZ + 165, maxZ = CZ + 300 },
 		{ id = "Footbridge", minX = 1632, maxX = 1742, minZ = CZ + 160, maxZ = CZ + 220 },
 		{ id = "RockFord", minX = 1636, maxX = 1742, minZ = CZ - 95, maxZ = CZ - 35 },
-		{ id = "Farm", minX = 820, maxX = 980, minZ = CZ - 40, maxZ = CZ + 215 }, -- (and the brickworks)
+		{ id = "Farm", minX = 820, maxX = 980, minZ = CZ - 40, maxZ = CZ + 230 }, -- (and the brickworks)
 		{ id = "Town", minX = 1770, maxX = 2110, minZ = CZ - 150, maxZ = CZ + 210 },
 	},
 
@@ -441,18 +441,18 @@ local LanternMeadows = {
 			-- the festival stage and the lantern-makers' hall on S3's north flank, on its x, facing the point: a support
 			-- position looking down both legs
 			{ id = "Stage", style = "FestivalStage", x = S3[1], z = CZ + 200, front = { 0, -1 } },
-			{ id = "LanternHall", style = "LanternHall", x = S3[1], z = CZ + 262, front = { 0, -1 } },
+			{ id = "LanternHall", style = "LanternHall", x = S3[1], z = CZ + 285, front = { 0, -1 } },
 			-- the Lantern Tower between them (S3's hero, user approved 2026-11-11), its strings, carousel and stalls
-			{ id = "LanternTower", style = "LanternTower", x = S3[1], z = CZ + 232, front = { 0, -1 } },
+			{ id = "LanternTower", style = "LanternTower", x = S3[1], z = CZ + 240, front = { 0, -1 } },
 			-- Katzmark Burg behind S1's point on its north side (S1's hero, user approved 2026-11-11), its keep where the
 			-- old watchtower stood (340, -84), Katzmark's camp in its bailey
-			{ id = "Burg", style = "KatzmarkBurg", x = 348, z = CZ - 74, front = { 1, 0 } },
+			{ id = "Burg", style = "KatzmarkBurg", x = 348, z = CZ - 68, front = { 1, 0 } },
 			-- the brickfield farm on S2's point, the flag in its yard (user approved 2026-11-06)
 			{ id = "BrickfieldFarm", style = "BrickfieldFarm", x = PTS[2][1], z = CZ + PTS[2][2], front = { 0, -1 } },
 			-- Fornace Aurelia behind it, north of the point on its x (S2's hero, user approved 2026-11-11): the ring kiln and
 			-- its 78-stud chimney, seen across the valley; the workers' row behind the clay pit
-			{ id = "Fornace", style = "Fornace", x = PTS[2][1], z = CZ + PTS[2][2] + 84, front = { 0, -1 } },
-			{ id = "WorkersRow", style = "WorkersRow", x = PTS[2][1], z = CZ + PTS[2][2] + 166, front = { 0, -1 } },
+			{ id = "Fornace", style = "Fornace", x = PTS[2][1], z = CZ + PTS[2][2] + 100, front = { 0, -1 } },
+			{ id = "WorkersRow", style = "WorkersRow", x = PTS[2][1], z = CZ + PTS[2][2] + 180, front = { 0, -1 } },
 			-- the cascina on S5's point, its south side, facing the flag; Selvara's camp
 			-- (Cascina Selvara, S5's hero, user approved 2026-11-11: the house where it stood, its wide walled yard
 			-- behind it toward the river, the stable across the back and the chapel on its east side facing into it)
@@ -465,7 +465,7 @@ local LanternMeadows = {
 			-- S4's hero's compound (user approved 2026-11-11): the church beside the campanile, its front on the piazza;
 			-- the town gate over the Main road where it comes in from the festival ford; a broken stretch of the old wall
 			-- on the Aurel's east bank above the ferry
-			{ id = "Church", style = "BorgoChurch", x = 1918, z = CZ + 82, front = { 0, -1 } },
+			{ id = "Church", style = "BorgoChurch", x = 1904, z = CZ + 82, front = { 0, -1 } },
 			{ id = "Porta", style = "PortaAurel", x = 1790, z = CZ + 44.4, front = { -1, 0 } },
 			{ id = "OldWall", style = "BorgoWall", x = 1718, z = CZ + 144, front = { -1, 0 } },
 			-- the ferry house on the east bank above the festival ford, facing the river
