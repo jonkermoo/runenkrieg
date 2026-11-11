@@ -76,7 +76,7 @@ local LEGS = {
 	-- no sunken lane cut here (user 2026-11-10: "remove the old trenches"): `depth` 0; the line still marks where the
 	-- enemy's attack forms up (the bots' gather spots)
 	fold = { u = 170, half = 120, depth = 0, floor = 4, wall = 6, ends = 20 },
-	knoll = { u = 90, n = 150, height = 7, top = 6, radius = 30 },
+	knoll = { u = 90, n = 175, height = 7, top = 6, radius = 30 },
 	guns = { u = 140, n = 110, howitzer = 210, pad = 9, fade = 12 },
 	rally = 60,
 	calm = { width = 230, fade = 80, keep = 0.55 },
@@ -140,7 +140,7 @@ local Map1 = {
 	-- noise, the flanks lifted and rougher past a wandering edge (Rules/MapTerrain.valleyAt, warped)
 	ground = {
 		warp = { amp = 45, scale = 220 },
-		valley = { lift = 16, near = 190, far = 300, edge = 40, edgeScale = 160, rough = 2.5 },
+		valley = { lift = 16, near = 215, far = 310, edge = 40, edgeScale = 160, rough = 2.5 },
 		-- each landmark's plot on settled ground (Rules/MapTerrain.landRaw)
 		settle = { radius = 60, fade = 50, floor = 0.15 },
 	},
@@ -316,7 +316,7 @@ local Map1 = {
 					{ 1420, 0 },
 					{ 1717, 17 },
 					{ 2030, 31 },
-					{ 2319, -21 },
+					{ 2264, -62 }, -- (the High Street out of the green as before the stretch)
 					{ 2464, -15 },
 					{ 2530, -53 },
 					{ 2568, -63 }, -- (to the church close's lychgate)
