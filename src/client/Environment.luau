@@ -16,6 +16,7 @@ local SoundService = game:GetService("SoundService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local LiveMap = require(Shared.LiveMap)
 local Cfg = require(Shared.Config.Environment)
+local Moods = require(Shared.Config.Moods)
 local Rules = require(Shared.Rules.Environment)
 local Audio = require(script.Parent.Audio)
 
@@ -111,13 +112,29 @@ function Environment.start()
 		color = triple(atmosphere.Color),
 		decay = triple(atmosphere.Decay),
 	}
-	-- the match map's own clear-sky haze where it gives one (`haze`, user 2026-11-10: "the mix of environment and
-	-- lighting and settings should make not every sector visible"), else the place's Atmosphere; followed on a map switch
-	local function baseHaze(): Rules.Haze
+	-- the look (Config/Moods): a dev's own pick from the admin panel, else the match map's (`mood`; user 2026-11-11:
+	-- "remove this highly saturated look... make this look more dark and foggy"), else none; followed on a map switch
+	local function mood(): any
+		local pickName = workspace:GetAttribute(Moods.Attribute)
+		if typeof(pickName) == "string" and (Moods.Presets :: any)[pickName] then
+			return (Moods.Presets :: any)[pickName]
+		end
 		local ok, m = pcall(LiveMap.get)
-		local h = ok and m and (m :: any).haze
-		return if h then h else placeHaze
+		local name = ok and m and (m :: any).mood
+		return if name then (Moods.Presets :: any)[name] else nil
 	end
+	-- its clear-sky haze (user 2026-11-10: "the mix of environment and lighting and settings should make not every
+	-- sector visible"), else the place's Atmosphere
+	local function baseHaze(): Rules.Haze
+		local md = mood()
+		return if md then md.haze else placeHaze
+	end
+	-- the look's colour grade every player sees whatever their Effects level, the sun dimmed by `light`, the sky at
+	-- least `cloudCover` overcast; fog and rain still come and go over it
+	local moodFx = Instance.new("ColorCorrectionEffect")
+	moodFx.Name = "Map_Mood"
+	moodFx.Enabled = false
+	moodFx.Parent = Lighting
 	local clouds = workspace.Terrain:FindFirstChildOfClass("Clouds")
 	if not clouds then
 		clouds = Instance.new("Clouds")
@@ -148,8 +165,16 @@ function Environment.start()
 			baseHaze(),
 			Cfg
 		)
+		local md = mood()
+		moodFx.Enabled = md ~= nil
+		if md then
+			moodFx.Saturation = md.saturation
+			moodFx.Contrast = md.contrast
+			moodFx.Brightness = md.brightness
+			moodFx.TintColor = rgb(md.tint)
+		end
 		Lighting.ClockTime = clock
-		Lighting.Brightness = l.brightness
+		Lighting.Brightness = l.brightness * (if md then md.light else 1)
 		Lighting.Ambient = rgb(l.ambient)
 		Lighting.OutdoorAmbient = rgb(l.outdoorAmbient)
 		Lighting.ExposureCompensation = l.exposure
@@ -157,8 +182,8 @@ function Environment.start()
 		atmosphere.Haze = l.haze
 		atmosphere.Color = rgb(l.color)
 		atmosphere.Decay = rgb(l.decay)
-		cloud.Cover = l.cloudCover
-		cloud.Color = rgb(l.cloudColor)
+		cloud.Cover = math.max(l.cloudCover, if md then md.cloudCover else 0)
+		cloud.Color = rgb(if md and md.cloudColor and l.rain == 0 then md.cloudColor else l.cloudColor)
 		if math.abs(l.wet - wetNow) > 0.005 then
 			wetNow = l.wet
 			for m, c in colors do

@@ -5,6 +5,7 @@
 local Maps = require("./frontlinemaps")
 local MT = require("../src/shared/Rules/MapTerrain")
 local M = require("../src/shared/Config/Metrics")
+local Moods = require("../src/shared/Config/Moods")
 
 local function near(a: number, b: number): boolean
 	return math.abs(a - b) < 1e-6
@@ -58,6 +59,20 @@ return Maps.each(function(map: any, name: string)
 					assert(k1 == k2, `{name}: field {k1} at {x}, {z}, its twin {k2}`)
 				end
 			end
+		end,
+		["its look is a preset, every preset whole and listed (Config/Moods)"] = function()
+			assert(Moods.Presets[map.mood], `{name}'s mood {map.mood} isn't a preset`)
+			local n = 0
+			for key, m in Moods.Presets do
+				n += 1
+				assert(table.find(Moods.Order, key), `{key} isn't in the Look row`)
+				for _, f in { "saturation", "contrast", "brightness", "light", "cloudCover" } do
+					assert(type((m :: any)[f]) == "number", `{key} has no {f}`)
+				end
+				assert(#m.tint == 3 and #m.cloudColor == 3 and m.haze.density > 0 and #m.haze.color == 3, `{key}`)
+				assert(m.saturation <= 0, `{key} adds colour (user 2026-11-11: "remove this highly saturated look")`)
+			end
+			assert(n == #Moods.Order, "every look in the row is a preset")
 		end,
 		["the farmland is cleared: no tree on a field"] = function()
 			if not map.fields then

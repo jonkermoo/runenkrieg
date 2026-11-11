@@ -170,8 +170,8 @@ local LanternMeadows = {
 		}, -- {x, z, radius, peak height}
 	},
 	fogEnd = 600,
-	-- the clear sky's haze, thicker than the place's (0.38), a touch warmer (src/client/Environment)
-	haze = { density = 0.5, haze = 1.7, color = { 214, 216, 212 }, decay = { 140, 146, 150 } },
+	-- its look (Config/Moods, as Map 1's)
+	mood = "Overcast",
 	legs = LEGS,
 	-- fair cover mirrored across S3's x, as its points (Rules/MapTerrain.twinOf)
 	symmetry = "x",

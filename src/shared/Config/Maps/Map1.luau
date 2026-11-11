@@ -131,9 +131,9 @@ local Map1 = {
 		}, -- {x, z, radius, peak height}
 	},
 	fogEnd = 600,
-	-- the clear sky's haze, thicker than the place's (0.38): the points beyond the next fade (user 2026-11-10: "the mix
-	-- of environment and lighting and settings should make not every sector visible"; src/client/Environment)
-	haze = { density = 0.48, haze = 1.6, color = { 206, 218, 226 }, decay = { 126, 146, 160 } },
+	-- its look (Config/Moods; user 2026-11-11: "remove this highly saturated look... more dark and foggy"): its haze,
+	-- grade, light and sky; the admin panel's Look row tries the others
+	mood = "Overcast",
 	legs = LEGS,
 	-- uneven ground all over, the way between the points lower (user 2026-11-10: "make it just a overall uneven terrain,
 	-- with this area more unelevated (does not have to be a perfect line, make it natural)"): the rolling ground bent by
