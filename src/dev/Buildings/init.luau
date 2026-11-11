@@ -283,6 +283,14 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.gateTower(model, ctx, at, f.width, f.depth, f.height, f.way)
 			elseif f.kind == "TownWall" then
 				Geometry.townWall(model, ctx, at, f.thick, f.pieces, f.tower)
+			elseif f.kind == "LatticeTower" then
+				Geometry.latticeTower(model, ctx, at, f.base, f.top, f.height, f.stages)
+			elseif f.kind == "LanternString" then
+				Geometry.lanternString(model, ctx, at, f.from, f.to, f.up)
+			elseif f.kind == "Stall" then
+				Geometry.stall(model, ctx, at, f.length, f.depth)
+			elseif f.kind == "Carousel" then
+				Geometry.carousel(model, ctx, at, f.radius)
 			else
 				error(`unknown landmark feature {f.kind}`)
 			end

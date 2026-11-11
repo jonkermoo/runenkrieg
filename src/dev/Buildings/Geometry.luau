@@ -2326,4 +2326,276 @@ function Geometry.townWall(parent: Instance, ctx: Ctx, at: CFrame, thick: number
 	end
 end
 
+-- A beam between two points (its length along local Z), `w` square.
+local function beam(sec: Instance, ctx: Ctx, name: string, p0: Vector3, p1: Vector3, w: number, paint: string): BasePart
+	local len = (p1 - p0).Magnitude
+	return Geometry.part(sec, ctx, name, CFrame.lookAt((p0 + p1) / 2, p1), Vector3.new(w, w, len + w * 0.6), paint)
+end
+
+-- A cone of `n` triangles leaning in from a ring `r` out (to its corners) at y 0 of `at` to an apex `h` up, `thick`
+-- through. Returns each face's parts in order round it (a striped canopy colours them by turns).
+local function cone(
+	sec: Instance,
+	ctx: Ctx,
+	at: CFrame,
+	r: number,
+	h: number,
+	n: number,
+	thick: number
+): { { BasePart } }
+	local a = r * math.cos(math.pi / n)
+	local side = 2 * r * math.sin(math.pi / n)
+	local lean = math.atan(a / h)
+	local slant = math.sqrt(h * h + a * a)
+	local out = {}
+	for k = 0, n - 1 do
+		local frame = at * CFrame.Angles(0, k * 2 * math.pi / n, 0) * CFrame.new(0, 0, -a) * CFrame.Angles(lean, 0, 0)
+		table.insert(out, triangle(sec, ctx, frame, side + 0.1, slant, thick, "Roof"))
+	end
+	return out
+end
+
+-- The Lantern Tower (Config/Buildings.LatticeTower): a timber lattice tower `b` across at its foot narrowing to `t` at
+-- its deck `H` up, in `stages` stages (four legs, a ring of beams and crossed braces on every face, each stage a
+-- section); a railed deck, a lantern cabin glowing under a cone, a pennant, lanterns hung round the deck's edge. You
+-- see through it; nobody climbs it.
+function Geometry.latticeTower(parent: Instance, ctx: Ctx, at: CFrame, b: number, t: number, H: number, stages: number)
+	local K = ctx.B.LatticeTower
+	local depth = ctx.B.FoundationDepth
+	local function half(y: number): number
+		return (b - (b - t) * y / H) / 2
+	end
+	local feet = Geometry.section(parent, ctx, "Platform", "Stone", -1)
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			Geometry.part(
+				feet,
+				ctx,
+				"Foot",
+				at * CFrame.new(sx * half(0), (0.6 - depth) / 2, sz * half(0)),
+				Vector3.new(2.6, 0.6 + depth, 2.6),
+				"Foundation"
+			)
+		end
+	end
+	for i = 0, stages - 1 do
+		local y0, y1 = H * i / stages, H * (i + 1) / stages
+		local h0, h1 = half(y0), half(y1)
+		local sec = Geometry.section(parent, ctx, "Tower", "Wood", i)
+		for k = 0, 3 do
+			local f = at * CFrame.Angles(0, k * math.pi / 2, 0)
+			local function P(x: number, y: number, z: number): Vector3
+				return (f * CFrame.new(x, y, z)).Position
+			end
+			beam(sec, ctx, "Leg", P(-h0, y0, -h0), P(-h1, y1, -h1), K.leg, "Wood")
+			beam(sec, ctx, "Ring", P(-h1, y1, -h1), P(h1, y1, -h1), K.beam, "Trim")
+			beam(sec, ctx, "Brace", P(-h0, y0, -h0), P(h1, y1, -h1), K.beam * 0.8, "Trim")
+			beam(sec, ctx, "Brace", P(h0, y0, -h0), P(-h1, y1, -h1), K.beam * 0.8, "Trim")
+		end
+	end
+	-- the deck, its rail, the lantern cabin, the cone and pennant
+	local top = Geometry.section(parent, ctx, "Tower", "Wood", stages)
+	local d = t + 2
+	Geometry.part(top, ctx, "Deck", at * CFrame.new(0, H + K.deck / 2, 0), Vector3.new(d, K.deck, d), "Floor")
+	local y = H + K.deck
+	for k = 0, 3 do
+		local f = at * CFrame.Angles(0, k * math.pi / 2, 0)
+		Geometry.part(top, ctx, "Rail", f * CFrame.new(0, y + K.rail, -d / 2 + 0.2), Vector3.new(d, 0.3, 0.3), "Trim")
+		Geometry.part(
+			top,
+			ctx,
+			"Post",
+			f * CFrame.new(-d / 2 + 0.2, y + K.rail / 2, -d / 2 + 0.2),
+			Vector3.new(0.4, K.rail, 0.4),
+			"Trim"
+		)
+		Geometry.part(
+			top,
+			ctx,
+			"Post",
+			f * CFrame.new(-t / 2 + 0.6, y + K.cabin / 2, -t / 2 + 0.6),
+			Vector3.new(0.6, K.cabin, 0.6),
+			"Wood"
+		)
+	end
+	festival(
+		top,
+		ctx,
+		"Lantern",
+		at * CFrame.new(0, y + K.cabin / 2, 0),
+		Vector3.new(t - 2, K.cabin - 0.4, t - 2),
+		"Lantern"
+	)
+	local roofY = y + K.cabin
+	for _, face in cone(top, ctx, at * CFrame.new(0, roofY, 0), t / 2 + 1.2, K.cone, K.sides, 0.4) do
+		for _, p in face do
+			p:SetAttribute("Swatch", K.roof)
+		end
+	end
+	local apex = roofY + K.cone
+	Geometry.part(
+		top,
+		ctx,
+		"Pole",
+		at * CFrame.new(0, apex + K.pole / 2 - 0.5, 0),
+		Vector3.new(0.3, K.pole, 0.3),
+		"Metal"
+	)
+	local flag = at * CFrame.new(0.15, apex + K.pole - 0.5 - K.pennant[2] / 2, 0) * CFrame.Angles(0, 0, -math.pi / 2)
+	for _, p in triangle(top, ctx, flag, K.pennant[2], K.pennant[1], 0.15, "Festival") do
+		p:SetAttribute("Swatch", K.pennantKey)
+	end
+	local lanterns = Geometry.section(parent, ctx, "Lanterns", "Wood", 99)
+	for k = 0, K.cluster - 1 do
+		local a = k * 2 * math.pi / K.cluster
+		lantern(lanterns, ctx, at, math.cos(a) * (d / 2 - 0.3), H, math.sin(a) * (d / 2 - 0.3))
+	end
+end
+
+-- A string of paper lanterns (Config/Buildings.LanternString) from `from` { x, y, z } (on the tower) down to `to` { x,
+-- z } at `up` over the template's base, sagging, a lantern every `gap`; VillageBuild then lifts its far end to `up`
+-- over the real ground there (the "Start" and "End" markers, the section's String attribute). Soldiers walk through.
+function Geometry.lanternString(parent: Instance, ctx: Ctx, at: CFrame, from: { number }, to: { number }, up: number)
+	local K = ctx.B.LanternString
+	local sec = Geometry.section(parent, ctx, "Lanterns", "Wood", 99)
+	sec:SetAttribute("String", up)
+	local S = Vector3.new(from[1], from[2], from[3])
+	local E = Vector3.new(to[1], up, to[2])
+	local len = (E - S).Magnitude
+	local function point(t: number): Vector3
+		return (at * CFrame.new(S:Lerp(E, t) - Vector3.new(0, K.sag * len * 4 * t * (1 - t), 0))).Position
+	end
+	local n = math.max(2, math.ceil(len / K.piece))
+	for i = 0, n - 1 do
+		local cord = beam(sec, ctx, "Cord", point(i / n), point((i + 1) / n), K.cord, "Metal")
+		cord.CanCollide, cord.CanQuery, cord.CanTouch = false, false, false
+	end
+	for k = 1, math.floor(len / K.gap) - 1 do
+		local p = at:PointToObjectSpace(point(k * K.gap / len))
+		lantern(sec, ctx, at, p.X, p.Y, p.Z)
+	end
+	for name, t in { Start = 0, End = 1 } do
+		local m = Geometry.part(sec, ctx, name, CFrame.new(point(t)), Vector3.new(0.2, 0.2, 0.2), "Metal")
+		m.Transparency = 1
+		m.CanCollide, m.CanQuery, m.CanTouch = false, false, false
+	end
+end
+
+-- A market stall on the real ground (Config/Buildings.Stall) `L` along local X and `D` deep, open to its front (-Z):
+-- posts, a counter, a canvas back, a striped canvas roof falling to the back, two lanterns at its front edge.
+function Geometry.stall(parent: Instance, ctx: Ctx, at: CFrame, L: number, D: number)
+	local K = ctx.B.Stall
+	local sec = Geometry.section(parent, ctx, "Stall", "Wood", 0)
+	sec:SetAttribute("OnGround", true)
+	local back = K.height - K.back
+	for _, sx in { -1, 1 } do
+		for _, q in { { -D / 2, K.height }, { D / 2, back } } do
+			Geometry.part(
+				sec,
+				ctx,
+				"Post",
+				at * CFrame.new(sx * (L / 2 - K.post / 2), (q[2] - 1) / 2, q[1]),
+				Vector3.new(K.post, q[2] + 1, K.post),
+				"Trim"
+			)
+		end
+	end
+	Geometry.part(
+		sec,
+		ctx,
+		"Counter",
+		at * CFrame.new(0, (K.counter - 1) / 2, -D / 2 + K.deep / 2),
+		Vector3.new(L - K.post, K.counter + 1, K.deep),
+		"Wood"
+	)
+	festival(sec, ctx, "Canvas", at * CFrame.new(0, back / 2, D / 2), Vector3.new(L - K.post, back, 0.15), "Canvas")
+	local run = D + 1
+	local tilt = math.atan(K.back / run)
+	local w = L / K.stripes
+	for i = 1, K.stripes do
+		festival(
+			sec,
+			ctx,
+			"Awning",
+			at * CFrame.new(-L / 2 + (i - 0.5) * w, (K.height + back) / 2 + 0.15, 0) * CFrame.Angles(-tilt, 0, 0),
+			Vector3.new(w + 0.02, 0.2, run / math.cos(tilt)),
+			K.canvas[(i % #K.canvas) + 1]
+		)
+	end
+	for _, x in { -L / 4, L / 4 } do
+		lantern(sec, ctx, at, x, K.height - 0.1, -D / 2 - 0.3)
+	end
+end
+
+-- A carousel pavilion on the real ground (Config/Buildings.Carousel), `r` out to its posts: a round deck you hop
+-- onto, posts round it, a striped cone canopy with a valance, a centre pole, horses on brass poles.
+function Geometry.carousel(parent: Instance, ctx: Ctx, at: CFrame, r: number)
+	local K = ctx.B.Carousel
+	local sec = Geometry.section(parent, ctx, "Carousel", "Wood", 0)
+	sec:SetAttribute("OnGround", true)
+	local deck = Geometry.part(
+		sec,
+		ctx,
+		"Deck",
+		at * CFrame.new(0, (K.deck - 1) / 2, 0) * CFrame.Angles(0, 0, math.pi / 2),
+		Vector3.new(K.deck + 1, 2 * r + 0.8, 2 * r + 0.8),
+		"Floor"
+	)
+	deck.Shape = Enum.PartType.Cylinder
+	local n = K.sides
+	local side = 2 * r * math.sin(math.pi / n)
+	for k = 0, n - 1 do
+		local a = (k + 0.5) * 2 * math.pi / n
+		local f = at * CFrame.Angles(0, k * 2 * math.pi / n, 0)
+		Geometry.part(
+			sec,
+			ctx,
+			"Post",
+			at * CFrame.new(math.sin(a) * r, K.deck + (K.eave - K.deck) / 2, -math.cos(a) * r),
+			Vector3.new(K.post, K.eave - K.deck, K.post),
+			"Trim"
+		)
+		festival(
+			sec,
+			ctx,
+			"Valance",
+			f * CFrame.new(0, K.eave - 0.4, -r * math.cos(math.pi / n) - 0.6),
+			Vector3.new(side + 0.5, 0.9, 0.15),
+			K.canvas[(k % #K.canvas) + 1]
+		)
+	end
+	for k, face in cone(sec, ctx, at * CFrame.new(0, K.eave, 0), r + 0.8, K.cone, n, 0.3) do
+		for _, p in face do
+			p.Name = "Canopy"
+			p:SetAttribute("Paint", "Festival")
+			p:SetAttribute("Swatch", K.canvas[(k % #K.canvas) + 1])
+		end
+	end
+	local pole = Geometry.part(
+		sec,
+		ctx,
+		"Pole",
+		at * CFrame.new(0, (K.deck + K.eave + K.cone) / 2, 0),
+		Vector3.new(K.pole, K.eave + K.cone - K.deck, K.pole),
+		"Wall"
+	)
+	pole:SetAttribute("Swatch", "Sienna")
+	for k = 0, K.horses - 1 do
+		local f = at * CFrame.Angles(0, k * 2 * math.pi / K.horses, 0) * CFrame.new(0, K.deck, -r * 0.62)
+		local y = 1.6 + (k % 2) * 0.6
+		Geometry.part(
+			sec,
+			ctx,
+			"Rod",
+			f * CFrame.new(0, (K.eave - K.deck) / 2, 0),
+			Vector3.new(0.2, K.eave - K.deck, 0.2),
+			"Metal"
+		)
+		Geometry.part(sec, ctx, "Horse", f * CFrame.new(0, y, 0), Vector3.new(2.4, 1.1, 0.8), "Linen")
+		Geometry.part(sec, ctx, "Head", f * CFrame.new(1.3, y + 0.8, 0), Vector3.new(0.7, 1.3, 0.6), "Linen")
+		Geometry.part(sec, ctx, "Legs", f * CFrame.new(0, y - 0.9, 0), Vector3.new(1.8, 0.8, 0.5), "Linen")
+		Geometry.part(sec, ctx, "Saddle", f * CFrame.new(-0.1, y + 0.6, 0), Vector3.new(0.9, 0.2, 0.9), "Cloth")
+	end
+end
+
 return Geometry

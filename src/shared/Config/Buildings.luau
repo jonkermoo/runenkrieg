@@ -59,7 +59,10 @@ export type Template = {
 	-- door's opening kept), { kind = "Fountain", x, z, radius } (on the real ground), { kind = "GateTower", x, z,
 	-- width, depth, height, way } (a gate tower, its way { width, height } through it along local Z), { kind =
 	-- "TownWall", x, z, thick, pieces = { { from, to, height } } along local X, tower = { x, radius, height }? } (each
-	-- piece and the tower on the real ground).
+	-- piece and the tower on the real ground), { kind = "LatticeTower", x, z, base, top, height, stages } (a timber
+	-- lattice tower, `base` across at its foot, `top` at its deck), { kind = "LanternString", x, z, from = { x, y, z }, to = {
+	-- x, z }, up } (lanterns on a cord to `up` over the real ground at `to`), { kind = "Stall", x, z, yaw?, length, depth }
+	-- and { kind = "Carousel", x, z, radius } (on the real ground).
 	features: { any }?,
 	description: string,
 }
@@ -285,6 +288,49 @@ local Buildings = {
 		course = 0.8,
 		stone = "Stone",
 		trim = "Ochre",
+	},
+	-- The Lantern Tower (S3's hero, user approved 2026-11-11): a timber lattice tower, its legs `leg` square, ring beams
+	-- and braces `beam` square, a deck `deck` thick with a rail `rail` high on top, a lantern cabin `cabin` high under a
+	-- cone `cone` high (`sides` sides), a pennant on a pole `pole` high, `cluster` lanterns round the deck's edge
+	LatticeTower = {
+		leg = 1.6,
+		beam = 0.8,
+		deck = 0.8,
+		rail = 1.2,
+		cabin = 3,
+		cone = 4,
+		sides = 8,
+		pole = 6,
+		pennant = { 4, 2 },
+		cluster = 8,
+		roof = "Terracotta",
+		pennantKey = "Lantern",
+	},
+	-- a string of paper lanterns from the tower down to a pole: a cord `cord` thick in pieces `piece` long, sagging
+	-- `sag` of its length in the middle, a lantern every `gap`
+	LanternString = { cord = 0.15, piece = 5, sag = 0.06, gap = 6 },
+	-- a market stall on the real ground: posts `height` high at the front (the back `back` lower), a counter `counter`
+	-- high and `deep` deep at the front, a striped canvas roof in `stripes` stripes (Festival keys)
+	Stall = {
+		height = 6.5,
+		back = 1,
+		counter = 3.4,
+		deep = 1.4,
+		post = 0.5,
+		stripes = 5,
+		canvas = { "Canvas", "RunePaint" },
+	},
+	-- a carousel pavilion on the real ground: a `sides`-sided deck `deck` high (a hop), a post at every corner, the
+	-- eaves `eave` up, a striped cone `cone` high over them, a centre pole `pole` across, `horses` horses on the deck
+	Carousel = {
+		sides = 12,
+		deck = 0.9,
+		post = 0.4,
+		eave = 7,
+		cone = 4,
+		pole = 1.4,
+		horses = 6,
+		canvas = { "Canvas", "RunePaint" },
 	},
 	-- a town gate tower: the arch's head in two corbel steps `corbel` high (each a share of the way), a string course,
 	-- quoins `quoin` wide, arrow slits `slit`, merlons `merlon` (long, high); colours
@@ -880,6 +926,38 @@ local Buildings = {
 				{ kind = "Arcade", x = 0, z = -6.4, length = 40, depth = 5.4, height = 8, bays = 5 },
 			},
 			description = "The lantern-makers' hall: a long cream stucco workshop under terracotta, a five-bay arcade hung with lanterns.",
+		},
+		-- The Lantern Tower, S3's hero (Lantern Meadows' landmarks, user approved 2026-11-11): a timber lattice tower
+		-- between the stage and the lantern-makers' hall on S3's x (both sides see it alike), its deck 60 up with a
+		-- lantern cabin, cone and pennant to 66; strings of paper lanterns from it down to the stage's two poles, to the
+		-- ring's two north poles and to the hall's arcade; a carousel pavilion on S3's x before the stage and four market
+		-- stalls either side of it, mirrored, all outside the capture zone.
+		LanternTower = {
+			folder = "Landmarks",
+			width = 20,
+			depth = 20,
+			stories = 1,
+			roofPitch = 0,
+			class = "Wood",
+			wallThickness = 1,
+			walls = { "Cream" },
+			roofs = { "Terracotta" },
+			blocks = {},
+			features = {
+				{ kind = "LatticeTower", x = 0, z = 0, base = 18, top = 6, height = 60, stages = 7 },
+				{ kind = "LanternString", x = 0, z = 0, from = { -2.5, 46, -4.4 }, to = { -20, -58 }, up = 11.2 },
+				{ kind = "LanternString", x = 0, z = 0, from = { 2.5, 46, -4.4 }, to = { 20, -58 }, up = 11.2 },
+				{ kind = "LanternString", x = 0, z = 0, from = { -3, 54, -3.4 }, to = { -46.8, -105 }, up = 11.2 },
+				{ kind = "LanternString", x = 0, z = 0, from = { 3, 54, -3.4 }, to = { 46.8, -105 }, up = 11.2 },
+				{ kind = "LanternString", x = 0, z = 0, from = { -3, 40, 5 }, to = { -18, 20 }, up = 10.5 },
+				{ kind = "LanternString", x = 0, z = 0, from = { 3, 40, 5 }, to = { 18, 20 }, up = 10.5 },
+				{ kind = "Carousel", x = 0, z = -68, radius = 7 },
+				{ kind = "Stall", x = -40, z = -72, length = 8, depth = 5 },
+				{ kind = "Stall", x = 40, z = -72, length = 8, depth = 5 },
+				{ kind = "Stall", x = -62, z = -90, yaw = -20, length = 8, depth = 5 },
+				{ kind = "Stall", x = 62, z = -90, yaw = 20, length = 8, depth = 5 },
+			},
+			description = "The Lantern Tower: a timber lattice tower 66 high hung with lantern strings, a carousel and market stalls.",
 		},
 		-- The ferry house on the east bank by the festival ford, facing the river: a two-storey rose stucco house under
 		-- terracotta with an outside stone stair down its south gable (toward the ford) from the upper door, a stone

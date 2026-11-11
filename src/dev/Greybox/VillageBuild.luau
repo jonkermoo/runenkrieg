@@ -191,6 +191,20 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 					top = math.max(top, ground(q.X, q.Z))
 				end
 				d:PivotTo(d:GetPivot() + Vector3.new(0, top - hi, 0))
+			elseif d:IsA("Model") and d:GetAttribute("String") then
+				-- a lantern string (Geometry.lanternString): its far end lifted to its height over the real ground
+				-- there, every piece by its share of the way out from the tower
+				local s, e = d:FindFirstChild("Start") :: BasePart, d:FindFirstChild("End") :: BasePart
+				local dy = ground(e.Position.X, e.Position.Z) + (d:GetAttribute("String") :: number) - e.Position.Y
+				local dx, dz = e.Position.X - s.Position.X, e.Position.Z - s.Position.Z
+				local len2 = math.max(dx * dx + dz * dz, 1e-3)
+				for _, p in d:GetDescendants() do
+					if p:IsA("BasePart") then
+						local q = p.Position
+						local t = math.clamp(((q.X - s.Position.X) * dx + (q.Z - s.Position.Z) * dz) / len2, 0, 1)
+						p.CFrame += Vector3.new(0, dy * t, 0)
+					end
+				end
 			elseif d:IsA("Model") and d:GetAttribute("OnWater") and map.river then
 				-- (a ferry's boat floats on the river)
 				d:PivotTo(d:GetPivot() + Vector3.new(0, map.river.waterY - hi, 0))

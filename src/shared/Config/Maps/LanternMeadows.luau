@@ -442,6 +442,8 @@ local LanternMeadows = {
 			-- position looking down both legs
 			{ id = "Stage", style = "FestivalStage", x = S3[1], z = CZ + 200, front = { 0, -1 } },
 			{ id = "LanternHall", style = "LanternHall", x = S3[1], z = CZ + 262, front = { 0, -1 } },
+			-- the Lantern Tower between them (S3's hero, user approved 2026-11-11), its strings, carousel and stalls
+			{ id = "LanternTower", style = "LanternTower", x = S3[1], z = CZ + 232, front = { 0, -1 } },
 			-- the old watchtower behind S1's point on its north side, Katzmark's camp round it
 			{ id = "Watchtower", style = "Watchtower", x = 340, z = CZ - 84, front = { 1, 0 } },
 			-- the brickfield farm on S2's point, the flag in its yard (user approved 2026-11-06)
