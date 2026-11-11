@@ -1030,7 +1030,7 @@ local function roundHouse(from: Vector3, to: Vector3, now: number): Vector3?
 	if way.Magnitude < 1 or RD.look <= 0 then
 		return nil
 	end
-	if now - housesAt > 5 then
+	if now - housesAt > RD.refresh then
 		-- (the buildings, looked up again now and then: a new match puts fresh copies down)
 		housesAt = now
 		houseRay.FilterDescendantsInstances = CollectionService:GetTagged(DestructionCfg.BuildingTag)

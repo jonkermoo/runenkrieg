@@ -961,7 +961,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					if not MapTerrain.wetSpan(Map, px, pz, px, pz, W.step, W.pad) then
 						break
 					end
-					px, pz = px + (lf.ox - px) * 0.25, pz + (lf.oz - pz) * 0.25
+					px, pz = px + (lf.ox - px) * LN.dry, pz + (lf.oz - pz) * LN.dry
 				end
 				sqs.slotAt = Routes.ground(px, pz)
 				if not defend then
@@ -3076,7 +3076,7 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	for i, w in works do
 		local at = BotCrew.sectorAt(w.at.X, w.at.Z, Map.sectors)
 		local gun = w.kind == "Gun" or w.kind == "Nest"
-		local useful = if gun then Tactics.crew.usefulAt(side, w.at, 12) else nil
+		local useful = if gun then Tactics.crew.usefulAt(side, w.at, BD.usefulNear) else nil
 		fixable[i] = {
 			gun = gun,
 			built = w.built,

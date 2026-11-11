@@ -384,6 +384,8 @@ local Bots = {
 		-- no swing at a piece of theirs within `repairWait` s of it losing HP (user 2026-11-02 hand test: "Dont let ai
 		-- repair structures that are being destroyed by players"; "20 seconds": Rules/BotBuild.mayRepair)
 		repairWait = 20,
+		-- a gun's last word on whether its shot still reaches the enemy (Crew.usefulAt) counts within `usefulNear` studs
+		usefulNear = 12,
 		-- a job is walked to with the gun out, fighting on the way (user 2026-11-03 play test: "shooting and protecting
 		-- themselves and finding cover as they move to where they want to go"): the gun goes away only within `near`
 		-- studs of where it works and once it is safe there (Rules/BotBuild.safeToWork); danger mid-work drops the tool
@@ -603,6 +605,8 @@ local Bots = {
 		ahead = 30,
 		gatherNear = 60,
 		danger = 0.8,
+		-- a lane point in the water moves `dry` of the way in toward the line through the flags, up to 8 times
+		dry = 0.25,
 	},
 
 	-- A sap that gets nowhere is given up (user 2026-11-04: "why are they not pushing": saps at a river bank, uphill,
@@ -1045,7 +1049,7 @@ local Bots = {
 		-- whose straight way crosses a building within `look` studs, or stuck or stalled (Wait.stall) with one there, walks
 		-- first to the corner `clear` studs out past it on the shorter way round (in place of the random step aside, or of
 		-- waiting against its wall), then paths again; in a yard, round the one house of the farm it stands outside of
-		Round = { look = 10, clear = 4 },
+		Round = { look = 10, clear = 4, refresh = 5 },
 		-- waiting instead of milling (Rules/BotWait; user 2026-11-05 hand test: "instead of standing idly, they just move
 		-- in the same spot. if they're going to think, at least have them do it in a trench or while they're providing
 		-- fire"): a Normal bot engaging in the open (no cover), inside its zone, at its squad's stop, or `stall` s no
