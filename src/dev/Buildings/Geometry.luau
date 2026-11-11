@@ -1789,4 +1789,61 @@ function Geometry.hopGarden(parent: Instance, ctx: Ctx, at: CFrame, rows: number
 	end
 end
 
+-- A square brick chimney stack (Crossways Brewery's, user approved 2026-11-11): `H` high on a plinth, tapering in
+-- `steps` courses from `base` to `top` across, a corbelled band near the top. Its own brick colour (Swatch RedBrick).
+function Geometry.stack(parent: Instance, ctx: Ctx, at: CFrame, base: number, top: number, H: number)
+	local steps = 6
+	local plinth = Geometry.section(parent, ctx, "Stack", "Brick", 0)
+	Geometry.part(
+		plinth,
+		ctx,
+		"Plinth",
+		at * CFrame.new(0, 1.5 - ctx.B.FoundationDepth / 2, 0),
+		Vector3.new(base + 2, 3 + ctx.B.FoundationDepth, base + 2),
+		"Foundation"
+	)
+	local h = (H - 3) / steps
+	for k = 0, steps - 1 do
+		local sec = Geometry.section(parent, ctx, "Stack", "Brick", k)
+		local w = base + (top - base) * (k + 0.5) / steps
+		local p = Geometry.part(
+			sec,
+			ctx,
+			"Course",
+			at * CFrame.new(0, 3 + k * h + h / 2, 0),
+			Vector3.new(w, h + 0.05, w),
+			"Wall"
+		)
+		p:SetAttribute("Swatch", "RedBrick")
+	end
+	local band = Geometry.section(parent, ctx, "Stack", "Brick", steps)
+	for i, y in { H - 4, H - 0.6 } do
+		local p =
+			Geometry.part(band, ctx, "Band", at * CFrame.new(0, y, 0), Vector3.new(top + 1.4, 1.2, top + 1.4), "Wall")
+		p:SetAttribute("Swatch", if i == 1 then "Brick" else "RedBrick")
+	end
+end
+
+-- A wayside calvary (a crucifix corner): a stepped stone base, a tall oak cross with a little pitched hood over it.
+function Geometry.calvary(parent: Instance, ctx: Ctx, at: CFrame, H: number)
+	local sec = Geometry.section(parent, ctx, "Calvary", "Stone", 0)
+	sec:SetAttribute("OnGround", true)
+	Geometry.part(sec, ctx, "Step", at * CFrame.new(0, 0.3, 0), Vector3.new(6, 1.6, 6), "Quoin")
+	Geometry.part(sec, ctx, "Step", at * CFrame.new(0, 1.3, 0), Vector3.new(4, 1, 4), "Quoin")
+	local wood = Geometry.section(parent, ctx, "Calvary", "Wood", 0)
+	wood:SetAttribute("OnGround", true)
+	Geometry.part(wood, ctx, "Post", at * CFrame.new(0, H / 2 + 1, 0), Vector3.new(0.9, H, 0.9), "Trim")
+	Geometry.part(wood, ctx, "Arm", at * CFrame.new(0, H - 3, 0), Vector3.new(5.4, 0.8, 0.8), "Trim")
+	for _, side in { -1, 1 } do
+		Geometry.part(
+			wood,
+			ctx,
+			"Hood",
+			at * CFrame.new(side * 0.9, H + 1.6, 0) * CFrame.Angles(0, 0, side * math.rad(-50)),
+			Vector3.new(2.4, 0.3, 1.6),
+			"Trim"
+		)
+	end
+end
+
 return Geometry

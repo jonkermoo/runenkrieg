@@ -298,7 +298,7 @@ local Map1 = {
 	reserved = {
 		{ id = "BeaconFarm", minX = 340, maxX = 450, minZ = 280, maxZ = 340 },
 		{ id = "OastFarm", minX = 830, maxX = 970, minZ = -100, maxZ = 50 },
-		{ id = "Inn", minX = 1370, maxX = 1470, minZ = 120, maxZ = 210 },
+		{ id = "Inn", minX = 1346, maxX = 1504, minZ = 120, maxZ = 210 },
 		{ id = "Bridge", minX = 1620, maxX = 1740, minZ = -15, maxZ = 45 },
 		{ id = "Footbridge", minX = 1622, maxX = 1732, minZ = 120, maxZ = 170 },
 		{ id = "RockFord", minX = 1630, maxX = 1750, minZ = -175, maxZ = -85 },
@@ -367,6 +367,9 @@ local Map1 = {
 			{ id = "OastFarm", style = "OastFarm", x = PTS[2][1], z = PTS[2][2], front = { 0, -1 } },
 			-- the coaching inn on S3's north flank, its yard open to the crossroads lane
 			{ id = "Inn", style = "CoachingInn", x = PTS[3][1], z = 165, front = { 0, -1 } },
+			-- Crossways Brewery east of the inn and the smithy west of it (user approved 2026-11-11)
+			{ id = "Brewery", style = "Brewery", x = PTS[3][1] + 70, z = 182, front = { -1, 0 } },
+			{ id = "Smithy", style = "Smithy", x = PTS[3][1] - 62, z = 180, front = { 1, 0 } },
 			-- the watermill on the S3 bank by the rock ford, its door to the west, its wheel in the river
 			{ id = "Mill", style = "Watermill", x = 1666, z = -158, front = { -1, 0 } },
 			-- Ashby's market hall and pub on the green, north and south of the flag

@@ -1412,6 +1412,20 @@ local Assets = {
 			generator = "src/dev/Buildings/init.luau",
 			description = "Map 1's St Aldhelm's: the church with its broach spire in its walled churchyard on S5 (a landmark)",
 		},
+		Brewery = {
+			category = "Buildings",
+			folder = "Landmarks",
+			template = "Brewery",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Map 1's Crossways Brewery: a tower brewhouse and its tall chimney by S3's inn (a landmark)",
+		},
+		Smithy = {
+			category = "Buildings",
+			folder = "Landmarks",
+			template = "Smithy",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Map 1's Crossways smithy by S3's inn (a landmark)",
+		},
 		VillageSchool = {
 			category = "Buildings",
 			folder = "Landmarks",

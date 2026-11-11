@@ -423,7 +423,7 @@ local Buildings = {
 					z = 20,
 					width = 60,
 					depth = 20,
-					stories = 2,
+					stories = 3,
 					roofPitch = 40,
 					roofStyle = "Tile",
 					quoins = true,
@@ -456,8 +456,8 @@ local Buildings = {
 						{ kind = "Bed", x = 20, z = 5.1, story = 1 },
 						{ kind = "Partition", a = { 24, 1.6 }, b = { 24, 8.6 }, story = 1 },
 						{ kind = "Shelf", a = { 24.8, 7.9 }, b = { 28.6, 7.9 }, story = 1 },
-						{ kind = "Table", x = -14, z = -4, story = 1 },
-						{ kind = "Bench", x = -14, z = -1.5, story = 1 },
+						{ kind = "Table", x = 0, z = -4, story = 1 },
+						{ kind = "Bench", x = 0, z = -1.5, story = 1 },
 					},
 				},
 				{
@@ -517,6 +517,8 @@ local Buildings = {
 			features = {
 				-- the hanging sign at the yard's mouth by the road, crates in the yard for cover
 				{ kind = "Sign", x = -18, z = -27, yaw = 180, height = 9 },
+				-- the calvary where the lane leaves the crossroads (Crossways, user approved 2026-11-11)
+				{ kind = "Calvary", x = 6, z = -36, yaw = 180, height = 14 },
 				{ kind = "Crates", x = -12, z = -16, yaw = 20, count = 2 },
 				{ kind = "Crates", x = 13, z = -4, yaw = -15, count = 3 },
 			},
@@ -1415,6 +1417,68 @@ local Buildings = {
 				},
 			},
 			description = "The old tithe barn: long stone walls, a deep thatch, wagon doors front and back.",
+		},
+		-- Crossways Brewery (Map 1's S3, user approved 2026-11-11, the landmark design sheet): east of the coaching inn, a
+		-- tower brewhouse of four brick storeys under a short slate pyramid (the malt kiln's), and beside it a square brick
+		-- chimney 66 high, S3's mark seen from both sides.
+		Brewery = {
+			folder = "Landmarks",
+			width = 34,
+			depth = 20,
+			stories = 4,
+			roofPitch = 0,
+			class = "Brick",
+			wallThickness = 1.4,
+			walls = { "Brick" },
+			roofs = { "Slate" },
+			blocks = {
+				{
+					name = "Brewhouse",
+					x = -6,
+					z = 0,
+					width = 18,
+					depth = 18,
+					stories = 4,
+					storyHeight = 10,
+					roofPitch = 0,
+					roofStyle = "Spire",
+					spire = 10,
+					quoins = true,
+					windows = 2,
+					doors = { { center = 0, w = 6, h = 8 } },
+				},
+			},
+			features = { { kind = "Stack", x = 11, z = 2, base = 8, top = 5, height = 66 } },
+			description = "Crossways Brewery: a four-storey brick tower brewhouse and its tall square chimney.",
+		},
+		-- the Crossways smithy west of the inn, its forge stack on the gable
+		Smithy = {
+			folder = "Landmarks",
+			width = 18,
+			depth = 12,
+			stories = 1,
+			roofPitch = 35,
+			class = "Stone",
+			wallThickness = 1.4,
+			walls = { "Stone" },
+			roofs = { "DarkTile" },
+			blocks = {
+				{
+					name = "Smithy",
+					x = 0,
+					z = 0,
+					width = 18,
+					depth = 12,
+					stories = 1,
+					storyHeight = 9,
+					roofPitch = 35,
+					roofStyle = "Tile",
+					gableChimney = 1,
+					windows = 1,
+					doors = { { center = 0, w = 6, h = 8 } },
+				},
+			},
+			description = "The Crossways smithy: a low stone forge with its stack on the gable.",
 		},
 		-- Map 1's S1, Beacon Hill Mill (user approved 2026-11-11, the landmark design sheet; the beacon farm since
 		-- 2026-11-10): on the HQ's rear flank, out of S2's sight, a tarred tower mill with white sails over the West, its
