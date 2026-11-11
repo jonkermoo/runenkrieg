@@ -1061,14 +1061,16 @@ local Buildings = {
 			},
 			description = "The cascina: an ochre farmhouse with a portico and loggia, an arched gateway and a dovecote tower, Selvara's tents in front.",
 		},
-		-- Map 1's S2 (map rework, user approved 2026-11-10, "Yes, build it"): the oast farm, one walled yard on the point
-		-- with the flag in it. The oast house (hop store between two round kilns) along the back wall, the farmhouse in
-		-- the front wall, a Dutch barn and a cart shed along the side walls north of their cart gates, stables south of
-		-- them. The west half mirrors the east half, so both legs see the same farm.
+		-- Map 1's S2, Hopfield Court (user approved 2026-11-11, the landmark design sheet; the oast farm since 2026-11-10):
+		-- one walled yard on the point with the flag in it, the west half mirroring the east so both legs see the same
+		-- farm. The oast: a wider hop store between two round kilns along the back, a third kiln behind it, the cowls about
+		-- 43 high; the farmhouse in the front wall in brick; a Dutch barn and a cart shed along the side walls north of
+		-- their cart gates, stables south of them; behind the yard a tall tarred threshing barn; hop gardens on the north
+		-- flanks and orchards on the south ones, mirrored.
 		OastFarm = {
 			folder = "Landmarks",
-			width = 96,
-			depth = 88,
+			width = 100,
+			depth = 112,
 			stories = 2,
 			storyHeight = 9,
 			roofPitch = 38,
@@ -1080,11 +1082,11 @@ local Buildings = {
 				{
 					name = "Store",
 					x = 0,
-					z = 33,
+					z = 32,
 					width = 26,
 					depth = 14,
 					stories = 2,
-					storyHeight = 9,
+					storyHeight = 10,
 					roofPitch = 40,
 					roofStyle = "Tile",
 					doors = { { center = -4, w = 6, h = 7.5 } },
@@ -1093,14 +1095,17 @@ local Buildings = {
 					name = "Farmhouse",
 					x = 0,
 					z = -37,
-					width = 24,
+					width = 28,
 					depth = 14,
 					stories = 2,
 					storyHeight = 10,
-					roofPitch = 38,
+					roofPitch = 40,
 					roofStyle = "Tile",
+					wall = "Brick",
+					roof = "RedTile",
 					quoins = true,
 					gableChimney = 1,
+					chimneys = { -0.6 },
 					doors = { { center = 0 } },
 					backDoor = { { center = -6 }, { center = 6 } },
 				},
@@ -1132,24 +1137,48 @@ local Buildings = {
 					windows = 0,
 					doors = { { center = -5 }, { center = 5 } },
 				},
+				{
+					-- the threshing barn behind the yard, wagon doors front and back
+					name = "Barn",
+					x = 0,
+					z = 64,
+					width = 46,
+					depth = 18,
+					stories = 1,
+					storyHeight = 16,
+					roofPitch = 45,
+					roofStyle = "Tile",
+					wall = "TarBoard",
+					roof = "Slate",
+					windows = 0,
+					doors = { { center = 0, w = 8, h = 11 } },
+					backDoor = { { center = 0, w = 8, h = 11 } },
+				},
 			},
 			features = {
-				{ kind = "Kiln", x = -19, z = 33, radius = 6.5, height = 13, cone = 12 },
-				{ kind = "Kiln", x = 19, z = 33, radius = 6.5, height = 13, cone = 12 },
+				{ kind = "Kiln", x = -21, z = 32, radius = 7, height = 22, cone = 16 },
+				{ kind = "Kiln", x = 21, z = 32, radius = 7, height = 22, cone = 16 },
+				{ kind = "Kiln", x = 0, z = 45, radius = 6.5, height = 22, cone = 16 },
 				-- the Dutch barn (west) and the cart shed (east): open-sided, along the gate walls north of the gates
 				{ kind = "HayBarn", x = -41, z = 22, yaw = 90, length = 22, span = 9, height = 9 },
 				{ kind = "HayBarn", x = 41, z = 22, yaw = 90, length = 22, span = 9, height = 9 },
-				-- the yard walls, too high to hop: the back one, the front ones either side of the farmhouse, the side ones
-				-- either side of their cart gates (z -6..6)
-				{ kind = "Wall", a = { -48, 44 }, b = { 48, 44 }, height = 3, thick = 1.4, swatch = "Stone" },
-				{ kind = "Wall", a = { -48, -44 }, b = { -12, -44 }, height = 3, thick = 1.4, swatch = "Stone" },
-				{ kind = "Wall", a = { 12, -44 }, b = { 48, -44 }, height = 3, thick = 1.4, swatch = "Stone" },
+				-- the yard walls, too high to hop: the back one (behind the third kiln), the front ones either side of the
+				-- farmhouse, the side ones either side of their cart gates (z -6..6)
+				{ kind = "Wall", a = { -48, 54 }, b = { -12, 54 }, height = 3, thick = 1.4, swatch = "Stone" },
+				{ kind = "Wall", a = { 12, 54 }, b = { 48, 54 }, height = 3, thick = 1.4, swatch = "Stone" },
+				{ kind = "Wall", a = { -48, -44 }, b = { -14, -44 }, height = 3, thick = 1.4, swatch = "Stone" },
+				{ kind = "Wall", a = { 14, -44 }, b = { 48, -44 }, height = 3, thick = 1.4, swatch = "Stone" },
 				{ kind = "Wall", a = { -48, -44 }, b = { -48, -6 }, height = 3, thick = 1.4, swatch = "Stone" },
-				{ kind = "Wall", a = { -48, 6 }, b = { -48, 44 }, height = 3, thick = 1.4, swatch = "Stone" },
+				{ kind = "Wall", a = { -48, 6 }, b = { -48, 54 }, height = 3, thick = 1.4, swatch = "Stone" },
 				{ kind = "Wall", a = { 48, -44 }, b = { 48, -6 }, height = 3, thick = 1.4, swatch = "Stone" },
-				{ kind = "Wall", a = { 48, 6 }, b = { 48, 44 }, height = 3, thick = 1.4, swatch = "Stone" },
+				{ kind = "Wall", a = { 48, 6 }, b = { 48, 54 }, height = 3, thick = 1.4, swatch = "Stone" },
+				-- outside: the hop gardens north-west and north-east, the orchards south-west and south-east
+				{ kind = "HopGarden", x = -86, z = 66, rows = 5, cols = 6, gap = 6, height = 18 },
+				{ kind = "HopGarden", x = 56, z = 66, rows = 5, cols = 6, gap = 6, height = 18 },
+				{ kind = "Orchard", x = -72, z = -62, rows = 2, cols = 3, gap = 9 },
+				{ kind = "Orchard", x = 50, z = -62, rows = 2, cols = 3, gap = 9 },
 			},
-			description = "The oast farm: a walled yard with the oast house, farmhouse, Dutch barn, cart shed and stables.",
+			description = "Hopfield Court: a walled farm with a three-kiln oast, farmhouse, barns and stables, hop gardens and orchards.",
 		},
 		-- Ashby's market hall on the green, north of the flag (Map 1's S4, user approved 2026-11-10): a whitewashed
 		-- two-storey hall, the ground floor open through four bays on the green, a room upstairs (stairs inside) that looks

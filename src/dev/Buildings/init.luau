@@ -270,6 +270,8 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.bellcote(model, ctx, at * CFrame.new(0, f.y, 0), f.width, f.height)
 			elseif f.kind == "TowerMill" then
 				Geometry.towerMill(model, ctx, at, f.r0, f.r1, f.height, f.sail)
+			elseif f.kind == "HopGarden" then
+				Geometry.hopGarden(model, ctx, at, f.rows, f.cols, f.gap, f.height)
 			elseif f.kind == "Orchard" then
 				Geometry.orchard(model, ctx, at, f.rows, f.cols, f.gap)
 			elseif f.kind == "Yew" then

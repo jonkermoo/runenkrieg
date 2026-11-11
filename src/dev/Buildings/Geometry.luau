@@ -1725,7 +1725,7 @@ function Geometry.orchard(parent: Instance, ctx: Ctx, at: CFrame, rows: number, 
 		for c = 0, cols - 1 do
 			local sec = Geometry.section(parent, ctx, "FruitTree", "Wood", 0)
 			sec:SetAttribute("OnGround", true)
-			local h = 7 + 1.5 * jitter(ctx, 17)
+			local h = 10 + 2 * jitter(ctx, 17)
 			local spot = at * CFrame.new(c * gap + (r % 2) * gap / 2, 0, r * gap)
 			Geometry.part(sec, ctx, "Trunk", spot * CFrame.new(0, h * 0.25, 0), Vector3.new(0.9, h * 0.5, 0.9), "Trim")
 			local crown = Geometry.part(
@@ -1739,6 +1739,53 @@ function Geometry.orchard(parent: Instance, ctx: Ctx, at: CFrame, rows: number, 
 			crown.Shape = Enum.PartType.Ball
 			crown.CanCollide = false
 		end
+	end
+end
+
+-- A hop garden (Hopfield Court, user approved 2026-11-11): `rows` rows of `cols` tall poles `gap` apart along `at`'s X
+-- and Z, a wire along the top of each row and the bines climbing strings to it (green), set on the real ground. You
+-- can see and shoot through it; the poles stop you.
+function Geometry.hopGarden(parent: Instance, ctx: Ctx, at: CFrame, rows: number, cols: number, gap: number, H: number)
+	for r = 0, rows - 1 do
+		local sec = Geometry.section(parent, ctx, "HopRow", "Wood", 0)
+		sec:SetAttribute("OnGround", true)
+		local row = at * CFrame.new(0, 0, r * gap)
+		for c = 0, cols - 1 do
+			local h = H * (1 + 0.04 * jitter(ctx, 19))
+			Geometry.part(
+				sec,
+				ctx,
+				"Pole",
+				row * CFrame.new(c * gap, h / 2 - 0.6, 0),
+				Vector3.new(0.45, h + 1.2, 0.45),
+				"Wood"
+			)
+			if c < cols - 1 then
+				-- the bines on strings between the poles, leaning in pairs toward the wire
+				for _, k in { 0.33, 0.66 } do
+					local bine = Geometry.part(
+						sec,
+						ctx,
+						"Bine",
+						row
+							* CFrame.new((c + k) * gap, h * 0.45, 0)
+							* CFrame.Angles(0, 0, math.rad(6 * jitter(ctx, 23))),
+						Vector3.new(0.9, h * 0.85, 0.9),
+						"Orchard"
+					)
+					bine.CanCollide = false
+				end
+			end
+		end
+		local wire = Geometry.part(
+			sec,
+			ctx,
+			"Wire",
+			row * CFrame.new((cols - 1) * gap / 2, H - 0.3, 0),
+			Vector3.new((cols - 1) * gap, 0.15, 0.15),
+			"Metal"
+		)
+		wire.CanCollide = false
 	end
 end
 
