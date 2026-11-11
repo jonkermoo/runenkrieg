@@ -30,7 +30,8 @@ end
 -- Where `side`'s bots go: `target` (the sector it attacks, nil when none) and, while an own sector is under attack,
 -- that one with `share` (Config/Bots.Normal.defendShare) of the bots: the one with most enemies in it, the frontmost
 -- on a tie (nearest the enemy's end). With none under attack and a `front` (the side's sector nearest the enemy),
--- `hold` of the bots hold it (and dig in there: Rules/BotTrenches; user 2026-11-02: "dig in at once").
+-- `hold` of the bots hold it (and dig in there: Rules/BotTrenches; user 2026-11-02: "dig in at once"). With `cap`, the
+-- defenders' share rises from `share` toward it with the sector's danger (BotOrders.danger).
 function BotOrders.plan(
 	side: string,
 	owner: { string },
@@ -39,7 +40,8 @@ function BotOrders.plan(
 	target: number?,
 	share: number,
 	front: number?,
-	hold: number?
+	hold: number?,
+	cap: number?
 ): Plan
 	local defend: number? = nil
 	local most = 0
@@ -61,7 +63,24 @@ function BotOrders.plan(
 	if not defend and target and front and hold and hold > 0 then
 		return { attack = target, defend = front, share = hold }
 	end
+	if defend and cap and cap > share then
+		-- (the worse it goes there, the more defend it: Config/Bots.Lanes.danger; in tenths, so orders don't flicker)
+		local i = defend :: number
+		share += math.floor((cap - share) * BotOrders.danger(side, control[i], counts[i]) * 10 + 0.5) / 10
+	end
 	return { attack = target, defend = defend, share = if defend then share else 0 }
+end
+
+-- How badly `side` is losing a sector of its own (0 calm, 1 desperate; Config/Bots.Lanes.danger, user 2026-11-10: "more
+-- bots accordingly to how desperate the situation is"): its control lost (half the way to the enemy's end is all of
+-- it), or the enemies in its zone outnumbering its own there (twice as many is all of it), the worse of the two.
+function BotOrders.danger(side: string, control: number, counts: { West: number, East: number }): number
+	local rest = if side == "West" then 1 else -1
+	local lost = math.clamp(math.abs(control - rest), 0, 1)
+	local foes = (counts :: any)[enemy(side)]
+	local own = (counts :: any)[side]
+	local outnumbered = if foes > 0 then math.clamp((foes - own) / foes, 0, 1) * 2 else 0
+	return math.clamp(math.max(lost, outnumbered), 0, 1)
 end
 
 -- How many of `bots` defend at `share`: rounded, at least one when there is a share and two bots or more, never all

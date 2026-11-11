@@ -15,6 +15,7 @@ local Map = require(Shared.LiveMap).map -- (the match's map)
 local BotBuild = require(Shared.Rules.BotBuild)
 local BotTrenches = require(Shared.Rules.BotTrenches)
 local BotWait = require(Shared.Rules.BotWait)
+local BotLanes = require(Shared.Rules.BotLanes)
 local MapTerrain = require(Shared.Rules.MapTerrain)
 local Trenches = require(script.Parent.Parent.Trenches)
 local BuildServer = require(script.Parent.Parent.Build)
@@ -99,7 +100,7 @@ local function report(now: number, governor: { cap: number })
 	end)
 	print(
 		string.format(
-			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps; %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts (%.1f/min); %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug, %d given up; %d squads pressed on out of the open; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger, %d left with no way there, %d with no swing, %d begun and broken off, %d out of reach for the side, %d idle resets, waits %d in trenches, %d in cover, %d spread out, %d where they stood, %d teammates guarded first, %d rescues claimed, %d let go; front %d moved on, %d contacts, %d parallels, runs %d zig-zag, %d straight; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned (%d squares without the ground), %d sheltered, %d came up, %d lifted out, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped, %d held off its own cover; %d doors opened (%d walked into, %d paths again after a swing, %d doorway spots behind a door, %d steps along a flight), %d waypoints walked on between thinks, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; %s; %s; %d saps due, %d at a ford; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
+			"[Bots] %d bots (W %d, E %d; %d alive: %s; cap %d): frame avg %.3f ms, p95 %.3f ms, max %.2f ms; think %.3f ms avg, %.2f ms max; %d frames out of time; %.1f rays/frame, %d sights put off; %.1f paths/s (%d failed, %d put off, %d shared); %d stuck, %d sidesteps (%d round a building); %d bodies taken back, %d stood up; %d squads pushed in, %d covering shots, roles %s; %d callouts (%.1f/min); %d grenades, %d heals, %d drags; %d laid, %d swings, %d refused, %d jobs open; trenches %d runs planned, %d on fire steps, %d in reserve, %d lines lost; cover %d piles pinned down, %d breastworks, %d walls, %d moved off trench lines; trench ways %d tear-down swings, %d runs swung round; %d saps, %d sap runs dug, %d given up; %d squads pressed on out of the open; by trench %d danger paths, %d down into trenches, %d over the top; work %d jobs taken, %d started safe, %d stopped by danger, %d left with no way there, %d with no swing, %d begun and broken off, %d out of reach for the side, %d idle resets, waits %d in trenches, %d in cover, %d spread out, %d where they stood, %d teammates guarded first, %d rescues claimed, %d let go; front %d moved on, %d contacts, %d parallels, runs %d zig-zag, %d straight; team %d pushes (%d grenades first), %d butt strokes, %d shots held (no line), %d spread steps, %d wire spots moved, %d swings waited; dugouts %d planned (%d squares without the ground), %d sheltered, %d came up, %d lifted out, %d bombed out; foxholes %d dug (%d pinned), %d into one; staff %d/%d/%d casts, %d dropped, %d held off its own cover; %d doors opened (%d walked into, %d paths again after a swing, %d doorway spots behind a door, %d steps along a flight), %d waypoints walked on between thinks, %d at windows, %d squads clearing; %d shots, %d deaths, %d covers found, %d peeks, %d upgrades; %s; %s; %s; %d saps due, %d at a ford; to the zone %.1f s avg (%d); physics %.0f fps, heartbeat %.2f ms; thinking near %d, middle %d, distant %d; sending %.0f KB/s",
 			#bots,
 			sides.West or 0,
 			sides.East or 0,
@@ -120,6 +121,7 @@ local function report(now: number, governor: { cap: number })
 			stats.pathsShared,
 			stats.stuck,
 			stats.sidesteps,
+			stats.roundHouse,
 			stats.reowned,
 			stats.stoodUp,
 			stats.assaults,
@@ -662,9 +664,140 @@ local function spotLines()
 				end
 			end
 		end
+		-- (where its living bots stand now and this match, and what those behind its front do there: Rules/BotBuild.whereIs)
+		local owners = fronts.owners
+		local front = if owners then BotBuild.front(Map.sectors, owners, side) else nil
+		local where = State.ByTrench.where[side] or {}
+		State.ByTrench.where[side] = where
+		local whyBehind = State.ByTrench.behindWhy[side] or {}
+		State.ByTrench.behindWhy[side] = whyBehind
+		local nowWhere: { [string]: number } = { front = 0, behind = 0, ahead = 0 }
+		local now = os.clock()
+		for _, b in bots do
+			local m = b.m
+			if b.side == side and m and alive(b) and owners then
+				local p = (b.root :: BasePart).Position
+				local at, best = nil, math.huge
+				for i, s in Map.sectors do
+					local d = (s.x - p.X) ^ 2 + (s.z - p.Z) ^ 2
+					if d < best then
+						at, best = i, d
+					end
+				end
+				local w = BotBuild.whereIs(at, front, owners, side)
+				nowWhere[w] += 1
+				where[w] = (where[w] or 0) + 1
+				if w == "behind" then
+					local job = if b.act and b.act.job then b.act.job elseif b.work then b.work else nil
+					local why = if Artillery.gunOf(m)
+						then "manning a gun"
+						elseif b.gun then "walking to a gun"
+						elseif job and job.fix then "fixing a gun"
+						elseif job and job.job.key == "Trench" then "digging"
+						elseif job then "building"
+						elseif b.pioneer then "pioneer"
+						elseif now - b.spawnedAt < 30 then "just spawned"
+						elseif b.sector and b.sector ~= at then "walking to its order"
+						else `other ({b.order or "-"} {b.role or "-"})`
+					whyBehind[why] = (whyBehind[why] or 0) + 1
+				end
+			end
+		end
+		local seen = math.max((where.front or 0) + (where.behind or 0) + (where.ahead or 0), 1)
+		local whys = {}
+		for why, n in whyBehind do
+			table.insert(whys, { why = why, n = n })
+		end
+		table.sort(whys, function(a, b)
+			return a.n > b.n
+		end)
+		local whyText = {}
+		for _, e in whys do
+			table.insert(whyText, `{e.why} {math.floor(100 * e.n / math.max(where.behind or 0, 1) + 0.5)}%`)
+		end
+		local whereNote =
+			`bots now: {nowWhere.front} at its front S{front or "-"}, {nowWhere.behind} behind it, {nowWhere.ahead} ahead; this match {math.floor(
+				100 * (where.front or 0) / seen + 0.5
+			)}% front, {math.floor(100 * (where.behind or 0) / seen + 0.5)}% behind, {math.floor(
+				100 * (where.ahead or 0) / seen + 0.5
+			)}% ahead; behind: {table.concat(whyText, ", ")}`
+		-- (how near its living bots stand to their nearest teammate, by role, now and this match: Rules/BotWait.nearest)
+		local pts, roles = {}, {}
+		for _, b in bots do
+			if b.side == side and b.m and alive(b) then
+				local p = (b.root :: BasePart).Position
+				table.insert(pts, { x = p.X, z = p.Z })
+				table.insert(roles, if b.role == "Hold" then `Hold {b.postKind or "-"}` else b.role or "none")
+			end
+		end
+		local gaps = State.ByTrench.gaps[side] or {}
+		State.ByTrench.gaps[side] = gaps
+		local nowGaps: { [string]: { number } } = {}
+		for k, d in BotWait.nearest(pts) do
+			local g = gaps[roles[k]] or { n = 0, under4 = 0, under8 = 0 }
+			gaps[roles[k]] = g
+			g.n += 1
+			g.under4 += if d < 4 then 1 else 0
+			g.under8 += if d < 8 then 1 else 0
+			nowGaps[roles[k]] = nowGaps[roles[k]] or {}
+			table.insert(nowGaps[roles[k]], d)
+		end
+		local gapText = {}
+		for role, g in gaps do
+			local list = nowGaps[role] or {}
+			table.sort(list)
+			local mid = list[math.max(math.ceil(#list / 2), 1)]
+			table.insert(
+				gapText,
+				`{role} {if mid and mid < math.huge then math.floor(mid + 0.5) else "-"} now, this match {math.floor(
+					100 * g.under4 / math.max(g.n, 1) + 0.5
+				)}% under 4, {math.floor(100 * g.under8 / math.max(g.n, 1) + 0.5)}% under 8`
+			)
+		end
+		table.sort(gapText)
+		local gapNote = `nearest teammate (studs, middle): {table.concat(gapText, "; ")}`
+		-- (how far across from the line through the flags its living bots stand, now and this match, and its lanes now:
+		-- Config/Bots.Lanes; user 2026-11-10: "still too many are just in the center")
+		local bands = { 40, 100, 200 }
+		local across = State.ByTrench.across[side] or { 0, 0, 0, 0 }
+		State.ByTrench.across[side] = across
+		local nowAcross = { 0, 0, 0, 0 }
+		for _, pt in pts do
+			local d = BotLanes.fromLine(Map.sectors, pt.x, pt.z)
+			local k = #bands + 1
+			for j, edge in bands do
+				if d < edge then
+					k = j
+					break
+				end
+			end
+			nowAcross[k] += 1
+			across[k] += 1
+		end
+		local function shares(t: { number }): string
+			local n = math.max(t[1] + t[2] + t[3] + t[4], 1)
+			local out = {}
+			for j = 1, 4 do
+				table.insert(out, `{math.floor(100 * t[j] / n + 0.5)}%`)
+			end
+			return table.concat(out, " / ")
+		end
+		local laneText = {}
+		for what, t in State.ByTrench.lanesNow[side] or {} do
+			table.insert(laneText, `{what} {t}`)
+		end
+		table.sort(laneText)
+		local acrossNote =
+			`across from the flags' line (under 40 / 100 / 200 / more): now {shares(nowAcross)}, this match {shares(
+				across
+			)}; lanes now (squads/share): {table.concat(laneText, "; ")}; {stats.laneMoves} lane moves`
 		local nests, guns, onFlag, marked, frames = 0, 0, 0, 0, 0
+		local nestsAt = {}
 		for _, w in if kit then BuildServer.worksOf(kit) else {} do
 			frames += if w.key == "MGNest" and not w.built then 1 else 0
+			if w.key == "MGNest" then
+				table.insert(nestsAt, { x = w.at.X, z = w.at.Z })
+			end
 			if w.built and (w.key == "MGNest" or w.key == "FieldGun" or w.key == "Howitzer") then
 				nests += if w.key == "MGNest" then 1 else 0
 				guns += if w.key == "MGNest" then 0 else 1
@@ -680,11 +813,26 @@ local function spotLines()
 			end
 		end
 		local n = math.max(h.all, 1)
+		-- (its nests, standing or going up: the nearest two, the pairs within Build.Nest.gap, and the spots passed over
+		-- for that this match: Rules/BotBuild.spaced)
+		local gap = Cfg.Build.Nest.gap
+		local near, tight = BotBuild.closest(nestsAt, gap)
+		-- (its guns out of service: its own being fixed, its own left for being of no use, the enemy's it uses being
+		-- fixed: Crew.useful, Crew.fixes)
+		local bk = Tactics.crew.broken[side] or { fixing = 0, left = 0, captured = 0 }
+		local brokenNote =
+			`broken guns: {bk.fixing} of its own to fix, {bk.left} of its own left (can't reach the enemy), {bk.captured} captured to fix; of no use: {table.concat(
+				Tactics.crew.useless(side),
+				", "
+			)}`
+		local spacing = if near
+			then `nearest two {math.floor(near + 0.5)} studs apart, {tight} pairs within {gap}`
+			else "fewer than two"
 		table.insert(
 			lines,
 			`{side}: holders this match {math.floor(100 * h.flag / n + 0.5)}% within {OP.clear} studs of a flag, {math.floor(
 				100 * h.zone / n + 0.5
-			)}% in a zone; {nests} MG nests ({frames} more going up, {Tactics.crew.nestsOut[side] or 0} at its front too far from the fight to count), {guns} guns standing, {marked} of them on marked spots, {onFlag} within {OP.clear} of a flag`
+			)}% in a zone; {nests} MG nests ({frames} more going up, {Tactics.crew.nestsOut[side] or 0} at its front too far from the fight to count; {spacing}; {Tactics.crew.nestsTight[side] or 0} spots passed over too close), {guns} guns standing, {marked} of them on marked spots, {onFlag} within {OP.clear} of a flag; {brokenNote}; {whereNote}; {gapNote}; {acrossNote}`
 		)
 	end
 	workspace:SetAttribute(DevCfg.Admin.Spots.readout, table.concat(lines, "\n"))

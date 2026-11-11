@@ -261,6 +261,16 @@ return {
 		assert(R.pressing(F, 1, 1), "one enemy inside the crests is")
 		assert(F.ring > F.inner and F.hold > 0)
 	end,
+	["fallbackFrom: the attacked sector a side fell back from, else nil; the line halfway back (user 2026-11-09)"] = function()
+		local s = R.new(Map1.sectors)
+		assert(R.fallbackFrom(s, "West", true, 2) == nil, "frontmost held: no fall back")
+		assert(R.fallbackFrom(s, "West", true, 1) == 2, "spawning at S1 for an attack on S2")
+		local n = #Map1.sectors
+		assert(R.fallbackFrom(s, "East", true, n - 1) == nil, "East's frontmost (S4)")
+		assert(R.fallbackFrom(s, "East", true, n) == n - 1, "East back at its HQ for an attack on S4")
+		assert(R.fallbackFrom(s, "East", false, n) == nil, "no capture yet: the HQ is where it spawns")
+		assert(Cfg.Fallback.at > 0 and Cfg.Fallback.at < 1, "part of the way back")
+	end,
 	["waves: one clock every 20 s from the countdown's end (user 2026-10-27; 20 s since 2026-11-06)"] = function()
 		local W = Cfg.Waves
 		assert(W.every == 20 and W.dead == 5 and W.shield > 0, "the user's numbers")

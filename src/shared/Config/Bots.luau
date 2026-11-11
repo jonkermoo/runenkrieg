@@ -171,7 +171,10 @@ local Bots = {
 	-- hold spots); the rest take trench posts or the marked cover and support spots ahead of the point. No hold spot and no
 	-- MG nest within `clear` studs of the flag. A marked spot holds `room` soldiers unless it says (`n`); a holder's post
 	-- within `held` studs of a spot is on it; a nest within `nestGap` studs of a marked spot has it.
-	OffPoint = { clear = 25, inZone = 4, room = 2, held = 3, nestGap = 12 },
+	-- One holder a spot (user 2026-11-10: "when they are in groups, they are super close together"; chose one per
+	-- spot): a holder takes a hold spot no other holder's post stands within `gap` studs of while one is free; the
+	-- holders of one marked spot stand `gap` apart across the enemy's way (Rules/BotBuild.markedPlace).
+	OffPoint = { clear = 25, inZone = 4, room = 2, held = 3, nestGap = 12, gap = 12 },
 
 	Squads = {
 		size = 4,
@@ -183,7 +186,9 @@ local Bots = {
 		boundMax = 7,
 		hop = 30,
 		arrive = 6,
-		spread = 8, -- (5 to 8, user 2026-11-06: one shell must not catch a whole squad)
+		-- (5 to 8, user 2026-11-06: one shell must not catch a whole squad; 8 to 12, user 2026-11-10: "when they are in
+		-- groups, they are super close together", chose 12: a field gun shell kills within 12)
+		spread = 12,
 		-- a squad moves on from a point on its way (its waypoint, its approach spot) once `readyShare` of its free
 		-- members (not building, rescuing or guarding) are there, or anyone has waited there `waitMax` s (user
 		-- 2026-11-03 play test: "a lot of AI's frozen after a sector taken": members off on jobs kept the rest waiting)
@@ -255,8 +260,9 @@ local Bots = {
 	--   goes (user: "Swap for ~0.6 s"); aimed `short` of the spot (it rolls on) on the low arc.
 	-- Spreading out (user 2026-11-02 hand test: "bots walk neck to neck. make them spread out a little even if they are
 	-- going to the same place"): walking a path with a teammate within `apart` studs, a bot's next step goes `push`
-	-- studs aside, away from them.
-	Spread = { apart = 3.5, push = 2.5 },
+	-- studs aside, away from them. (3.5 and 2.5 to 7 and 4, user 2026-11-10: "when they are in groups, they are super
+	-- close together"; with Squads.spread 12)
+	Spread = { apart = 7, push = 4 },
 	-- Firing only with a line of sight (user 2026-11-02 hand test: "some bots are shooting through terrain even though
 	-- they cant physicall see the enemy"): each shot needs a clear line from the muzzle to the target (anything in the
 	-- way, terrain too); covering fire at a known spot a clear line to within `near` studs of it.
@@ -378,6 +384,8 @@ local Bots = {
 		-- no swing at a piece of theirs within `repairWait` s of it losing HP (user 2026-11-02 hand test: "Dont let ai
 		-- repair structures that are being destroyed by players"; "20 seconds": Rules/BotBuild.mayRepair)
 		repairWait = 20,
+		-- a gun's last word on whether its shot still reaches the enemy (Crew.usefulAt) counts within `usefulNear` studs
+		usefulNear = 12,
 		-- a job is walked to with the gun out, fighting on the way (user 2026-11-03 play test: "shooting and protecting
 		-- themselves and finding cover as they move to where they want to go"): the gun goes away only within `near`
 		-- studs of where it works and once it is safe there (Rules/BotBuild.safeToWork); danger mid-work drops the tool
@@ -404,7 +412,10 @@ local Bots = {
 			flapWithin = 2,
 			giveUpAfter = 3,
 		},
-		Nest = { ahead = 2, count = 3 },
+		-- (a new nest's spot, marked or at a hold spot, stands at least `gap` studs from every nest of its side, standing or
+		-- going up, and from the others planned with it; fewer than its share where none fits: Rules/BotBuild.spaced; user
+		-- 2026-11-09: "we need to add a distance requirement for mg nests too too many are compacted together". 0: none)
+		Nest = { ahead = 2, count = 3, gap = 40 },
 		Guns = { back = 60, side = 24 },
 		-- (pieces 100: a third of Config/Build.PerTeam 300, as the 50 of 150 the user chose)
 		-- (the guns and MG nests: its share in each sector, user 2026-11-03: "cannons and artys built should be by sector.
@@ -563,6 +574,39 @@ local Bots = {
 		sapFrom = 90,
 		parallel = { at = 40, width = 24 },
 		Flank = { share = 1 / 3, offset = 90, every = 3, gunFrom = 120 },
+	},
+
+	-- Lanes across the front (Rules/BotLanes; user 2026-11-10: "can you make the bots just more spread out? ... considering
+	-- how big the map is, still too many are just in the center. it should be a almost even spread, with the area that
+	-- needs most attention with more bots accordingly to how desperate the situation is"; chose 5 lanes over the whole
+	-- width, lane odds and sector danger, up to 3x). The squads of each sector a side attacks or defends share `count`
+	-- lanes across the enemy's way, over the map's width there (its bounds less `margin`, at most `reach` studs each way);
+	-- `least` squads a lane while there are enough, the rest by weight: 1, up to `most` as the enemies the side knows of
+	-- in a lane (within `depth` studs of the sector) outnumber its bots there `odds` to 1. A new squad takes the lane
+	-- furthest under its share; every `every` s one squad (not pushing in) moves over once the lane furthest over and
+	-- the one furthest under add up to `moveAt` squads. Attackers go by their lane's point `back` studs short of the
+	-- sector (in place of Front.Flank's), gather at the best gather spot within `gatherNear` of it (else on it), and
+	-- converge on the zone for the assault; defenders (those not keeping the zone) hold posts in their lane, else on its
+	-- point `ahead` studs out toward the enemy; when the enemy's offensive goes in, only the squads in the lane through
+	-- the flag and in lanes with enemies known in them stand to into the zone. While an own sector is being taken, its defenders' share rises from
+	-- Normal.defendShare toward `danger` with how badly (Rules/BotOrders.danger).
+	Lanes = {
+		on = true,
+		count = 5,
+		reach = 350,
+		margin = 40,
+		least = 1,
+		most = 3,
+		odds = 2,
+		depth = 300,
+		every = 20,
+		moveAt = 1.5,
+		back = 110,
+		ahead = 30,
+		gatherNear = 60,
+		danger = 0.8,
+		-- a lane point in the water moves `dry` of the way in toward the line through the flags, up to 8 times
+		dry = 0.25,
 	},
 
 	-- A sap that gets nowhere is given up (user 2026-11-04: "why are they not pushing": saps at a river bank, uphill,
@@ -1000,6 +1044,12 @@ local Bots = {
 		-- (`seconds` 25, not 20: a squad waits up to Squads.waitMax 20 s at a waypoint for its members)
 		-- (a reset bot down inside a dugout that isn't its post walks straight up its steps first)
 		Idle = { seconds = 25, studs = 3, post = 4, push = 15 },
+		-- round a building (Rules/BotBuildings.roundCorner; user 2026-11-09, photo: "a group of enemy bots is stuck
+		-- against a house"; chose "walk round the house"): a bot walking with no path (none found yet, or none at all)
+		-- whose straight way crosses a building within `look` studs, or stuck or stalled (Wait.stall) with one there, walks
+		-- first to the corner `clear` studs out past it on the shorter way round (in place of the random step aside, or of
+		-- waiting against its wall), then paths again; in a yard, round the one house of the farm it stands outside of
+		Round = { look = 10, clear = 4, refresh = 5 },
 		-- waiting instead of milling (Rules/BotWait; user 2026-11-05 hand test: "instead of standing idly, they just move
 		-- in the same spot. if they're going to think, at least have them do it in a trench or while they're providing
 		-- fire"): a Normal bot engaging in the open (no cover), inside its zone, at its squad's stop, or `stall` s no
@@ -1020,7 +1070,7 @@ local Bots = {
 		-- The stuck readout lists bots `mill.seconds` s inside `mill.radius` studs off post (shuffling, not standing
 		-- still), and how many stand in a clump (`clump.count` others within `clump.within` studs).
 		Wait = {
-			gap = 5,
+			gap = 10, -- (5 to 10, user 2026-11-10: "when they are in groups, they are super close together")
 			step = 6,
 			fight = 30,
 			stop = 8,

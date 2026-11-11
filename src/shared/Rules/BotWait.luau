@@ -134,6 +134,21 @@ function BotWait.stalled(
 	return now - p.at >= cfg.stall
 end
 
+-- Each of `points`' distance to its nearest other (math.huge for one alone), in their order.
+function BotWait.nearest(points: { Point }): { number }
+	local out = {}
+	for i, a in points do
+		local best = math.huge
+		for j, b in points do
+			if i ~= j then
+				best = math.min(best, dist(a.x, a.z, b.x, b.z))
+			end
+		end
+		out[i] = best
+	end
+	return out
+end
+
 -- How many of `points` stand in a clump: each with at least `count` others within `within` studs.
 function BotWait.clumped(points: { Point }, within: number, count: number): number
 	local n = 0

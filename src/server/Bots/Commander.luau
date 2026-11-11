@@ -23,6 +23,7 @@ local BotSap = require(Shared.Rules.BotSap)
 local BotArcs = require(Shared.Rules.BotArcs)
 local BotCrew = require(Shared.Rules.BotCrew)
 local BotFront = require(Shared.Rules.BotFront)
+local BotLanes = require(Shared.Rules.BotLanes)
 local Build = require(script.Parent.Parent.Build)
 local Trees = require(script.Parent.Parent.Trees)
 local Frontline = require(script.Parent.Parent.Frontline)
@@ -46,6 +47,12 @@ local CV = Cfg.Move.Cover
 local FR = Cfg.Front
 local DH = Cfg.Dugouts.Heat
 local OF = Cfg.Offensive
+local LN = Cfg.Lanes
+-- (the lanes' map edges: Config/Bots.Lanes; a map without bounds: as far as Lanes.reach)
+local laneBounds: BotLanes.Bounds = (Map :: any).bounds
+	or { minX = -math.huge, maxX = math.huge, minZ = -math.huge, maxZ = math.huge }
+-- (when each side's sector squads last looked to move a squad between lanes: Lanes.every)
+local laneLooked: { [string]: number } = {}
 -- (the build list's and the gun spots' settings with the flanks', Config/Bots.Front.Flank)
 local Flanked = { plan = table.clone(BD), guns = table.clone(BD.Crews) }
 Flanked.plan.Flank = FR.Flank
@@ -114,18 +121,24 @@ local Marks: { [number]: any } = (if (Map :: any).legs then MapTerrain.tactics(M
 
 -- Where a squad of `side` in lane `lane` at `mid` forms up for its offensive on sector `sector`
 -- (Config/Bots.Offensive.Forward): the map's marked gather spots with room, else the scored spots out from the zone, none
--- on a point its side holds; `used`: the squads on each spot already. Nil until there are any.
+-- on a point its side holds; `used`: the squads on each spot already. Nil until there are any. In a lane (`near`, its
+-- point: Config/Bots.Lanes) only spots within Lanes.gatherNear of it, else beside it (Lanes.gatherNear apart across the
+-- enemy's way for each squad there already).
 local function gatherPoint(
 	side: string,
 	sector: number,
 	mid: Vector3,
 	lane: number,
-	used: { [Vector3]: number }
+	used: { [Vector3]: number },
+	near: Vector3?
 ): Vector3?
 	local FW = OF.Forward
 	local function choose(list: { any }): Vector3?
 		local spots, rolls, count = {}, {}, {}
 		for _, sp in list do
+			if near and (sp.x - near.X) ^ 2 + (sp.z - near.Z) ^ 2 > LN.gatherNear ^ 2 then
+				continue
+			end
 			if Orders.clearOfOwn(sp.x, sp.z, Map.sectors, fronts.owners, side, FW.ownClear) then
 				table.insert(spots, sp)
 				rolls[#spots] = random:NextNumber()
@@ -159,12 +172,27 @@ local function gatherPoint(
 			{ x = sp.pos.X, z = sp.pos.Z, pos = sp.pos, hidden = sp.hidden, near = sp.near, lane = sp.lane }
 		)
 	end
-	return choose(scored)
+	local got = choose(scored)
+	if got or not near then
+		return got
+	end
+	local n = 0
+	for spot, k in used do
+		n += if flat(spot - near :: Vector3).Magnitude <= LN.gatherNear then k else 0
+	end
+	local x, z = BotBuild.markedPlace(near.X, near.Z, n, LN.gatherNear, tx, tz)
+	return Routes.ground(x, z)
 end
 
 -- a holder's marked spot in sector `i` nearest `p` with room, or nil: the zone's own (`inZone`), else the cover and
--- support spots naming its side ahead of the point
-local function markedPost(side: string, i: number, p: Vector3, inZone: boolean): Vector3?
+-- support spots naming its side ahead of the point; with `ok`, only spots it passes (its lane: Config/Bots.Lanes)
+local function markedPost(
+	side: string,
+	i: number,
+	p: Vector3,
+	inZone: boolean,
+	ok: ((x: number, z: number) -> boolean)?
+): Vector3?
 	local t = Marks[i]
 	if not t then
 		return nil
@@ -179,23 +207,58 @@ local function markedPost(side: string, i: number, p: Vector3, inZone: boolean):
 		end
 		list = BotBuild.aheadOf(list, s.x, s.z, tx, tz)
 	end
-	local used = {}
+	if ok then
+		local kept = {}
+		for _, sp in list do
+			if ok(sp.x, sp.z) then
+				table.insert(kept, sp)
+			end
+		end
+		list = kept
+	end
+	-- (its holders stand OP.gap apart across the enemy's way: Rules/BotBuild.markedPlace)
+	local tx, tz = BotBuild.toward(Map.sectors, i, side)
+	local used, free = {}, {}
 	for k, sp in list do
-		local n, at = 0, Vector3.new(sp.x, 0, sp.z)
+		local held = {}
 		for _, b in bots do
-			if b.side == side and b.role == "Hold" and b.post and flat(b.post :: Vector3 - at).Magnitude <= OP.held then
+			if b.side == side and b.role == "Hold" and b.post then
+				local bp = b.post :: Vector3
+				for m = 0, (sp.n or OP.room) - 1 do
+					local x, z = BotBuild.markedPlace(sp.x, sp.z, m, OP.gap, tx, tz)
+					if not held[m] and (bp.X - x) ^ 2 + (bp.Z - z) ^ 2 <= OP.held ^ 2 then
+						held[m] = true
+						break
+					end
+				end
+			end
+		end
+		local n = 0
+		for m = 0, (sp.n or OP.room) - 1 do
+			if held[m] then
 				n += 1
+			elseif free[k] == nil then
+				free[k] = m
 			end
 		end
 		used[k] = n
 	end
 	local k = BotBuild.pickMarked(list, used, p.X, p.Z, OP.room)
-	return if k then Routes.ground(list[k].x, list[k].z) else nil
+	if not k then
+		return nil
+	end
+	local x, z = BotBuild.markedPlace(list[k].x, list[k].z, free[k] or 0, OP.gap, tx, tz)
+	return Routes.ground(x, z)
 end
 
 -- a defender's hold spot in sector `i`: the best one fewest of the side's defenders stand on, off the flag
--- (Config/Bots.OffPoint) where any is
-local function holdSpot(side: string, i: number, taken: { [Vector3]: number }): Vector3?
+-- (Config/Bots.OffPoint) where any is; with `ok`, only spots it passes (its lane: Config/Bots.Lanes)
+local function holdSpot(
+	side: string,
+	i: number,
+	taken: { [Vector3]: number },
+	ok: ((x: number, z: number) -> boolean)?
+): Vector3?
 	local spots = Routes.spots(i, side, true)
 	if not spots or #spots == 0 then
 		return nil
@@ -206,14 +269,24 @@ local function holdSpot(side: string, i: number, taken: { [Vector3]: number }): 
 	for _, sp in spots :: { Routes.Spot } do
 		anyOff = anyOff or flat(sp.pos - flag).Magnitude >= OP.clear
 	end
-	local best, bestAt = -math.huge, nil
+	-- (one holder a spot while one is free: the fewest posts within OP.gap first, user 2026-11-10: "when they are in
+	-- groups, they are super close together")
+	local posts = {}
+	for at in taken do
+		table.insert(posts, { x = at.X, z = at.Z })
+	end
+	local best, bestCrowd, bestAt = -math.huge, math.huge, nil
 	for _, sp in spots :: { Routes.Spot } do
 		if anyOff and flat(sp.pos - flag).Magnitude < OP.clear then
 			continue
 		end
-		local v = Squads.scoreSpot(sp, taken[sp.pos] or 0, random:NextNumber(), RT.weights, RT.nearCap)
-		if v > best then
-			best, bestAt = v, sp.pos
+		if ok and not ok(sp.pos.X, sp.pos.Z) then
+			continue
+		end
+		local crowd = BotBuild.crowd(sp.pos.X, sp.pos.Z, posts, OP.gap)
+		local v = Squads.scoreSpot(sp, crowd, random:NextNumber(), RT.weights, RT.nearCap)
+		if crowd < bestCrowd or (crowd == bestCrowd and v > best) then
+			best, bestCrowd, bestAt = v, crowd, sp.pos
 		end
 	end
 	if bestAt then
@@ -251,13 +324,29 @@ local function indoorHold(side: string, i: number, taken: { [Vector3]: number })
 	return sp
 end
 
--- the nearest free fire step (`want` "step") or support-line place ("reserve") of a side's trenches to `p`, taken
-local function trenchPost(sb: SideBuild, want: string, taken: { [Vector3]: number }, p: Vector3): TrenchPost?
-	local best, bestD = nil, math.huge
+-- the nearest free fire step (`want` "step") or support-line place ("reserve") of a side's trenches to `p`, taken; with
+-- `ok`, only places it passes (its lane: Config/Bots.Lanes)
+local function trenchPost(
+	sb: SideBuild,
+	want: string,
+	taken: { [Vector3]: number },
+	p: Vector3,
+	ok: ((x: number, z: number) -> boolean)?
+): TrenchPost?
+	-- (one with no held post within OP.gap first, every other square: user 2026-11-10, "when they are in groups, they
+	-- are super close together")
+	local posts = {}
+	for at in taken do
+		table.insert(posts, { x = at.X, z = at.Z })
+	end
+	local best, bestD, bestCrowd = nil, math.huge, math.huge
 	for _, tp in (if want == "step" then sb.steps else sb.reserve) do
 		local d = flat(tp.pos - p).Magnitude
-		if (taken[tp.pos] or 0) == 0 and d < bestD then
-			best, bestD = tp, d
+		if (taken[tp.pos] or 0) == 0 and (not ok or ok(tp.pos.X, tp.pos.Z)) then
+			local crowd = math.min(BotBuild.crowd(tp.pos.X, tp.pos.Z, posts, OP.gap), 1)
+			if crowd < bestCrowd or (crowd == bestCrowd and d < bestD) then
+				best, bestD, bestCrowd = tp, d, crowd
+			end
 		end
 	end
 	if best then
@@ -643,6 +732,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 	local mayDig = fronts.initiative == nil or (offence ~= nil and offence.phase == "Gather")
 	local strong = fronts.strong[side] or {}
 	front.gathered, front.attackers, front.dueDists = 0, 0, {}
+	ByTrench.lanesNow[side] = {}
 	local groups: { [string]: { Bot } } = {}
 	local order: { string } = {}
 	for _, b in bots do
@@ -665,8 +755,8 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 	end
 	local taken: { [Vector3]: number } = {}
 	for _, b in bots do
-		if b.side == side and (b.postFace or b.postKind == "reserve") and b.post then
-			-- (windows, fire steps and support-line places held already)
+		if b.side == side and (b.postFace or b.postKind == "reserve" or b.postKind == "open") and b.post then
+			-- (windows, fire steps, support-line places and open hold spots held already)
 			taken[b.post :: Vector3] = (taken[b.post :: Vector3] or 0) + 1
 		end
 	end
@@ -746,7 +836,83 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 		local s = Map.sectors[sector]
 		local c = sectorPoint(sector)
 		local inOff = offence ~= nil and not defend and sector == offence.sector
-		for k, members in Squads.form(list, SQ.size, SQ.least) do
+		local formed = Squads.form(list, SQ.size, SQ.least)
+		-- its lanes across the front (Config/Bots.Lanes): each lane's share of its squads by how outnumbered it is there,
+		-- one squad moved over at most every Lanes.every s
+		local ltx, ltz = BotBuild.toward(Map.sectors, sector, side)
+		local lf: BotLanes.Frame? = nil
+		local lt: { number } = {}
+		local have: { number } = {}
+		local foes: { number } = {}
+		if LN.on then
+			local f = BotLanes.frame(s.x, s.z, ltx, ltz, if defend then LN.ahead else -LN.back, laneBounds, LN)
+			lf = f
+			local own = {}
+			local seenFoe: { [Model]: boolean } = {}
+			for _, o in squads do
+				if o.side == side then
+					for _, kn in o.known do
+						local at = kn.pos
+						if
+							now - kn.at <= SQ.knownFor
+							and not seenFoe[kn.model]
+							and (at.X - s.x) ^ 2 + (at.Z - s.z) ^ 2 <= LN.depth ^ 2
+						then
+							seenFoe[kn.model] = true
+							local k = BotLanes.laneOf(f, BotLanes.offset(f, at.X, at.Z))
+							foes[k] = (foes[k] or 0) + 1
+						end
+					end
+				end
+			end
+			for _, o in bots do
+				if o.side == side and o.root and alive(o) then
+					local at = (o.root :: BasePart).Position
+					if (at.X - s.x) ^ 2 + (at.Z - s.z) ^ 2 <= LN.depth ^ 2 then
+						local k = BotLanes.laneOf(f, BotLanes.offset(f, at.X, at.Z))
+						own[k] = (own[k] or 0) + 1
+					end
+				end
+			end
+			lt = BotLanes.targets(BotLanes.weights(foes, own, #f.centres, LN), #formed, LN.least)
+			for k = 1, #formed do
+				local o = squads[`{gkey}#{k}`]
+				if o and o.sector == sector and o.slot then
+					have[o.slot :: number] = (have[o.slot :: number] or 0) + 1
+				end
+			end
+			if now - (laneLooked[gkey] or -math.huge) >= LN.every then
+				laneLooked[gkey] = now
+				local from, to = BotLanes.rebalance(lt, have, LN.moveAt)
+				for k = 1, #formed do
+					local o = squads[`{gkey}#{k}`]
+					if
+						from
+						and to
+						and o
+						and o.sector == sector
+						and o.slot == from
+						and o.sq.phase ~= "Assault"
+						and not o.push
+					then
+						-- (over to the lane that needs it: its route and posts found again)
+						o.slot, o.slotAt = to, nil
+						o.approach, o.mid, o.midAt, o.gather, o.gatherOf = nil, nil, nil, nil, nil
+						o.jump, o.jumpAlong, o.jumpAt = nil, nil, nil
+						have[from] -= 1
+						have[to] = (have[to] or 0) + 1
+						stats.laneMoves += 1
+						break
+					end
+				end
+			end
+			local text = {}
+			for k = 1, #f.centres do
+				table.insert(text, `{have[k] or 0}/{string.format("%.1f", lt[k])}`)
+			end
+			ByTrench.lanesNow[side][`{first.order} S{sector}`] = table.concat(text, " ")
+		end
+		for k, members in formed do
 			local key = `{gkey}#{k}`
 			local st = squads[key]
 			if not st or st.sector ~= sector then
@@ -755,7 +921,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				local lane = Squads.quietLane(lanes)
 				-- (attacking: a share up the flanks, Rules/BotFront.flank)
 				local flank: number? = nil
-				if not defend then
+				if not defend and not LN.on then
 					local total, left, right = 1, 0, 0
 					for _, o in squads do
 						if o.side == side and o.seen >= commandTick - 1 and o.approach ~= nil then
@@ -780,6 +946,29 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				squads[key] = st
 			end
 			local sqs = st :: SquadState
+			-- its lane across the front (Config/Bots.Lanes): the one furthest under its share; attacking, by the lane's
+			-- point short of the sector, to the approach spots on that side
+			if lf and not sqs.slot then
+				sqs.slot = BotLanes.pick(lt, have)
+				have[sqs.slot :: number] = (have[sqs.slot :: number] or 0) + 1
+				sqs.slotAt = nil
+			end
+			if lf and sqs.slot and not sqs.slotAt then
+				local px, pz = BotLanes.point(lf, sqs.slot :: number, ltx, ltz, 0)
+				local W = RT.wet
+				-- (not in the water: in toward the line through the flags until dry)
+				for _ = 1, 8 do
+					if not MapTerrain.wetSpan(Map, px, pz, px, pz, W.step, W.pad) then
+						break
+					end
+					px, pz = px + (lf.ox - px) * LN.dry, pz + (lf.oz - pz) * LN.dry
+				end
+				sqs.slotAt = Routes.ground(px, pz)
+				if not defend then
+					sqs.lane = Squads.lane(s.x - ltx * 100, s.z - ltz * 100, s.x, s.z, px, pz, RT.laneWithin)
+					sqs.approach = nil
+				end
+			end
 			-- the admin panel's flank push: every attacking squad up a flank now, alternating (its route found again)
 			if front.plan == "flank" and not defend and not sqs.flank then
 				local left = 0
@@ -820,7 +1009,16 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 						local off = flat(spot.pos - c)
 						local home = flat(mid - c)
 						local across = if home.Magnitude > 1 then off - home.Unit * off:Dot(home.Unit) else Vector3.zero
-						if sqs.flank and home.Magnitude > 1 then
+						if sqs.slotAt and not sqs.flank then
+							-- (in its lane: by the lane's point, unless it is there or past it already)
+							local at = sqs.slotAt :: Vector3
+							if
+								flat(at - mid).Magnitude > SQ.arrive * 3
+								and flat(mid - c).Magnitude > flat(at - c).Magnitude
+							then
+								sqs.mid = at
+							end
+						elseif sqs.flank and home.Magnitude > 1 then
 							-- up a flank: by a point `Front.Flank.offset` studs off the straight way, to that side
 							local side1 = Vector3.new(-home.Unit.Z, 0, home.Unit.X) * (sqs.flank :: number)
 							local p = mid:Lerp(spot.pos, RT.midShare) + side1 * FR.Flank.offset
@@ -863,17 +1061,22 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				end
 				-- (none across the river from the squad: the next best on its own bank, Config/Bots.Routes.wet)
 				local W = RT.wet
-				local i = BotTrenches.jumpOff(dug, mid.X, mid.Z, c.X, c.Z, s.radius, TM.Jump)
+				-- (in a lane: the jump-off nearest its lane's point, none further than Lanes.gatherNear x 2 from it)
+				local from = sqs.slotAt or mid
+				local i = BotTrenches.jumpOff(dug, from.X, from.Z, c.X, c.Z, s.radius, TM.Jump)
 				for _ = 1, W.tries do
 					local t = i and dug[i :: number]
 					if not t or not MapTerrain.wetSpan(Map, mid.X, mid.Z, t.at.X, t.at.Z, W.step, W.pad) then
 						break
 					end
 					table.remove(dug, i :: number)
-					i = BotTrenches.jumpOff(dug, mid.X, mid.Z, c.X, c.Z, s.radius, TM.Jump)
+					i = BotTrenches.jumpOff(dug, from.X, from.Z, c.X, c.Z, s.radius, TM.Jump)
 				end
 				local t0 = i and dug[i :: number]
 				if t0 and MapTerrain.wetSpan(Map, mid.X, mid.Z, t0.at.X, t0.at.Z, W.step, W.pad) then
+					i = nil
+				end
+				if t0 and sqs.slotAt and flat(t0.at - from).Magnitude > LN.gatherNear * 2 then
 					i = nil
 				end
 				if i then
@@ -895,7 +1098,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 			if not inOff then
 				sqs.gather, sqs.gatherOf = nil, nil
 			elseif OF.Forward.on and not released and sqs.gatherOf ~= began then
-				local at = gatherPoint(side, sector, mid, sqs.lane, gatherUsed)
+				local at = gatherPoint(side, sector, sqs.slotAt or mid, sqs.lane, gatherUsed, sqs.slotAt)
 				sqs.gather = at
 				if at then
 					sqs.gatherOf = began
@@ -1031,6 +1234,13 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 			-- holding a sector the enemy's offensive is going into: it stands to, into its own zone, fighting on the
 			-- move (counter-attackers at its own front, Config/Bots.Offensive; under the barrage they kept to cover)
 			local standTo = Orders.standTo(defend, enemyOff, sector)
+			-- (in a lane: only the lane through the flag and lanes with enemies known in them stand to; the rest hold
+			-- their lane, Config/Bots.Lanes)
+			if standTo and lf and sqs.slot then
+				local slot = sqs.slot :: number
+				standTo = BotLanes.inLane(lf :: BotLanes.Frame, slot, BotLanes.offset(lf :: BotLanes.Frame, c.X, c.Z))
+					or (foes[slot] or 0) > 0
+			end
 			if standTo then
 				sqs.sq.phase = "Assault"
 				if not sqs.stoodTo then
@@ -1177,6 +1387,14 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 				end
 			end
 			-- each member's role and goal
+			-- (defending in a lane: its holders' posts in that lane, Config/Bots.Lanes)
+			local laneOk: ((x: number, z: number) -> boolean)? = nil
+			if lf and defend and sqs.slot then
+				local f, slot = lf :: BotLanes.Frame, sqs.slot :: number
+				laneOk = function(x: number, z: number): boolean
+					return BotLanes.inLane(f, slot, BotLanes.offset(f, x, z))
+				end
+			end
 			local indoorHeld = 0
 			for _, b in members do
 				if b.role == "Hold" and b.postFace then
@@ -1279,6 +1497,16 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					if want == "zone" and not inZoneNow then
 						again = true
 					end
+					-- (a post out of its lane: another in it)
+					local inLane = if want ~= "zone" then laneOk else nil
+					if
+						inLane
+						and b.post
+						and b.postKind ~= "dugout"
+						and not inLane((b.post :: Vector3).X, (b.post :: Vector3).Z)
+					then
+						again = true
+					end
 					if b.postKind == "dugout" and want ~= "dugout" then
 						-- (up to its post again: shelling over, standing to, or the dugout gone)
 						stats.cameUp += 1
@@ -1288,7 +1516,7 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 							and want ~= "dugout"
 							and want ~= "zone"
 							and (again or b.postKind ~= want)
-						then trenchPost(sb :: SideBuild, want :: string, taken, p)
+						then trenchPost(sb :: SideBuild, want :: string, taken, p, inLane)
 						else nil
 					if tp then
 						b.post, b.postFace, b.postKind = tp.pos, tp.face, want
@@ -1296,16 +1524,25 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 						b.postSector = sector
 					elseif again and want ~= "dugout" then
 						-- a few at windows and doorways (Config/Bots.Indoors.perSquad), the rest outside
-						local sp = if indoorHeld < IN.perSquad and want ~= "zone"
+						-- (in a lane: windows only in the lane through the flag)
+						local sp = if indoorHeld < IN.perSquad
+								and want ~= "zone"
+								and (not inLane or inLane(c.X, c.Z))
 							then indoorHold(side, sector, taken)
 							else nil
 						if sp then
 							indoorHeld += 1
 							b.post, b.postFace, b.postKind = sp.at, sp.face, "window"
 						else
-							local marked = markedPost(side, sector, p, want == "zone")
-							b.post, b.postFace, b.postKind =
-								marked or holdSpot(side, sector, taken) or b.stand, nil, "open"
+							local marked = markedPost(side, sector, p, want == "zone", inLane)
+							local spot = marked or holdSpot(side, sector, taken, inLane)
+							if not spot and inLane and sqs.slotAt then
+								-- (nothing marked or dug in its lane: on the lane's point, OffPoint.gap apart across)
+								local at = sqs.slotAt :: Vector3
+								local x, z = BotBuild.markedPlace(at.X, at.Z, holdN - 1, OP.gap, ltx, ltz)
+								spot = Routes.ground(x, z)
+							end
+							b.post, b.postFace, b.postKind = spot or b.stand, nil, "open"
 						end
 						b.postFloor = nil
 						b.postSector = sector
@@ -1315,7 +1552,14 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 					end
 					b.goal = b.post
 				elseif role == "Assault" then
-					b.goal = sqs.clear or sqs.cut or b.stand
+					-- (on the defenders' approach spot: side by side across its way, SQ.spread apart)
+					local cut = if sqs.cut and not sqs.clear
+						then Routes.ground(
+							(sqs.cut :: Vector3).X + right.X * (idx - (#members + 1) / 2) * SQ.spread,
+							(sqs.cut :: Vector3).Z + right.Z * (idx - (#members + 1) / 2) * SQ.spread
+						)
+						else nil
+					b.goal = sqs.clear or cut or b.stand
 				elseif role == "Support" then
 					if b.roleWas ~= "Support" then
 						b.post = p -- (it holds where it stands, covering the others)
@@ -2245,16 +2489,43 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 				table.insert(mgSpots, sp)
 			end
 		end
-		for _, job in BotBuild.plan(zone, tx, tz, holds, if #spotted > 0 then unplaced else guns, Flanked.plan, missing) do
-			local keep = true
-			if job.key == "MGNest" and #mgSpots > 0 then
-				local sp = table.remove(mgSpots, 1)
-				local fx, fz = job.fx, job.fz
-				if sp.face then
-					fx, fz = BotBuild.bearingWay(sp.face)
-				end
-				job = { key = job.key, x = sp.x, z = sp.z, fx = fx, fz = fz }
+		-- (each nest `Nest.gap` studs from every nest of its side, standing, going up or captured and used, and from the
+		-- others planned now: the marked spots first, then the hold spots nearest the enemy, Rules/BotBuild.spaced)
+		local nestCands: { BotBuild.Job } = {}
+		for _, sp in mgSpots do
+			local fx, fz = tx, tz
+			if sp.face then
+				fx, fz = BotBuild.bearingWay(sp.face)
 			end
+			table.insert(nestCands, { key = "MGNest", x = sp.x, z = sp.z, fx = fx, fz = fz })
+		end
+		local planned =
+			BotBuild.plan(zone, tx, tz, holds, if #spotted > 0 then unplaced else guns, Flanked.plan, #holds)
+		for _, job in planned do
+			if job.key == "MGNest" then
+				table.insert(nestCands, job)
+			end
+		end
+		local nestsAt = {}
+		for _, w in Build.worksOf(kit) do
+			if w.key == "MGNest" then
+				table.insert(nestsAt, { x = w.at.X, z = w.at.Z })
+			end
+		end
+		for _, u in Tactics.crew.usable(side) do
+			if u.key == "MGNest" then
+				table.insert(nestsAt, { x = u.at.X, z = u.at.Z })
+			end
+		end
+		local nestJobs, passed = BotBuild.spaced(nestCands, nestsAt, BD.Nest.gap, missing)
+		Tactics.crew.nestsTight[side] = (Tactics.crew.nestsTight[side] or 0) + passed
+		for _, job in planned do
+			if job.key ~= "MGNest" then
+				table.insert(nestJobs, job)
+			end
+		end
+		for _, job in nestJobs do
+			local keep = true
 			if job.key == "Wire" then
 				local wx, wz = BotBuild.wireSpot(job.x, job.z, -tz, tx, ways, (Map.spawnZones :: any)[side], BD.Wire)
 				if wx ~= job.x or wz ~= job.z then
@@ -2797,16 +3068,31 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 	local keep: { [Model]: BuildJob } = {}
 	local n, nd = 0, 0
 	-- (its guns out of service first, wherever they stand: fixed before anyone mans them, Rules/BotCrew.repairOrder)
+	-- (one whose shot no longer reaches the enemy isn't: Crew.useful; the broken ones tallied for the readout)
 	local fixable = {}
+	local broken = Tactics.crew.broken[side] or { fixing = 0, left = 0, captured = 0 }
+	Tactics.crew.broken[side] = broken
+	broken.fixing, broken.left = 0, 0
 	for i, w in works do
 		local at = BotCrew.sectorAt(w.at.X, w.at.Z, Map.sectors)
+		local gun = w.kind == "Gun" or w.kind == "Nest"
+		local useful = if gun then Tactics.crew.usefulAt(side, w.at, BD.usefulNear) else nil
 		fixable[i] = {
-			gun = w.kind == "Gun" or w.kind == "Nest",
+			gun = gun,
 			built = w.built,
 			held = at ~= nil and owner[at] == side,
 			hp = w.hp,
 			max = w.max,
+			useful = useful,
 		}
+		local f = fixable[i]
+		if gun and f.built and f.held and w.max > 0 and w.hp / w.max * 100 < ArtCfg.Man.keep - 1e-6 then
+			if useful == false then
+				broken.left += 1
+			else
+				broken.fixing += 1
+			end
+		end
 	end
 	-- (its trench squares from further off: its lines at the sectors it holds and its forward lines, Trenches.digReach)
 	-- (its dug squares by what each is worth, Care.Score: those wanting repair first, the best first, then the base's
@@ -3611,8 +3897,17 @@ local function command()
 		local target = FrontRules.target(state, side)
 		-- (the initiative: the side with it holds its front lighter; the other defends, but for a screen)
 		local lead = fronts.initiative == side
-		local plan =
-			Orders.plan(side, owner, control, counts, target, NV.defendShare, front, if lead then OF.hold else TR.hold)
+		local plan = Orders.plan(
+			side,
+			owner,
+			control,
+			counts,
+			target,
+			NV.defendShare,
+			front,
+			if lead then OF.hold else TR.hold,
+			if LN.on then LN.danger else nil
+		)
 		if fronts.initiative and not lead then
 			plan = Orders.holdBack(plan, front, OF, SQ.size)
 		end
@@ -3661,6 +3956,17 @@ local function command()
 		)
 		arcTick(side, os.clock())
 		formSquads(side, counts)
+		-- (which guns on its ground can still reach the enemy: those that can't aren't fixed first, Crew.useful)
+		local reachAt = if shell and Map.sectors[shell] then sectorPoint(shell) else nil
+		local fightX, fightZ = 0, 0
+		if front then
+			fightX, fightZ = BotBuild.fightPoint(Map.sectors, front, side, Cfg.Crew.MG.fightAt)
+		end
+		Tactics.crew.useful(side, owner, if front then reachAt else nil, function(g, k, a, t, arc)
+			return Guns.flyShot(g, k, a, t, arc, true)
+		end, function(at)
+			return BotCrew.inReach(at.X, at.Z, { { x = fightX, z = fightZ } }, 0, Cfg.Crew.MG.reach)
+		end)
 		buildList(side, owner, FrontRules.held(state, side))
 		Tactics.fell.list(side, buildLists[side])
 		pioneers(side) -- (after the trees in its lines' way are on the list)
@@ -3683,6 +3989,7 @@ local function command()
 			return BotCrew.safeSpot(at.X, at.Z, sec.x, sec.z, ex, ez, enemies, Cfg.Crew.captured.safe)
 		end)
 		Tactics.crew.wrecks(side, buildLists[side])
+		Tactics.crew.fixes(side, buildLists[side])
 	end
 	markTrenches()
 	label()

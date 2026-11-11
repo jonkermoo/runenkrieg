@@ -79,6 +79,19 @@ local ByTrench = {
 	idleWhy = {} :: { [string]: { [string]: number } }, -- its samples of idle bots, by why
 	-- each side's samples of its living bots on hold: all, within OffPoint.clear of a flag, in a zone
 	holders = {} :: { [string]: { all: number, flag: number, zone: number } },
+	-- each side's samples of its living bots by where they stand (Rules/BotBuild.whereIs: front, behind, ahead) and,
+	-- behind its front, what they do there (the marked spots readout; user 2026-11-09: "too many people are at the old
+	-- sectors")
+	where = {} :: { [string]: { [string]: number } },
+	behindWhy = {} :: { [string]: { [string]: number } },
+	-- how near each side's living bots stood to their nearest teammate this match, by role (Report's spot readout;
+	-- user 2026-11-10: "when they are in groups, they are super close together"): samples, under 4 / 8 studs
+	gaps = {} :: { [string]: { [string]: { n: number, under4: number, under8: number } } },
+	-- how far across from the line through the sector flags each side's living bots stood this match (Report's spot
+	-- readout, Rules/BotLanes.fromLine; user 2026-11-10: "still too many are just in the center"): samples in each band
+	-- of Report's `acrossBands`; and each side's lanes now (Config/Bots.Lanes: squads in each lane against its share)
+	across = {} :: { [string]: { number } },
+	lanesNow = {} :: { [string]: { [string]: string } },
 	-- each side's players' planned squares dug this match: seconds from first listed to dug (Config/Bots.Trenches.Plans)
 	planTimes = {} :: { [string]: { number } },
 }
@@ -218,6 +231,7 @@ local stats = {
 	pathFails = 0,
 	stuck = 0,
 	sidesteps = 0,
+	roundHouse = 0, -- walks round a building in the way, with no path or stuck (Config/Bots.Move.Round)
 	shots = 0,
 	deaths = 0,
 	toZone = 0,
@@ -288,6 +302,7 @@ local stats = {
 	zigzags = 0, -- runs toward the enemy dug as a zig-zag, in a threat's line of fire (Config/Bots.Trenches.Zigzag)
 	straights = 0, -- and straight, out of it
 	selfHits = 0, -- staff casts held: the beam would hit something right by the caster (its own cover; Staff.ownWithin)
+	laneMoves = 0, -- squads moved over to a lane that needed them more (Config/Bots.Lanes.every)
 	movedOn = 0, -- squads that moved on from a waypoint without waiting for members off on jobs (Squads.waitMax)
 	contacts = 0, -- sides that had their first contact (Config/Bots.Front: from then on by trench)
 	parallels = 0, -- parallels planned across close to an objective (Config/Bots.Front)

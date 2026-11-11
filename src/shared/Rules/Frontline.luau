@@ -81,6 +81,17 @@ function Frontline.spawnSector(state: State, side: Side, anyCaptured: boolean, a
 	return i
 end
 
+-- The sector `side` fell back from to spawn at `i` (Frontline.spawnSector): the one just ahead of `i` toward the enemy,
+-- when `i` is behind where it would spawn unattacked (Frontline.spawn); nil when it didn't fall back. Its wave line then
+-- stands Config/Frontline.Fallback `at` of the way from that sector's line back to `i`'s.
+function Frontline.fallbackFrom(state: State, side: Side, anyCaptured: boolean, i: number): number?
+	local natural = Frontline.spawn(state, side, anyCaptured)
+	if i == natural then
+		return nil
+	end
+	return if side == "West" then i + 1 else i - 1
+end
+
 -- Whether an attack is building on a point (Config/Frontline.Fallback): `near` enemies within its `ring`, `inner` of
 -- them within its `inner` (by head).
 function Frontline.pressing(cfg: any, near: number, inner: number): boolean

@@ -78,6 +78,39 @@ return {
 		p = R.plan("West", OWNER, REST, counts({ { 0, 0 }, { 1, 2 }, { 0, 0 }, { 0, 0 }, { 0, 0 } }), 3, 0.5, 2, 0.3)
 		assert(p.defend == 2 and p.share == 0.5, "under attack: the defend share")
 	end,
+	["danger: control lost or outnumbered in the zone, the worse; the defend share rises with it"] = function()
+		assert(R.danger("West", 1, { West = 3, East = 0 }) == 0, "calm")
+		assert(R.danger("West", 0.5, { West = 3, East = 1 }) == 0.5, "half its control gone halfway")
+		assert(R.danger("West", 0, { West = 3, East = 1 }) == 1, "control half gone: all")
+		assert(R.danger("West", 1, { West = 1, East = 2 }) == 1, "twice as many: all")
+		assert(R.danger("East", -1, { West = 4, East = 3 }) > 0, "East outnumbered")
+		local cap = Cfg.Lanes.danger
+		local calm = R.plan("West", OWNER, REST, counts({ { 0, 0 }, { 2, 2 }, { 0, 0 }, { 0, 0 }, { 0, 0 } }), 3, 0.5)
+		local p = R.plan(
+			"West",
+			OWNER,
+			REST,
+			counts({ { 0, 0 }, { 1, 2 }, { 0, 0 }, { 0, 0 }, { 0, 0 } }),
+			3,
+			0.5,
+			nil,
+			nil,
+			cap
+		)
+		assert(calm.defend == nil and p.defend == 2 and math.abs(p.share - cap) < 1e-6, "desperate: up to the cap")
+		local some = R.plan(
+			"West",
+			OWNER,
+			{ 1, 0.8, 0, -1, -1 },
+			counts({ { 0, 0 }, { 3, 1 }, { 0, 0 }, { 0, 0 }, { 0, 0 } }),
+			3,
+			0.5,
+			nil,
+			nil,
+			cap
+		)
+		assert(some.share > 0.5 and some.share < cap, "slipping a little: a little more")
+	end,
 	["plan: an own sector the enemy leads in, or is draining, is defended"] = function()
 		local p = R.plan("West", OWNER, REST, counts({ { 0, 0 }, { 1, 2 }, { 0, 0 }, { 0, 0 }, { 0, 0 } }), 3, 0.5)
 		assert(p.defend == 2 and p.share == 0.5 and p.attack == 3)

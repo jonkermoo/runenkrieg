@@ -24,6 +24,7 @@ export type Nav = {
 	repaths: number,
 	direct: Vector3?, -- a point walked to straight, without a path (strafing, a peek, a step aside)
 	doorAt: number, -- when it last opened a door on its way (it waits while the door swings)
+	roundAt: number?, -- when it last looked for a building in its straight way, walking with no path (Move.Round)
 	walkedAt: number?, -- the last think that walked it along (Move.arrived goes on from there between thinks)
 	arrivedAt: number?, -- when Move.arrived last took it on to its next waypoint
 }
@@ -294,6 +295,8 @@ export type SquadState = {
 	midAt: number?, -- when the first of its free members reached its waypoint, and its approach spot (Squads.waitMax)
 	readyAt: number?,
 	flank: number?, -- attacking up a flank (-1 or 1, Config/Bots.Front.Flank): its route by a point off to that side
+	slot: number?, -- its lane across the front (Config/Bots.Lanes, Rules/BotLanes: 1..count)
+	slotAt: Vector3?, -- attacking: its lane's point short of the sector, which it goes by and gathers near
 	noSapUntil: number?, -- a sap given up: none again until then (Config/Bots.Sap.rest)
 	stillMid: Vector3?, -- where its middle was when it last moved Squads.Open.moved studs, and when
 	stillAt: number?,

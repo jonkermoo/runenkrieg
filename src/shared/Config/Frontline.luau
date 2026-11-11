@@ -125,7 +125,9 @@ local Frontline = {
 	-- rework): `count` or more enemies within `ring` studs of its point (across the ground; that takes in the attackers'
 	-- sunken lane, the map's legs.fold.u), or any one within `inner` (inside its crests). Its side then spawns a sector
 	-- back, and only comes forward again `hold` seconds after the last time it was pressed (so it never flickers).
-	Fallback = { ring = 200, inner = 110, count = 3, hold = 30 },
+	-- Its wave line then stands `at` of the way from the attacked sector's line back to the line of the sector behind
+	-- (1: the whole way, as before; user 2026-11-09 chose halfway: "too many people are at the old sectors").
+	Fallback = { ring = 200, inner = 110, count = 3, hold = 30, at = 0.5 },
 	-- the shield round a soldier in the wave line: a ball `size` studs across in its team's magic colour
 	-- (Config/Palette.UI.Grimoire.Magic), `transparency` see-through, fading out over the last of the shield's time
 	Shield = { size = 7, transparency = 0.75, name = "WaveShield" },

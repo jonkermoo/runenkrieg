@@ -75,17 +75,21 @@ end
 -- The pieces to swing at, in order (user 2026-11-03: a gun is operated down to half its HP; the bots fix one below that
 -- before manning it): every built gun on its side's ground (`held`) under `keep`% of its HP first, however far from the
 -- front, then `near` (the usual repairs near the front) not listed already. Also which of them are such fixes.
-export type Fixable = { gun: boolean, built: boolean, held: boolean, hp: number, max: number }
+-- (user 2026-11-09: "make sure bots are repairing broken artilleries that may be useful to them": one found of no use,
+-- `useful` false, its shot not reaching the enemy, gets no swings at all, not even as a usual repair near the front: a
+-- measured match's useless nest there was fixed to full while a useful one waited; nil: not looked at, fixed)
+export type Fixable = { gun: boolean, built: boolean, held: boolean, hp: number, max: number, useful: boolean? }
 function BotCrew.repairOrder(pieces: { Fixable }, near: { number }, keep: number): ({ number }, { [number]: boolean })
 	local out, fix = {}, {}
 	for i, p in pieces do
-		if p.gun and p.built and p.held and p.max > 0 and p.hp / p.max * 100 < keep - 1e-6 then
+		if p.gun and p.built and p.held and p.useful ~= false and p.max > 0 and p.hp / p.max * 100 < keep - 1e-6 then
 			table.insert(out, i)
 			fix[i] = true
 		end
 	end
 	for _, i in near do
-		if not fix[i] then
+		local p = pieces[i]
+		if not fix[i] and not (p and p.gun and p.useful == false) then
 			table.insert(out, i)
 		end
 	end

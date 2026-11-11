@@ -19,6 +19,41 @@ local function count(jobs: { R.Job }, key: string): number
 end
 
 return {
+	["spaced: nest spots kept gap apart from standing nests and each other, up to count"] = function()
+		local function at(x: number, z: number): R.Job
+			return { key = "MGNest", x = x, z = z, fx = 1, fz = 0 }
+		end
+		local cands = { at(0, 0), at(10, 0), at(50, 0), at(60, 0), at(100, 0) }
+		local kept, passed = R.spaced(cands, {}, 40, 3)
+		assert(#kept == 3 and kept[1].x == 0 and kept[2].x == 50 and kept[3].x == 100, "every 40 studs or more")
+		assert(passed == 2, "two passed over")
+		kept, passed = R.spaced(cands, { { x = 5, z = 0 } }, 40, 3)
+		assert(#kept == 2 and kept[1].x == 50 and kept[2].x == 100 and passed == 3, "clear of one standing")
+		kept = R.spaced(cands, {}, 40, 1)
+		assert(#kept == 1 and kept[1].x == 0, "stops at count")
+		kept = R.spaced(cands, {}, 0, 5)
+		assert(#kept == 5, "gap 0: none passed over")
+		kept = R.spaced(cands, {}, 40, 0)
+		assert(#kept == 0, "none wanted")
+		assert(B.Nest.gap > 0, "a gap is set")
+	end,
+
+	["whereIs: front, behind (its own back from the front) or ahead"] = function()
+		local owner = { "West", "West", "West", "East", "East" }
+		assert(R.whereIs(3, 3, owner, "West") == "front")
+		assert(R.whereIs(1, 3, owner, "West") == "behind")
+		assert(R.whereIs(4, 3, owner, "West") == "ahead")
+		assert(R.whereIs(5, 4, owner, "East") == "behind")
+		assert(R.whereIs(2, nil, owner, "West") == "ahead", "no front")
+	end,
+
+	["closest: the nearest two and the pairs within gap"] = function()
+		local d, under = R.closest({ { x = 0, z = 0 }, { x = 30, z = 40 }, { x = 100, z = 0 } }, 60)
+		assert(d and near(d, 50) and under == 1, "50 apart, one pair within 60")
+		d, under = R.closest({ { x = 0, z = 0 } }, 60)
+		assert(d == nil and under == 0, "one alone")
+	end,
+
 	["mostBuilt: the laid piece with the fewest swings left, near or far"] = function()
 		local jobs = {
 			{ key = "MGNest", x = 10, z = 0, fx = 1, fz = 0, work = true },
@@ -218,6 +253,23 @@ return {
 		local fx, fz = R.bearingWay(90)
 		assert(math.abs(fx - 1) < 1e-6 and math.abs(fz) < 1e-6, "90 is +x")
 		assert(B and Cfg.OffPoint.clear >= 25 and Cfg.OffPoint.inZone == 4, "a squad of 4 stays in the zone")
+	end,
+	["markedPlace: a marked spot's holders stand gap apart across the enemy's way"] = function()
+		local gap = Cfg.OffPoint.gap
+		assert(gap >= 12, "user 2026-11-10 chose 12")
+		local x0, z0 = R.markedPlace(10, 20, 0, gap, 1, 0)
+		assert(x0 == 10 and z0 == 20, "the first on it")
+		-- (the enemy along +x: across is along z)
+		local x1, z1 = R.markedPlace(10, 20, 1, gap, 1, 0)
+		local x2, z2 = R.markedPlace(10, 20, 2, gap, 1, 0)
+		assert(x1 == 10 and x2 == 10 and z1 == 20 - gap and z2 == 20 + gap, "one each side")
+		local _, z3 = R.markedPlace(10, 20, 3, gap, 1, 0)
+		assert(z3 == 20 - 2 * gap, "then twice as far")
+	end,
+	["crowd: posts within the gap"] = function()
+		local posts = { { x = 0, z = 0 }, { x = 11, z = 0 }, { x = 30, z = 0 } }
+		assert(R.crowd(0, 0, posts, 12) == 2)
+		assert(R.crowd(100, 0, posts, 12) == 0)
 	end,
 	["gunSpots: spots given are kept and kept clear of"] = function()
 		local zone = { x = 0, z = 0, radius = 40 }

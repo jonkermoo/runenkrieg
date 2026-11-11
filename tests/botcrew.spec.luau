@@ -73,6 +73,17 @@ return {
 		assert(#order == 4 and order[1] == 2 and order[2] == 5 and order[3] == 3 and order[4] == 1)
 		assert(fix[2] and fix[5] and not fix[3] and not fix[1] and not fix[4] and not fix[6])
 	end,
+	["repairOrder: a broken gun of no use isn't fixed first, one not looked at is"] = function()
+		local keep = require("../src/shared/Config/Artillery").Man.keep
+		local pieces = {
+			{ gun = true, built = true, held = true, hp = 10, max = 100, useful = false }, -- can't reach the enemy
+			{ gun = true, built = true, held = true, hp = 10, max = 100, useful = true },
+			{ gun = true, built = true, held = true, hp = 10, max = 100 }, -- not looked at yet
+		}
+		local order, fix = R.repairOrder(pieces, { 1 }, keep)
+		assert(not fix[1] and fix[2] and fix[3], "only the useful and the unknown fixed first")
+		assert(#order == 2 and order[1] == 2 and order[2] == 3, "the useless one not even as a usual repair")
+	end,
 	["captured: used when its shot is clear and it stands safe, else wrecked"] = function()
 		assert(R.captured(true, true) == "use")
 		assert(R.captured(false, true) == "wreck", "blocked")
