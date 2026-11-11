@@ -91,11 +91,15 @@ function Ground.build(map: any, MT: any, palette: any): number
 					local h = MT.heightAt(map, x, z) - MT.fordSink(map, x, z)
 					local surface = (Enum.Material :: any)[MT.materialAt(map, x, z)]
 					local inRiver = river ~= nil and MT.isRiver(map, x, z)
+					-- (a mountain is rock all the way down, under its snow too: a cliff's face shows rock, not the dirt under grass)
+					local deep = if surface == Enum.Material.Slate or surface == Enum.Material.Snow
+						then Enum.Material.Slate
+						else under
 					for iy = 1, ny do
 						local y0 = (vy0 + iy - 1) * RES
 						local occ = math.clamp((h - y0) / RES, 0, 1)
 						if occ > 0 then
-							mx[iy][iz] = if h - (y0 + RES) > tc.surfaceDepth then under else surface
+							mx[iy][iz] = if h - (y0 + RES) > tc.surfaceDepth then deep else surface
 							ox[iy][iz] = occ
 						elseif inRiver and y0 < river.waterY then
 							mx[iy][iz] = water

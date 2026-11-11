@@ -15,6 +15,7 @@ local Palette = {
 		-- darker than any other ground
 		Salt = { 62, 46, 34 },
 		Rock = { 98, 94, 90 },
+		Slate = { 112, 114, 118 }, -- the mountains' cliffs (Rules/MapTerrain.materialAt)
 	},
 	Water = { color = { 72, 124, 134 }, transparency = 0.35, reflectance = 0, waveSize = 0.05 },
 	Trees = {
@@ -54,6 +55,7 @@ local Palette = {
 			Slate = { 84, 86, 92 },
 			RedTile = { 138, 86, 68 },
 			Terracotta = { 164, 96, 64 }, -- Selvara's pan tiles
+			Lead = { 112, 116, 120 }, -- a church spire's lead sheet (St Aldhelm's)
 		},
 		Trim = { { 82, 66, 54 }, { 104, 86, 68 }, { 70, 60, 54 } }, -- dark weathered wood
 		Doors = { { 112, 88, 64 }, { 80, 92, 72 }, { 112, 62, 52 }, { 84, 92, 102 } },
@@ -71,11 +73,14 @@ local Palette = {
 		Linen = { 214, 206, 186 },
 		Cloth = { 140, 64, 54 },
 		Hay = { 194, 166, 98 },
+		Foliage = { 44, 70, 52 }, -- a churchyard yew's crown (Geometry.yew)
+		Orchard = { 98, 132, 66 }, -- a fruit tree's crown (Geometry.orchard)
 		-- the lantern festival's pieces (Lantern Meadows' stage, lantern poles; a part's Paint "Festival", its Swatch the key)
 		Festival = {
 			Canvas = { 200, 184, 148 },
 			RunePaint = { 92, 124, 148 },
 			Lantern = { 232, 196, 120 },
+			Ember = { 236, 120, 44 }, -- Map 1's beacon fire
 			TentGrey = { 124, 126, 120 }, -- Katzmark's tents
 			TentGreen = { 98, 122, 84 }, -- Selvara's
 		},

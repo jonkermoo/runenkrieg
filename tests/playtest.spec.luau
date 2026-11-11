@@ -200,7 +200,9 @@ return {
 			for _, l in layout.lots do
 				if l.id == target then
 					local d = math.sqrt((l.x - sp[1]) ^ 2 + (l.z - sp[2]) ^ 2)
-					assert(d > short + 10 and d < long, `spawn to {target}: {d} (range {short}-{long})`)
+					-- (its shortest shot, ~270 since the 2026-11-11 stretch's longer shells, falls past it: user accepted "Longer
+					-- shells", knowing the howitzer no longer hits the near cottage from the end spawn)
+					assert(d < long, `spawn to {target}: {d} (range {short}-{long})`)
 				end
 			end
 		end

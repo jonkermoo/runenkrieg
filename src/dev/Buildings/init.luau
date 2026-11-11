@@ -166,6 +166,9 @@ local function roofAndExtras(model: Model, t: any, ctx: Geometry.Ctx, wallTop: n
 	if t.roofStyle == "Battlement" then
 		Geometry.battlement(model, ctx, W, Dp, wallTop)
 		return 0
+	elseif t.roofStyle == "Spire" then
+		Geometry.spire(model, ctx, W, wallTop, t.spire)
+		return t.spire
 	end
 	for _, side in { -1, 1 } do
 		local frame = CFrame.new(side * (W / 2 - T / 2), wallTop, 0) * CFrame.Angles(0, math.pi / 2, 0)
@@ -236,6 +239,8 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.hayBarn(model, ctx, at, f.length, f.span, f.height)
 			elseif f.kind == "Wall" then
 				Geometry.yardWall(model, ctx, f.a, f.b, f.height, f.thick, f.swatch)
+			elseif f.kind == "Beacon" then
+				Geometry.beacon(model, ctx, at)
 			elseif f.kind == "BottleKiln" then
 				Geometry.bottleKiln(model, ctx, at, f.radius, f.height)
 			elseif f.kind == "Canopy" then
@@ -261,8 +266,60 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.arcade(model, ctx, at * y, f.length, f.depth, f.height, f.bays, f.raised, f.roof)
 			elseif f.kind == "Stage" then
 				Geometry.stage(model, ctx, at, f.width, f.depth, f.height, f.posts)
+			elseif f.kind == "Bellcote" then
+				Geometry.bellcote(model, ctx, at * CFrame.new(0, f.y, 0), f.width, f.height)
+			elseif f.kind == "TowerMill" then
+				Geometry.towerMill(model, ctx, at, f.r0, f.r1, f.height, f.sail)
+			elseif f.kind == "ClockTurret" then
+				Geometry.clockTurret(model, ctx, at * CFrame.new(0, f.y, 0), f.width, f.height, f.cupola)
+			elseif f.kind == "Beds" then
+				Geometry.beds(model, ctx, at, f.rows, f.length, f.gap)
+			elseif f.kind == "Stack" then
+				Geometry.stack(model, ctx, at, f.base, f.top, f.height)
+			elseif f.kind == "Calvary" then
+				Geometry.calvary(model, ctx, at, f.height)
+			elseif f.kind == "HopGarden" then
+				Geometry.hopGarden(model, ctx, at, f.rows, f.cols, f.gap, f.height)
+			elseif f.kind == "Orchard" then
+				Geometry.orchard(model, ctx, at, f.rows, f.cols, f.gap)
+			elseif f.kind == "Yew" then
+				Geometry.yew(model, ctx, at, f.height)
 			elseif f.kind == "Waterwheel" then
 				Geometry.waterwheel(model, ctx, at * CFrame.new(0, f.y, 0), f.radius, f.width)
+			elseif f.kind == "Smokestack" then
+				Geometry.smokestack(model, ctx, at, f.base, f.top, f.height)
+			elseif f.kind == "RingKiln" then
+				Geometry.ringKiln(model, ctx, at, f.length, f.depth, f.height, f.bays)
+			elseif f.kind == "DryingShed" then
+				Geometry.dryingShed(model, ctx, at, f.length, f.span, f.height)
+			elseif f.kind == "ClayPit" then
+				Geometry.clayPit(model, ctx, at, f.length, f.width, f.depth)
+			elseif f.kind == "BellTower" then
+				Geometry.bellTower(model, ctx, at, f.width, f.from, f.height)
+			elseif f.kind == "Facade" then
+				Geometry.facade(model, ctx, at, f.width, f.height, f.pitch)
+			elseif f.kind == "Fountain" then
+				Geometry.fountain(model, ctx, at, f.radius)
+			elseif f.kind == "GateTower" then
+				Geometry.gateTower(model, ctx, at, f.width, f.depth, f.height, f.way, f.wall, f.onGround, f.capRoof)
+			elseif f.kind == "BellGable" then
+				Geometry.bellGable(model, ctx, at, f.width, f.y, f.height, f.wall)
+			elseif f.kind == "RoundTower" then
+				Geometry.roundTower(model, ctx, at, f.radius, f.height, f.cone)
+			elseif f.kind == "Slits" then
+				Geometry.slits(model, ctx, at, f.size, f.from, f.to, f.step, f.per)
+			elseif f.kind == "FlagMast" then
+				Geometry.flagMast(model, ctx, at, f.height)
+			elseif f.kind == "TownWall" then
+				Geometry.townWall(model, ctx, at, f.thick, f.pieces, f.tower)
+			elseif f.kind == "LatticeTower" then
+				Geometry.latticeTower(model, ctx, at, f.base, f.top, f.height, f.stages)
+			elseif f.kind == "LanternString" then
+				Geometry.lanternString(model, ctx, at, f.from, f.to, f.up)
+			elseif f.kind == "Stall" then
+				Geometry.stall(model, ctx, at, f.length, f.depth)
+			elseif f.kind == "Carousel" then
+				Geometry.carousel(model, ctx, at, f.radius)
 			else
 				error(`unknown landmark feature {f.kind}`)
 			end
@@ -296,6 +353,8 @@ function Buildings.paint(model: Instance, scheme: any, palette: any)
 		Linen = rgb(P.Linen),
 		Cloth = rgb(P.Cloth),
 		Hay = rgb(P.Hay),
+		Foliage = rgb(P.Foliage),
+		Orchard = rgb(P.Orchard),
 	}
 	local door = rgb(P.Doors[scheme.door])
 	colors.DoorDark = Color3.new(door.R * 0.86, door.G * 0.86, door.B * 0.86)

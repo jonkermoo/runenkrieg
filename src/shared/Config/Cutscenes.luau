@@ -87,6 +87,16 @@ local Cutscenes = {
 		Loggia = "The loggia",
 		Cascina = "The cascina",
 		Ferry = "The ferry house",
+		OastFarm = "The oast farm",
+		MarketHall = "The market hall",
+		Plough = "The Plough",
+		ChurchClose = "The church",
+		BeaconFarm = "The beacon farm",
+		Vicarage = "The vicarage",
+		-- Lantern Meadows' heroes (user approved 2026-11-11)
+		Burg = "Katzmark Burg",
+		Fornace = "Fornace Aurelia",
+		LanternTower = "The Lantern Tower",
 	},
 
 	-- The pre-match flight (plays over the countdown, Config/Frontline.CountdownSeconds, after a match: a fresh server

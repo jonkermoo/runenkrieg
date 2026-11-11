@@ -23,7 +23,8 @@ local Look = {
 	Levels = {
 		Normal = {
 			grade = {
-				day = { saturation = 0.08, contrast = 0.06, brightness = 0, tint = { 255, 250, 242 } },
+				-- (no added colour: the maps' own mood mutes it, user 2026-11-11, src/client/Environment)
+				day = { saturation = 0, contrast = 0.06, brightness = 0, tint = { 255, 252, 248 } },
 				night = { saturation = -0.05, contrast = 0.04, brightness = 0, tint = { 236, 241, 255 } },
 			},
 			bloom = { intensity = 0.6, size = 24, threshold = 2 },
@@ -35,7 +36,7 @@ local Look = {
 		-- cool moonlight at night. No blur or vignette (user 2026-10-23: Beautiful is shaders and effects only).
 		Beautiful = {
 			grade = {
-				day = { saturation = 0.12, contrast = 0.14, brightness = 0.02, tint = { 255, 232, 204 } },
+				day = { saturation = 0, contrast = 0.14, brightness = 0.02, tint = { 255, 240, 222 } },
 				night = { saturation = -0.12, contrast = 0.1, brightness = 0, tint = { 218, 226, 255 } },
 			},
 			bloom = { intensity = 1, size = 32, threshold = 2 },

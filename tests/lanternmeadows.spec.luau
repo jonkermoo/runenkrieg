@@ -162,8 +162,14 @@ return {
 					local top = h(at(i, side, C.crest.u, 0))
 					local base = h({ s.x, s.z })
 					assert(top - base > 4 or s.isHQ, `{s.id}'s {side} crest stands {top - base} over its point`)
-					local mid = at(i, side, dist(s, o) / 2, 0)
-					assert(top - h(mid) > 4, `{s.id}'s {side} crest stands {top - h(mid)} over the open ground`)
+					-- over the open ground at its foot; the swells further out (user 2026-11-10: "the meadow map is so
+					-- flat you can see everything") lower than it, so its defenders still see over them
+					local foot = at(i, side, C.crest.u + C.crest.width, 0)
+					assert(top - h(foot) > 4, `{s.id}'s {side} crest stands {top - h(foot)} over the open ground`)
+					for _, k in { 0.35, 0.5, 0.65 } do
+						local q = at(i, side, dist(s, o) * k, 0)
+						assert(top > h(q), `{s.id}'s {side} crest stands {top - h(q)} under a swell`)
+					end
 					local floor = h(at(i, side, C.fold.u, 0))
 					local lip = math.max(h(at(i, side, C.fold.u - 14, 0)), h(at(i, side, C.fold.u + 14, 0)))
 					assert(lip - floor > 3.5, `{s.id}'s {side} lane is {lip - floor} deep`)
@@ -181,12 +187,12 @@ return {
 			assert(MT.chainDistance(Map, t.x, t.z) >= Map.legs.calm.width, `a tree at {t.x}, {t.z}`)
 		end
 	end,
-	["the arch: legs 520 long, turning 5-25 degrees, mirrored about S3's x (user 2026-11-06)"] = function()
+	["the arch: legs 600 long, turning 4-25 degrees, mirrored about S3's x (user 2026-11-06; 600 since the 2026-11-11 stretch)"] = function()
 		local mx = sectors[3].x
 		for i = 1, #sectors - 1 do
 			local a, b = sectors[i], sectors[i + 1]
 			local turn = math.deg(math.atan(math.abs(b.z - a.z) / (b.x - a.x)))
-			assert(turn >= 5 and turn <= 25, `{a.id}->{b.id} turns {turn}`)
+			assert(turn >= 4 and turn <= 25, `{a.id}->{b.id} turns {turn}`)
 			local m = sectors[#sectors + 1 - i]
 			assert(m.x == 2 * mx - a.x and m.z == a.z, `{a.id} has no mirror`)
 		end
@@ -216,7 +222,7 @@ return {
 	["sector spacing within 15% of the metric"] = function()
 		for i = 1, #sectors - 1 do
 			local d = dist(sectors[i], sectors[i + 1])
-			local target = 520 -- (the map rework's spacing, user 2026-11-06; Metrics.Sector.Spacing is Map 1's 420)
+			local target = 600 -- (Metrics.Sector.Spacing since the stretch, user 2026-11-11: "maps need to be longer and less wide")
 			assert(math.abs(d - target) / target <= 0.05, `{sectors[i].id}->{sectors[i + 1].id} is {d}`)
 		end
 	end,
@@ -246,7 +252,8 @@ return {
 		assert(qx > s3.x + s3.radius and qx < s4.x - s4.radius, "the river doesn't cross between S3 and S4")
 		-- the bend: S5's camp is on the river (its south bank within reach of the point's rise)
 		local s5, wet = sectors[5], nil
-		for z = s5.z, Map.bounds.minZ, -2 do
+		-- (just past the south edge since the 2026-11-11 stretch to 560 wide)
+		for z = s5.z, Map.bounds.minZ - 80, -2 do
 			wet = wet or (MT.riverDistance(Map, s5.x, z) < r.width / 2 and s5.z - z)
 		end
 		assert(wet and wet < 260, "S5 isn't by the river")
@@ -386,11 +393,11 @@ return {
 			assert(found, `a hedgerow from {h.a[1]}, {h.a[2]} has no mirror over S3`)
 		end
 	end,
-	["each spawn sits behind its own HQ, ~400 out, still in the HQ's sector (user 2026-11-02)"] = function()
+	["each spawn sits behind its own HQ, ~300 out, still in the HQ's sector (user 2026-11-02; 300 since the 2026-11-11 stretch)"] = function()
 		for side, i in { West = 1, East = #sectors } do
 			local r, hq = Map.spawnZones[side], sectors[i]
 			local d = dist({ x = (r.minX + r.maxX) / 2, z = (r.minZ + r.maxZ) / 2 }, hq)
-			assert(d > 380 and d < 460, `{side} spawn {d} from its HQ`)
+			assert(d > 280 and d < 340, `{side} spawn {d} from its HQ`)
 			for _, c in { { r.minX, r.minZ }, { r.maxX, r.minZ }, { r.maxX, r.maxZ }, { r.minX, r.maxZ } } do
 				assert(
 					Sec.sectorAt(Map, MT, c[1], c[2], SecCfg.Divider.RiverSegments) == hq.id,

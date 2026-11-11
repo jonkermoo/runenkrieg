@@ -28,6 +28,34 @@ local function distToSegment(px: number, pz: number, a: { number }, b: { number 
 	return math.sqrt((px - a[1] - dx * t) ^ 2 + (pz - a[2] - dz * t) ^ 2)
 end
 
+-- 32-bit multiply mod 2^32 without exceeding double precision (split into 16-bit halves).
+local function mul32(a: number, b: number): number
+	a, b = a % 4294967296, b % 4294967296
+	local hi, lo = bit32.rshift(a, 16), bit32.band(a, 0xFFFF)
+	return ((hi * b % 65536) * 65536 + lo * b) % 4294967296
+end
+
+-- 32-bit integer hash -> [0, 1). Stable across Lune and Roblox.
+local function hash01(a: number, b: number, c: number): number
+	local h = bit32.bxor(mul32(a, 374761393), mul32(b, 668265263), mul32(c, 2246822519))
+	h = bit32.bxor(h, bit32.rshift(h, 13))
+	h = mul32(h, 1274126177)
+	h = bit32.bxor(h, bit32.rshift(h, 16))
+	return h / 4294967296
+end
+
+-- Fairness on a frontline map: each side's half is the other's twin. Map 1 is point-symmetric through its middle point
+-- (the default); a map with `symmetry = "x"` (Lantern Meadows' arch) is mirrored across the middle point's x. The spot
+-- twinned with (x, z):
+local function twinOf(map: any, x: number, z: number): (number, number)
+	local m = map.sectors[math.ceil(#map.sectors / 2)]
+	if map.symmetry == "x" then
+		return 2 * m.x - x, z
+	end
+	return 2 * m.x - x, 2 * m.z - z
+end
+MapTerrain.twinOf = twinOf
+
 -- Distance from a point to the nearest village road edge (negative = on the road) and its id.
 function MapTerrain.roadDistance(map: any, x: number, z: number): (number, string?)
 	local v = map.village
@@ -228,6 +256,7 @@ export type Legs = {
 	knolls: { Knoll },
 	pads: { Pad },
 	chain: { { number } },
+	rallies: { { x: number, z: number } },
 }
 
 local function unitTo(ax: number, az: number, bx: number, bz: number): (number, number)
@@ -259,7 +288,7 @@ function MapTerrain.legPieces(map: any): Legs
 		return L
 	end
 	local C = map.legs
-	L = { crests = {}, folds = {}, knolls = {}, pads = {}, chain = {} }
+	L = { crests = {}, folds = {}, knolls = {}, pads = {}, chain = {}, rallies = {} }
 	local spawnW, spawnE = map.spawnZones.West, map.spawnZones.East
 	table.insert(L.chain, { (spawnW.minX + spawnW.maxX) / 2, (spawnW.minZ + spawnW.maxZ) / 2 })
 	for i, s in map.sectors do
@@ -286,6 +315,8 @@ function MapTerrain.legPieces(map: any): Legs
 				end
 				local hx, hz = outAlong(s.x, s.z, dx, dz, -C.guns.howitzer, 0)
 				table.insert(L.pads, { sector = i, side = side, x = hx, z = hz, kind = "Howitzer" })
+				local rx, rz = outAlong(s.x, s.z, dx, dz, s.rally or C.rally, 0)
+				table.insert(L.rallies, { x = rx, z = rz })
 			end
 		end
 	end
@@ -419,6 +450,70 @@ function MapTerrain.chainDistance(map: any, x: number, z: number): number
 	return near
 end
 
+-- A row of overlapping hillocks along a piece's frame (a across it, b along it, -half..half), each its own size, height
+-- and place from the hash of `key` (user 2026-11-10: "still too obviously placed (the hills)... make it just a overall
+-- uneven terrain"): `lumps.count` of them, `radius` and `height` (x the piece's height) ranges, `shift` across, longer
+-- along it by `stretch`. Those within `core` of the middle are never lower than the piece's height.
+local function hillocks(L: any, a: number, b: number, half: number, height: number, key: number, seed: number): number
+	local best = 0
+	for j = 1, L.count do
+		local t = if L.count == 1 then 0 else (j - 1) / (L.count - 1) * 2 - 1
+		local function r(o: number): number
+			return hash01(key, j, seed + o)
+		end
+		local bj = t * half + (r(1) - 0.5) * half / L.count
+		-- (`forward`: only out toward the enemy, never onto the back slope where a wave waits)
+		local aj = if L.forward then r(2) * L.shift else (r(2) - 0.5) * 2 * L.shift
+		local rad = L.radius[1] + (L.radius[2] - L.radius[1]) * r(3)
+		local hk = L.height[1] + (L.height[2] - L.height[1]) * r(4)
+		if math.abs(bj) < L.core then
+			hk = math.max(hk, 1)
+		end
+		local da, db = (a - aj) / (rad * (L.across or 1)), (b - bj) / (rad * L.stretch)
+		local d2 = da * da + db * db
+		if d2 < 1 then
+			best = math.max(best, height * hk * (0.5 + 0.5 * math.cos(math.pi * math.sqrt(d2))))
+		end
+	end
+	return best
+end
+
+-- The broad swells across the middle of each leg (`legs.swell`): dead ground both ways, and they hide the point beyond
+-- the next one (user 2026-11-10: "not every sector visible. the meadow map is so flat you can see everything"). Each
+-- is the frame of its leg at `at` of the way along it; a leg and its twin through the middle point (leg k and
+-- #sectors - k) share one shape: the twin reads its frame backwards (`flip`).
+type Swell = { cx: number, cz: number, dx: number, dz: number, key: number, flip: boolean }
+local swellsOf: { [any]: { Swell } } = {}
+local function swells(map: any): { Swell }
+	local out = swellsOf[map]
+	if out then
+		return out
+	end
+	out = {}
+	local S, W = map.sectors, map.legs.swell
+	for k = 1, #S - 1 do
+		local a, b = S[k], S[k + 1]
+		local dx, dz = unitTo(a.x, a.z, b.x, b.z)
+		local twin = #S - k
+		-- (`at`: the share of the way along, one for every leg or one per twin pair, by its key; a twin counts from
+		-- the other end)
+		local at = if type(W.at) == "table" then W.at[math.min(k, twin)] or 0.5 else W.at
+		if k > twin then
+			at = 1 - at
+		end
+		table.insert(out, {
+			cx = a.x + (b.x - a.x) * at,
+			cz = a.z + (b.z - a.z) * at,
+			dx = dx,
+			dz = dz,
+			key = math.min(k, twin),
+			flip = k > twin,
+		})
+	end
+	swellsOf[map] = out
+	return out
+end
+
 -- How the leg pattern lifts (crests, knolls) and cuts (sunken lanes) the ground at (x, z), and how much of the rolling
 -- ground's relief stays there (the open ground is kept calm, the gun pads level).
 local function legsAt(map: any, x: number, z: number): (number, number)
@@ -426,11 +521,74 @@ local function legsAt(map: any, x: number, z: number): (number, number)
 	local L = MapTerrain.legPieces(map)
 	local up, down = 0, 0
 	local cr, kn, fo = C.crest, C.knoll, C.fold
+	local W = C.swell
+	if W then
+		for _, sw in swells(map) do
+			local a, b = frame(sw :: any, x, z)
+			if sw.flip then
+				-- (the twin's frame runs backwards: through a point both ways flip, across an x only along it)
+				a, b = -a, if map.symmetry == "x" then b else -b
+			end
+			if math.abs(a) < W.width and math.abs(b) < W.half + W.taper then
+				local v = hillocks(W.lumps, a, b, W.half, W.height, 100 + sw.key, map.seed)
+				-- (an unbroken rise under the hillocks, `base` of their height, `reach` along the leg either way)
+				if W.base and math.abs(a) < W.reach then
+					v = math.max(v, W.height * W.base * (0.5 + 0.5 * math.cos(math.pi * a / W.reach)))
+				end
+				v *= ends(b, W.half, W.taper)
+				-- (down to nothing by a river: its banks and bridges stay as they are)
+				if v > 0 and map.river then
+					v *= smooth((MapTerrain.riverDistance(map, x, z) - W.riverClear) / W.riverFade)
+				end
+				up = math.max(up, v)
+			end
+		end
+	end
 	for _, c in L.crests do
 		local a, b = frame(c, x, z)
-		if math.abs(a) < cr.width / 2 and math.abs(b) < cr.half + cr.taper then
+		-- a natural rise (`crest.bend`: user 2026-11-10, "just make it natural looking rises"): its line wanders toward
+		-- and away from the point, its height and its two ends vary, all along it (b) from noise; none of it at its
+		-- middle (b = 0), so the rise over the point and the open ground stays `height`. Keyed so that a crest and its
+		-- twin through the middle point (West's at i, East's at #sectors + 1 - i) get the same shape: fair cover.
+		local half, lift = cr.half, 1
+		if cr.bend then
+			local key = (if c.side == "West" then c.sector else #map.sectors + 1 - c.sector) * 7.31
+			local seed = map.seed * 0.001
+			local function wob(v: number, o: number): number
+				return math.noise(v / cr.bendScale, key + o, seed) - math.noise(0, key + o, seed)
+			end
+			a -= cr.bend * wob(b, 0.5)
+			lift = 1 + cr.vary * math.abs(wob(b, 3.7)) -- (only ever higher: the rise still hides the spawns behind it)
+			half *= 1 + cr.reach * math.noise(if b < 0 then 1.7 else 4.3, key, seed)
+		end
+		-- a lumpy rise (`crest.lumps`, user 2026-11-10: "still too obviously placed"): the long bell kept whole only round
+		-- its middle (`core`, where it hides the rally), down to `base` of it further out, and a row of hillocks over it
+		local baseK = 1
+		local Lu = cr.lumps
+		if Lu then
+			baseK = Lu.base + (1 - Lu.base) * (1 - smooth((math.abs(b) - Lu.core) / Lu.fade))
+			if math.abs(a) < Lu.shift + Lu.radius[2] and math.abs(b) < half + cr.taper then
+				local ki = if c.side == "West" then c.sector else #map.sectors + 1 - c.sector
+				-- (an x-mirrored map's twin crest runs the other way along: b mirrored)
+				local lb = if map.symmetry == "x" and c.side == "East" then -b else b
+				-- (placed along the crest's own `half`: the varied one jumps at its middle, b = 0)
+				up = math.max(up, hillocks(Lu, a, lb, cr.half, cr.height, ki, map.seed) * ends(b, half, cr.taper))
+			end
+		end
+		if math.abs(a) < cr.width / 2 and math.abs(b) < half + cr.taper then
 			local bell = 0.5 + 0.5 * math.cos(math.pi * a / (cr.width / 2))
-			up = math.max(up, cr.height * bell * ends(b, cr.half, cr.taper))
+			up = math.max(up, cr.height * lift * baseK * bell * ends(b, half, cr.taper))
+		end
+	end
+	-- a point in a hollow (`sectors[i].hollow`: depth, radius, fade; user 2026-11-10: "not every sector visible"): a
+	-- town on its river terrace, a farm in its dip, out of sight of the crests beyond the swell before it
+	for _, s in map.sectors do
+		local H = s.hollow
+		if H then
+			local d = math.sqrt((x - s.x) ^ 2 + (z - s.z) ^ 2)
+			if d < H.radius + H.fade then
+				down = math.min(down, -H.depth * (1 - smooth((d - H.radius) / H.fade)))
+			end
 		end
 	end
 	for _, k in L.knolls do
@@ -459,8 +617,20 @@ local function legsAt(map: any, x: number, z: number): (number, number)
 			keep = math.min(keep, keep * smooth((d - g.pad / 2) / g.fade))
 		end
 	end
+	-- calm round every rally (`legs.rallyCalm`): the rolling ground can't lift a waiting wave over its own crest
+	local rc = C.rallyCalm
+	if rc then
+		for _, r in L.rallies do
+			local d = math.sqrt((x - r.x) ^ 2 + (z - r.z) ^ 2)
+			if d < rc.radius + rc.fade then
+				keep = math.min(keep, keep * smooth((d - rc.radius) / rc.fade))
+			end
+		end
+	end
 	return up + down, keep
 end
+
+MapTerrain.legShape = legsAt
 
 -- 0 = fully flattened (inside a reserved area), 1 = natural terrain.
 function MapTerrain.flattenWeight(map: any, x: number, z: number): (number, number)
@@ -503,8 +673,28 @@ local function wildHeight(map: any, s: number, x: number, z: number): number
 		return 0
 	end
 	local ridged = 1 - math.abs(math.noise(x / w.scale, z / w.scale, s + 60.7))
+	local h = ridged * ridged
+	-- mountains (`octave`, user 2026-11-10: "make mountainous terrains mountanous"): a finer ridged layer weighted by
+	-- the first (Musgrave's ridged multifractal), so the high ground breaks into peaks and spurs
+	if w.octave then
+		local r2 = 1 - math.abs(math.noise(x / (w.scale * 0.43), z / (w.scale * 0.43), s + 64.1))
+		h += w.octave * r2 * r2 * h
+	end
+	-- how high each side of the map rises (`sides`: west, east, north (+z), south), by how far out it is on each
+	local side = 1
+	if w.sides then
+		local b = map.bounds
+		local acc, tot = 0, 0
+		for name, d in { west = b.minX - x, east = x - b.maxX, north = z - b.maxZ, south = b.minZ - z } do
+			if d > 0 then
+				acc += d * (w.sides[name] or 1)
+				tot += d
+			end
+		end
+		side = if tot > 0 then acc / tot else 1
+	end
 	local rough = math.noise(x / w.roughScale, z / w.roughScale, s + 71.3)
-	return k * (w.amp * ridged * ridged + w.roughAmp * rough)
+	return k * side * (w.amp * h + w.roughAmp * rough)
 end
 
 -- A map with `mirror` (its centre) is point-symmetric: a value is the average of its own and its mirror point's, so the
@@ -515,6 +705,36 @@ local function symmetric(map: any, x: number, z: number, f: (number, number) -> 
 		return f(x, z)
 	end
 	return (f(x, z) + f(2 * m.x - x, 2 * m.z - z)) / 2
+end
+
+-- The valley (`ground.valley`, user 2026-11-10: "make it just a overall uneven terrain, with this area more
+-- unelevated (does not have to be a perfect line, make it natural)"): the way between the points stays low, the
+-- ground lifts `lift` toward the flanks between `near` and `far` from the chain, the edge wandering `edge` either way
+-- from noise (the same at a point and its mirror through the middle point: fair); returns the lift and how far into
+-- the flank (0..1), where the rolling ground grows `rough` times rougher.
+local function valleyAt(map: any, s: number, x: number, z: number): (number, number)
+	local V = map.ground and map.ground.valley
+	if not V or not map.legs then
+		return 0, 0
+	end
+	local function wob(px: number, pz: number): number
+		return math.noise(px / V.edgeScale, pz / V.edgeScale, s + 83.9)
+	end
+	local tx, tz = twinOf(map, x, z)
+	local d = MapTerrain.chainDistance(map, x, z) + V.edge * (wob(x, z) + wob(tx, tz))
+	local w = smooth((d - V.near) / (V.far - V.near))
+	return V.lift * w, w
+end
+
+-- The rolling ground's coordinates bent by low noise (`ground.warp`: amp, scale), so its swells and hollows wander
+-- instead of lying in rows (domain warping, iquilezles.org/articles/warp)
+local function warped(map: any, s: number, x: number, z: number): (number, number)
+	local W = map.ground and map.ground.warp
+	if not W then
+		return x, z
+	end
+	return x + W.amp * math.noise(x / W.scale, z / W.scale, s + 91.7),
+		z + W.amp * math.noise(x / W.scale, z / W.scale, s + 97.3)
 end
 
 -- Ground height before the river is cut, one side's.
@@ -528,7 +748,27 @@ local function landRaw(map: any, x: number, z: number): number
 	if map.legs then
 		shape, keep = legsAt(map, x, z)
 	end
-	local h = (relief(map.terrain, s, x, z) * keep * (1 - hill) + top * hill + ridgeHeight(map, x) + shape) * edge
+	-- settled ground round each landmark (`ground.settle`: its plot level, as built; the rolling ground and the valley
+	-- pick up past it), so a strongpoint's blocks stand on one level
+	local G = map.ground
+	if G and G.settle and map.village then
+		for _, sp in map.village.specials or {} do
+			local d = math.sqrt((x - sp.x) ^ 2 + (z - sp.z) ^ 2)
+			if d < G.settle.radius + G.settle.fade then
+				keep *= G.settle.floor + (1 - G.settle.floor) * smooth((d - G.settle.radius) / G.settle.fade)
+			end
+		end
+	end
+	local lift, flank = valleyAt(map, s, x, z)
+	local rough = 1 + ((map.ground and map.ground.valley and map.ground.valley.rough or 1) - 1) * flank
+	local wx, wz = warped(map, s, x, z)
+	local h = (
+		(relief(map.terrain, s, wx, wz) * keep * rough + lift) * (1 - hill)
+		+ top * hill
+		+ ridgeHeight(map, x)
+		+ shape
+	)
+			* edge
 		+ wildHeight(map, s, x, z)
 	local w, baseY = MapTerrain.flattenWeight(map, x, z)
 	return baseY + (h - baseY) * w
@@ -611,6 +851,284 @@ function MapTerrain.isRiver(map: any, x: number, z: number): boolean
 	return r ~= nil and MapTerrain.riverDistance(map, x, z) <= r.width / 2 + r.bankWidth
 end
 
+--------------------------------------------------------------------------------------------------------------------
+-- Fields on the flanks (`map.fields`, user 2026-11-10: "a lot of open space... it can be open, it just cant look
+-- empty"): a grid of parcels `size` studs, turned `angle` degrees, laid point-symmetric round the middle point (a
+-- parcel and its twin get the same kind, edges and stacks: fair cover). A parcel is a field where all of it is at
+-- least `near` from the chain, no more than `beyond` past the bounds, clear of the river and of every point by `pointClear`; each is
+-- ploughed (`Plough`: earth in stripes `stripe` wide), hay meadow (`Meadow`, haystacks) or pasture (`Pasture`) by
+-- `kinds` shares. Each field edge is a hedge, a rail fence, a stone wall or open by `edges` shares, a gate's gap in its
+-- middle. Ref: Historic England farmstead guidance (hedged closes round the farms), docs/maps/ENVIRONMENT_RESEARCH.md.
+--------------------------------------------------------------------------------------------------------------------
+
+type FieldGrid = { mx: number, mz: number, c: number, s: number, w: number, h: number, jx: number, jy: number }
+local function fieldGrid(map: any): FieldGrid
+	local F = map.fields
+	local m = map.sectors[math.ceil(#map.sectors / 2)]
+	local a = math.rad(F.angle)
+	local w, h = F.size[1], F.size[2]
+	-- (`jitter`: shares of a parcel's width and height its lines wander, under a half so the lines never cross)
+	local J = F.jitter or { 0, 0 }
+	return { mx = m.x, mz = m.z, c = math.cos(a), s = math.sin(a), w = w, h = h, jx = J[1] * w, jy = J[2] * h }
+end
+
+-- (u, v) in the grid's frame, and back
+local function toGrid(g: FieldGrid, x: number, z: number): (number, number)
+	local rx, rz = x - g.mx, z - g.mz
+	return rx * g.c + rz * g.s, -rx * g.s + rz * g.c
+end
+local function fromGrid(g: FieldGrid, u: number, v: number): (number, number)
+	return g.mx + u * g.c - v * g.s, g.mz + u * g.s + v * g.c
+end
+
+-- An irregular grid (user 2026-11-10: the square fields looked placed): column line i at U(i), each column of its
+-- own width, and in column i row line j at V(i, j), each column's rows staggered from its neighbours'. Both kinds of
+-- twin map u to -u, so column line i twins line -i; column i twins column -i - 1, its row line j the twin's row
+-- line -j through the point (v to -v) or row line j across the x (v kept).
+local function colLine(map: any, g: FieldGrid, i: number): number
+	if i == 0 then
+		return 0
+	end
+	local k = math.abs(i)
+	local u = k * g.w + g.jx * (2 * hash01(k + 5000, 7, map.seed + 88) - 1)
+	return if i < 0 then -u else u
+end
+local function rowLine(map: any, g: FieldGrid, i: number, j: number): number
+	local function canonical(c: number, r: number): number
+		return r * g.h + g.jy * (2 * hash01(c + 5000, r + 5000, map.seed + 89) - 1)
+	end
+	if i >= 0 then
+		return canonical(i, j)
+	elseif map.symmetry == "x" then
+		return canonical(-i - 1, j)
+	end
+	return -canonical(-i - 1, -j)
+end
+
+-- the parcel (i, j) holding (u, v)
+local function parcelAt(map: any, g: FieldGrid, u: number, v: number): (number, number)
+	local i = math.floor(u / g.w)
+	if u < colLine(map, g, i) then
+		i -= 1
+	elseif u >= colLine(map, g, i + 1) then
+		i += 1
+	end
+	local j = math.floor(v / g.h)
+	if v < rowLine(map, g, i, j) then
+		j -= 1
+	elseif v >= rowLine(map, g, i, j + 1) then
+		j += 1
+	end
+	return i, j
+end
+
+-- a parcel's canonical twin and whether (i, j) is the twin (its spots mirror): through the middle point (i, j) <->
+-- (-i - 1, -j - 1); across its x (`symmetry = "x"`, the grid unturned) (i, j) <-> (-i - 1, j)
+local function canon(map: any, i: number, j: number): (number, number, boolean)
+	if i < 0 then
+		return -i - 1, if map.symmetry == "x" then j else -j - 1, true
+	end
+	return i, j, false
+end
+
+local function pick(shares: { [string]: number }, order: { string }, r: number): string?
+	local acc = 0
+	for _, k in order do
+		acc += shares[k] or 0
+		if r < acc then
+			return k
+		end
+	end
+	return nil
+end
+local FIELD_KINDS = { "Plough", "Meadow", "Pasture" }
+local EDGE_KINDS = { "Hedge", "RailFence", "StoneWall" }
+
+local fieldKinds: { [any]: { [string]: string | false } } = {}
+-- the kind of parcel (i, j) ("Plough", "Meadow", "Pasture"), or nil where it's no field
+local function parcelKind(map: any, i: number, j: number): string?
+	local cache = fieldKinds[map]
+	if not cache then
+		cache = {}
+		fieldKinds[map] = cache
+	end
+	local id = `{i},{j}`
+	local hit = cache[id]
+	if hit ~= nil then
+		return if hit then hit else nil
+	end
+	local F = map.fields
+	local g = fieldGrid(map)
+	local u0, u1 = colLine(map, g, i), colLine(map, g, i + 1)
+	local v0, v1 = rowLine(map, g, i, j), rowLine(map, g, i, j + 1)
+	local ok = true
+	local b, mg = map.bounds, F.beyond
+	for _, p in { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 }, { 0.5, 0.5 }, { 0.5, 0 }, { 0, 0.5 }, { 1, 0.5 }, { 0.5, 1 } } do
+		local x, z = fromGrid(g, u0 + (u1 - u0) * p[1], v0 + (v1 - v0) * p[2])
+		-- (checked at the twin's mirrored spot too, so a parcel and its twin are fields alike)
+		local x2, z2 = twinOf(map, x, z)
+		for _, q in { { x, z }, { x2, z2 } } do
+			if
+				MapTerrain.chainDistance(map, q[1], q[2]) < F.near
+				or outside(b, q[1], q[2]) > mg
+				or MapTerrain.isRiver(map, q[1], q[2])
+			then
+				ok = false
+			end
+			for _, sec in map.sectors do
+				if (q[1] - sec.x) ^ 2 + (q[2] - sec.z) ^ 2 < (sec.radius + F.pointClear) ^ 2 then
+					ok = false
+				end
+			end
+			for _, zone in map.spawnZones do
+				if inRect(zone, q[1], q[2], F.pointClear) then
+					ok = false
+				end
+			end
+		end
+	end
+	local kind: string? = nil
+	if ok then
+		local ci, cj = canon(map, i, j)
+		kind = pick(F.kinds, FIELD_KINDS, hash01(ci + 5000, cj + 5000, map.seed + 81))
+	end
+	cache[id] = kind or false
+	return kind
+end
+
+-- The field kind at (x, z) and whether it's a plough furrow there, or nil off the fields
+function MapTerrain.fieldAt(map: any, x: number, z: number): (string?, boolean)
+	if not map.fields then
+		return nil, false
+	end
+	local g = fieldGrid(map)
+	local u, v = toGrid(g, x, z)
+	local i, j = parcelAt(map, g, u, v)
+	local kind = parcelKind(map, i, j)
+	return kind, kind == "Plough" and math.floor(u / map.fields.stripe) % 2 == 0
+end
+
+export type FieldRun = { kind: string, a: { number }, b: { number } }
+export type FieldStack = { kind: string, x: number, z: number, yaw: number }
+local fieldsOf: { [any]: { runs: { FieldRun }, stacks: { FieldStack } } } = {}
+
+-- Every field's edges (a run each side of its gate) and the meadows' haystacks
+function MapTerrain.fieldLayout(map: any): { runs: { FieldRun }, stacks: { FieldStack } }
+	local hit = fieldsOf[map]
+	if hit then
+		return hit
+	end
+	local out = { runs = {}, stacks = {} }
+	fieldsOf[map] = out
+	local F = map.fields
+	if not F then
+		return out
+	end
+	local g = fieldGrid(map)
+	local b, mg = map.bounds, map.terrainMargin
+	local u0, v0 = math.huge, math.huge
+	local u1, v1 = -math.huge, -math.huge
+	local box = {
+		{ b.minX - mg, b.minZ - mg },
+		{ b.maxX + mg, b.minZ - mg },
+		{ b.minX - mg, b.maxZ + mg },
+		{ b.maxX + mg, b.maxZ + mg },
+	}
+	for _, p in box do
+		local u, v = toGrid(g, p[1], p[2])
+		u0, v0, u1, v1 = math.min(u0, u), math.min(v0, v), math.max(u1, u), math.max(v1, v)
+	end
+	local function run(kind: string, ua: number, va: number, ub: number, vb: number)
+		local ax, az = fromGrid(g, ua, va)
+		local bx, bz = fromGrid(g, ub, vb)
+		table.insert(out.runs, { kind = kind, a = { ax, az }, b = { bx, bz } })
+	end
+	-- an edge from (ua, va) to (ub, vb), split by a gate in its middle when it's long enough for one
+	local function edge(kind: string, ua: number, va: number, ub: number, vb: number)
+		local l = math.sqrt((ub - ua) ^ 2 + (vb - va) ^ 2)
+		if l < F.gate + 16 then
+			run(kind, ua, va, ub, vb)
+			return
+		end
+		local k = (l - F.gate) / 2 / l
+		run(kind, ua, va, ua + (ub - ua) * k, va + (vb - va) * k)
+		run(kind, ub - (ub - ua) * k, vb - (vb - va) * k, ub, vb)
+	end
+	local i0, i1 = math.floor(u0 / g.w) - 1, math.floor(u1 / g.w) + 1
+	local j0, j1 = math.floor(v0 / g.h) - 1, math.floor(v1 / g.h) + 1
+	for i = i0, i1 do
+		local ua, ub = colLine(map, g, i), colLine(map, g, i + 1)
+		-- the column line U(i), cut wherever a row line of either column beside it meets it: each piece's twin is a
+		-- piece of the twin line, cut the same (the twin's two columns are this one's two, mirrored); a piece's kind
+		-- keyed by the line and its middle, the twin's alike (through the point the twin's middle is at -vm)
+		local cuts = {}
+		for j = j0, j1 do
+			table.insert(cuts, rowLine(map, g, i - 1, j))
+			table.insert(cuts, rowLine(map, g, i, j))
+		end
+		table.sort(cuts)
+		for k = 1, #cuts - 1 do
+			local va, vb = cuts[k], cuts[k + 1]
+			if vb - va > 6 then
+				local vm = (va + vb) / 2
+				local _, jw = parcelAt(map, g, ua - 1, vm)
+				local _, je = parcelAt(map, g, ua + 1, vm)
+				if parcelKind(map, i - 1, jw) or parcelKind(map, i, je) then
+					local along = vm
+					if map.symmetry ~= "x" then
+						along = if i < 0 then -vm elseif i == 0 then math.abs(vm) else vm
+					end
+					local r = hash01(math.abs(i) + 5000, math.floor(along * 4 + 0.5) + 500000, map.seed + 82)
+					local kind = pick(F.edges, EDGE_KINDS, r)
+					if kind then
+						edge(kind, ua, va, ua, vb)
+					end
+				end
+			end
+		end
+		for j = j0, j1 do
+			local here = parcelKind(map, i, j)
+			local ci, cj, twin = canon(map, i, j)
+			-- its south edge (row line V(i, j) across the column), where a field lies either side; through the point
+			-- the twin of row line j in column i is row line -j of column -i - 1 (that column's cell -j's south side)
+			if here or parcelKind(map, i, j - 1) then
+				local ei, ej = ci, cj
+				if map.symmetry ~= "x" and i < 0 then
+					ej += 1
+				end
+				local kind = pick(F.edges, EDGE_KINDS, hash01(ei + 5000, ej + 5000, map.seed + 83))
+				if kind then
+					local v = rowLine(map, g, i, j)
+					edge(kind, ua, v, ub, v)
+				end
+			end
+			-- a meadow's haystacks, in from its edges (a twin's at the mirrored spots)
+			if here == "Meadow" then
+				local va, vb = rowLine(map, g, i, j), rowLine(map, g, i, j + 1)
+				local n = math.floor(hash01(ci + 5000, cj + 5000, map.seed + 84) * (F.stacks.max + 1))
+				for k = 1, n do
+					local fu = hash01(ci + 5000, cj + 5000 + k * 97, map.seed + 85)
+					local fv = hash01(ci + 5000, cj + 5000 + k * 97, map.seed + 86)
+					local yaw = hash01(ci + 5000, cj + 5000 + k * 97, map.seed + 87) * 360
+					if twin then
+						if map.symmetry == "x" then
+							fu, yaw = 1 - fu, (360 - yaw) % 360
+						else
+							fu, fv, yaw = 1 - fu, 1 - fv, (yaw + 180) % 360
+						end
+					end
+					local inset = F.stacks.inset
+					local u = ua + inset + (ub - ua - 2 * inset) * fu
+					local v = va + inset + (vb - va - 2 * inset) * fv
+					local x, z = fromGrid(g, u, v)
+					table.insert(out.stacks, { kind = "Haystack", x = x, z = z, yaw = yaw })
+				end
+			end
+		end
+	end
+	return out
+end
+
 -- Surface material name (an Enum.Material name) for a column.
 function MapTerrain.materialAt(map: any, x: number, z: number): string
 	local r = map.river
@@ -630,15 +1148,34 @@ function MapTerrain.materialAt(map: any, x: number, z: number): string
 		end
 	end
 	local slope = MapTerrain.slopeAt(map, x, z)
+	-- snow on the mountains' tops (`wild.snowY`, its line wandering by noise), rock where too steep to hold it
+	-- on the mountains (`wild.snowY`) grey rock (Slate) on the cliffs, grass up the gentler slopes, not bare earth
+	local W = map.wild
+	if W and W.snowY and outside(map.bounds, x, z) > W.start then
+		local line = W.snowY + 10 * math.noise(x / 60, z / 60, map.seed * 0.001 + 77.7)
+		if MapTerrain.heightAt(map, x, z) > line then
+			return if slope > 50 then "Slate" else "Snow"
+		end
+		return if slope > (W.rockSlope or 30) then "Slate" else "Grass"
+	end
 	if slope > 34 then
 		return "Rock"
-	elseif slope > 24 then
+	elseif slope > (map.terrain.dirtSlope or 24) then
 		return "Ground"
 	end
 	for _, res in map.reserved do
 		if inRect(res, x, z, 0) then
 			return "Grass"
 		end
+	end
+	-- the fields: ploughed earth in furrows, hay meadow, pasture
+	local field, furrow = MapTerrain.fieldAt(map, x, z)
+	if field == "Plough" then
+		return if furrow then "Mud" else "Ground"
+	elseif field == "Meadow" then
+		return "LeafyGrass"
+	elseif field == "Pasture" then
+		return "Grass"
 	end
 	local s = map.seed * 0.001
 	local patch = symmetric(map, x, z, function(px, pz)
@@ -657,21 +1194,6 @@ function MapTerrain.materialAt(map: any, x: number, z: number): string
 	return "Grass"
 end
 
--- 32-bit multiply mod 2^32 without exceeding double precision (split into 16-bit halves).
-local function mul32(a: number, b: number): number
-	a, b = a % 4294967296, b % 4294967296
-	local hi, lo = bit32.rshift(a, 16), bit32.band(a, 0xFFFF)
-	return ((hi * b % 65536) * 65536 + lo * b) % 4294967296
-end
-
--- 32-bit integer hash -> [0, 1). Stable across Lune and Roblox.
-local function hash01(a: number, b: number, c: number): number
-	local h = bit32.bxor(mul32(a, 374761393), mul32(b, 668265263), mul32(c, 2246822519))
-	h = bit32.bxor(h, bit32.rshift(h, 13))
-	h = mul32(h, 1274126177)
-	h = bit32.bxor(h, bit32.rshift(h, 16))
-	return h / 4294967296
-end
 MapTerrain.hash01 = hash01
 
 -- Where a trunk should be planted: the lowest ground under its footprint (so it never floats on a
@@ -687,6 +1209,46 @@ function MapTerrain.treeBaseY(map: any, x: number, z: number): number
 end
 
 export type Tree = { x: number, z: number, kind: string, scale: number, yaw: number, variant: number, far: boolean }
+
+-- Clumps of trees (`trees.clumps`, user 2026-11-10: "the minimum tree cluster has too little trees, some are just
+-- alone"): instead of lone trees, a clump's centre in some of the `cell`-stud squares (`chance`), each its own radius
+-- (most small, a few big: the share raised to `tail`), its ground grown at `density`; at cell 14 a radius of 18 holds
+-- about 4 trees, 40 about 20. The same at a point and its mirror through the middle point (fair cover). A neyman-scott
+-- cluster process, simplified to discs.
+-- the centre of the clump (x, z) stands in, or nil (a twin clump's centre is its twin's, mirrored)
+local function clumpCentre(map: any, x: number, z: number): (number?, number?)
+	local K = map.trees.clumps
+	local function inClump(px: number, pz: number): (number?, number?)
+		local gx, gz = math.floor(px / K.cell), math.floor(pz / K.cell)
+		for ix = gx - 1, gx + 1 do
+			for iz = gz - 1, gz + 1 do
+				if hash01(ix, iz, map.seed + 71) < K.chance then
+					local cx = (ix + hash01(ix, iz, map.seed + 72)) * K.cell
+					local cz = (iz + hash01(ix, iz, map.seed + 73)) * K.cell
+					local r = K.radius[1] + (K.radius[2] - K.radius[1]) * hash01(ix, iz, map.seed + 74) ^ K.tail
+					if (px - cx) ^ 2 + (pz - cz) ^ 2 < r * r then
+						return cx, cz
+					end
+				end
+			end
+		end
+		return nil, nil
+	end
+	local cx, cz = inClump(x, z)
+	if cx and cz then
+		return cx, cz
+	end
+	local tx, tz = twinOf(map, x, z)
+	cx, cz = inClump(tx, tz)
+	if cx and cz then
+		return twinOf(map, cx, cz)
+	end
+	return nil, nil
+end
+
+local function clumpAt(map: any, x: number, z: number): number
+	return if clumpCentre(map, x, z) then map.trees.clumps.density else 0
+end
 
 function MapTerrain.treeDensity(map: any, x: number, z: number): number
 	local T = map.trees
@@ -712,13 +1274,46 @@ function MapTerrain.treeDensity(map: any, x: number, z: number): number
 			return 0
 		end
 	end
+	-- the fields are cleared farmland: no trees on them (their hedges stand along the edges)
+	if map.fields and MapTerrain.fieldAt(map, x, z) then
+		return 0
+	end
 	if MapTerrain.slopeAt(map, x, z) > T.maxSlope then
 		return 0
 	end
 	-- the leg pattern's open ground: no trees along the chain (user 2026-11-06: "just being able to see an enemy is
 	-- considered not safe"); the copses stand out on the flanks
+	-- A map with `legs.open` (Map 1; user 2026-11-10: "add more trees and such in the really open field") grows
+	-- copses and lone trees there instead, off the way between the points, the knolls, the gun pads and the rallies
 	if map.legs and MapTerrain.chainDistance(map, x, z) < map.legs.calm.width then
-		return 0
+		local O = map.legs.open
+		if not O or MapTerrain.chainDistance(map, x, z) < O.lane then
+			return 0
+		end
+		local L = MapTerrain.legPieces(map)
+		for _, k in L.knolls do
+			if (x - k.x) ^ 2 + (z - k.z) ^ 2 < O.knollClear ^ 2 then
+				return 0
+			end
+		end
+		for _, p in L.pads do
+			if (x - p.x) ^ 2 + (z - p.z) ^ 2 < O.padClear ^ 2 then
+				return 0
+			end
+		end
+		for i = 1, #map.sectors do
+			for _, side in { "West", "East" } do
+				local rx, rz = MapTerrain.rally(map, i, side)
+				if rx and rz and (x - rx) ^ 2 + (z - rz) ^ 2 < O.rallyClear ^ 2 then
+					return 0
+				end
+			end
+		end
+		-- the copses point-symmetric through the middle point, like the points (fair cover)
+		local seed = map.seed * 0.001 + 61.3
+		local tx, tz = twinOf(map, x, z)
+		local c = math.max(math.noise(x / O.scale, z / O.scale, seed), math.noise(tx / O.scale, tz / O.scale, seed))
+		return if c > O.threshold then O.copse else (if T.clumps then clumpAt(map, x, z) else O.lone)
 	end
 	local out = outside(b, x, z)
 	if out > 0 then
@@ -727,7 +1322,10 @@ function MapTerrain.treeDensity(map: any, x: number, z: number): number
 	local forest = symmetric(map, x, z, function(px, pz)
 		return math.noise(px / T.forestScale, pz / T.forestScale, map.seed * 0.001 + 20.7)
 	end)
-	return if forest > T.groveThreshold then T.groveDensity else T.scatterDensity
+	if forest > T.groveThreshold then
+		return T.groveDensity
+	end
+	return if T.clumps then clumpAt(map, x, z) else T.scatterDensity
 end
 
 function MapTerrain.trees(map: any): { Tree }
@@ -747,6 +1345,19 @@ function MapTerrain.trees(map: any): { Tree }
 			-- a mirrored map grows its West half (x under the centre's) and copies it round the centre (below)
 			local half = not mid or (x < mid.x and (x - mid.x) ^ 2 + (z - mid.z) ^ 2 > 4)
 			if half and hash01(cx, cz, 3) < MapTerrain.treeDensity(map, x, z) then
+				-- a clump's trees drawn in toward its centre (`clumps.pull`), so it stands as one group, not a scatter
+				-- the planting grid spaces out; kept where it was if that lands on cleared ground
+				local K = T.clumps
+				local ccx, ccz = nil, nil
+				if K then
+					ccx, ccz = clumpCentre(map, x, z)
+				end
+				if ccx and ccz then
+					local px, pz = ccx + (x - ccx) * (1 - K.pull), ccz + (z - ccz) * (1 - K.pull)
+					if MapTerrain.treeDensity(map, px, pz) > 0 then
+						x, z = px, pz
+					end
+				end
 				local k = hash01(cx, cz, 4)
 				local onRidge = ridgeHeight(map, x) > 1
 				local pineShare = if onRidge then 0.7 else 0.45
@@ -765,6 +1376,30 @@ function MapTerrain.trees(map: any): { Tree }
 				})
 			end
 		end
+	end
+	-- (a clump's drawn-in trees: none closer than the clump spacing to one kept before it)
+	if T.clumps then
+		local min = T.cell * 0.5 * (1 - T.clumps.pull)
+		local grid: { [string]: { Tree } } = {}
+		local kept: { Tree } = {}
+		for _, t in out do
+			local gx, gz = math.floor(t.x / min), math.floor(t.z / min)
+			local ok = true
+			for ox = -1, 1 do
+				for oz = -1, 1 do
+					for _, o in grid[`{gx + ox}:{gz + oz}`] or {} do
+						ok = ok and (t.x - o.x) ^ 2 + (t.z - o.z) ^ 2 >= min * min
+					end
+				end
+			end
+			if ok then
+				local k = `{gx}:{gz}`
+				grid[k] = grid[k] or {}
+				table.insert(grid[k], t)
+				table.insert(kept, t)
+			end
+		end
+		out = kept
 	end
 	if mid then
 		for i = 1, #out do

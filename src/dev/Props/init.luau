@@ -168,10 +168,10 @@ end
 local WALLS, CAPS = { "WallA", "WallB", "WallC" }, { "CapA", "CapB", "CapC" }
 local COPING = 0.4 -- the coping's depth
 
-local function stoneWallBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: any)
+local function stoneWallBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: any, drop: number)
 	local c = P.StoneWall
 	local t = c.thickness
-	local bottom, top = -0.4, c.height - COPING + 0.1
+	local bottom, top = -0.4 - drop, c.height - COPING + 0.1
 	local turn = flip(ctx, 1)
 	mesh(
 		sec,
@@ -193,9 +193,9 @@ local function stoneWallBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number,
 	)
 end
 
-local function picketBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: any)
+local function picketBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: any, drop: number)
 	local c = P.PicketFence
-	post(sec, ctx, frame, 0, -1, -len / 2, 0.5, c.height + 1.2, "Wood")
+	post(sec, ctx, frame, 0, -1 - drop, -len / 2, 0.5, c.height + 1.2 + drop, "Wood")
 	for _, y in { 0.6, c.height - 0.5 } do
 		mesh(sec, ctx, "Rail", "Beam", frame * CFrame.new(0.3, y, 0), Vector3.new(0.18, 0.28, len), "WoodPale")
 	end
@@ -208,14 +208,14 @@ local function picketBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P:
 			ctx,
 			"Picket",
 			"Picket",
-			frame * CFrame.new(0.45, (h - 0.6) / 2, z),
-			Vector3.new(0.16, h + 0.6, 0.5),
+			frame * CFrame.new(0.45, (h - 0.6 - drop) / 2, z),
+			Vector3.new(0.16, h + 0.6 + drop, 0.5),
 			"WoodPale"
 		)
 	end
 end
 
-local function railBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: any)
+local function railBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: any, drop: number)
 	local c = P.RailFence
 	mesh(
 		sec,
@@ -223,9 +223,9 @@ local function railBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: a
 		"Post",
 		"Post",
 		frame
-			* CFrame.new(0, c.height / 2 - 0.2, -len / 2)
+			* CFrame.new(0, c.height / 2 - 0.2 - drop / 2, -len / 2)
 			* CFrame.Angles(math.rad(jitter(ctx, 7) * 3), 0, math.rad(jitter(ctx, 8) * 3)),
-		Vector3.new(0.6, c.height + 0.6, 0.6),
+		Vector3.new(0.6, c.height + 0.6 + drop, 0.6),
 		"WoodDark"
 	)
 	for _, y in { 0.75, c.height - 0.35 } do
@@ -242,7 +242,7 @@ local function railBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: a
 end
 
 -- a hedge bay: a kit mass of leaf clumps, its ends cut flat so the bays join into one hedge (it blocks)
-local function hedgeBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: any)
+local function hedgeBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: any, drop: number)
 	local c = P.Hedge
 	local h = c.height + jitter(ctx, 11) * 0.35
 	mesh(
@@ -250,8 +250,8 @@ local function hedgeBay(sec: Instance, ctx: Ctx, frame: CFrame, len: number, P: 
 		ctx,
 		"Hedge",
 		pick(ctx, { "HedgeA", "HedgeB" }),
-		frame * CFrame.new(0, h / 2 - 0.3, 0) * flip(ctx, 12),
-		Vector3.new(c.thickness, h + 0.6, len + 0.15),
+		frame * CFrame.new(0, (h - 0.6 - drop) / 2, 0) * flip(ctx, 12),
+		Vector3.new(c.thickness, h + 0.6 + drop, len + 0.15),
 		if ctx.n % 2 == 0 then "Hedge" else "HedgeDark"
 	)
 end
@@ -267,7 +267,9 @@ function Props.isLinear(kind: string): boolean
 	return LINEAR[kind] ~= nil
 end
 
--- A run from a to b; ground(x, z) -> surface height. Each bay sits on the ground at its midpoint.
+-- A run from a to b; ground(x, z) -> surface height. Each bay sits on the lowest ground along it and reaches down
+-- past that by the drop to its highest, so no end hangs in the air on a slope or over a furrow (user 2026-11-11: "the
+-- bricks and bushes dont rest properly on the terrain"; was the highest of its ends and middle).
 function Props.linear(
 	kind: string,
 	parent: Instance,
@@ -284,14 +286,20 @@ function Props.linear(
 	for _, bay in bays(a, b, spec.bay) do
 		local cf = bay[1] :: CFrame
 		local len = bay[2] :: number
-		-- highest of the bay's ends and middle, so no part of the bay is buried on a slope; posts,
-		-- pickets and stones reach a little below the bay base to close gaps on the low side
-		local half = cf.LookVector * (len / 2)
-		local p = cf.Position
-		local y = math.max(ground(p.X, p.Z), ground(p.X + half.X, p.Z + half.Z), ground(p.X - half.X, p.Z - half.Z))
-		local frame = CFrame.new(cf.Position.X, y, cf.Position.Z) * cf.Rotation
+		-- the ground along the bay and across its width: the lowest seats it, its pieces reach down by the drop
+		local p, dir = cf.Position, cf.LookVector
+		local side = cf.RightVector * ((deps.P[kind].thickness or 0.6) / 2)
+		local lo, hi = math.huge, -math.huge
+		for _, k in { -0.5, -0.25, 0, 0.25, 0.5 } do
+			for _, w in { -1, 1 } do
+				local q = p + dir * (len * k) + side * w
+				local g = ground(q.X, q.Z)
+				lo, hi = math.min(lo, g), math.max(hi, g)
+			end
+		end
+		local frame = CFrame.new(p.X, lo, p.Z) * cf.Rotation
 		local sec = section(run, ctx, kind, deps.P[kind].class)
-		spec.build(sec, ctx, frame, len, deps.P)
+		spec.build(sec, ctx, frame, len, deps.P, hi - lo)
 	end
 	run.Parent = parent
 	return run

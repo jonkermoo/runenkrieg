@@ -34,6 +34,7 @@ local TeamCfg = require(Shared.Config.Teams)
 local TeamOutlineCfg = require(Shared.Config.TeamOutline)
 local RagdollCfg = require(Shared.Config.Ragdoll)
 local EnvCfg = require(Shared.Config.Environment)
+local MoodCfg = require(Shared.Config.Moods)
 local GrenadeCfg = require(Shared.Config.Grenades)
 local W = require(Shared.Config.Weapons)
 local FrontCfg = require(Shared.Config.Frontline)
@@ -831,6 +832,31 @@ local function build(player: Player): DevPanel.Panel
 		show()
 	end
 	order += 4
+
+	-- Look (Config/Moods; user 2026-11-11: "give me an option of looks by the way, with real effect"): the map's haze,
+	-- grade, light and sky, tried live on this screen only (a Workspace attribute set here never leaves the client)
+	DevPanel.heading(p.panel, "Look", order + 1)
+	order += 1
+	local looks: { [string]: TextButton } = {}
+	local function showLook()
+		local current = workspace:GetAttribute(MoodCfg.Attribute)
+		for name, b in looks do
+			paint(b, name == current)
+		end
+	end
+	for i, name in MoodCfg.Order do
+		local b = DevPanel.button(p.panel, "Look" .. name, `Look: {name}`, order + i)
+		b.Activated:Connect(function()
+			workspace:SetAttribute(
+				MoodCfg.Attribute,
+				if workspace:GetAttribute(MoodCfg.Attribute) == name then nil else name
+			)
+		end)
+		looks[name] = b
+	end
+	workspace:GetAttributeChangedSignal(MoodCfg.Attribute):Connect(showLook)
+	showLook()
+	order += #MoodCfg.Order + 1
 
 	-- You (src/server/DevTools): health steps, death, respawn, god mode, a knock, the helmet off, unlimited ammo
 	DevPanel.heading(p.panel, "You", order + 1)
