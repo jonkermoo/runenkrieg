@@ -1185,27 +1185,78 @@ local Buildings = {
 		-- Ashby's market hall on the green, north of the flag (Map 1's S4, user approved 2026-11-10): a whitewashed
 		-- two-storey hall, the ground floor open through four bays on the green, a room upstairs (stairs inside) that looks
 		-- down both legs. Fair because it stands on the point: whoever holds the point holds the hall.
+		-- (user approved 2026-11-11, the landmark design sheet: Ashby Market Hall) the town hall over the green: seven open
+		-- market bays below, the council room above (stairs inside, looking down both legs), and on the ridge a boarded
+		-- clock turret under a lead cupola, its top about 64, S4's mark over the roofs.
 		MarketHall = {
 			folder = "Landmarks",
-			width = 24,
+			width = 36,
 			depth = 14,
 			stories = 2,
-			storyHeight = 9,
-			roofPitch = 38,
-			roofStyle = "Tile",
-			class = "Plaster",
+			roofPitch = 40,
+			class = "Stone",
 			wallThickness = 1.4,
-			walls = { "Whitewash", "Cream" },
-			roofs = { "RedTile", "DarkTile" },
-			quoins = true,
-			windows = 2,
-			doors = {
-				{ center = -8, w = 3.6, h = 6 },
-				{ center = -3, w = 3.6, h = 6 },
-				{ center = 3, w = 3.6, h = 6 },
-				{ center = 8, w = 3.6, h = 6 },
+			walls = { "Stone" },
+			roofs = { "Slate" },
+			blocks = {
+				{
+					name = "Hall",
+					x = 0,
+					z = 0,
+					width = 36,
+					depth = 14,
+					stories = 2,
+					storyHeight = 11,
+					roofPitch = 40,
+					roofStyle = "Tile",
+					quoins = true,
+					windows = 4,
+					doors = {
+						{ center = -13.5, w = 3.8, h = 7 },
+						{ center = -9, w = 3.8, h = 7 },
+						{ center = -4.5, w = 3.8, h = 7 },
+						{ center = 0, w = 3.8, h = 7 },
+						{ center = 4.5, w = 3.8, h = 7 },
+						{ center = 9, w = 3.8, h = 7 },
+						{ center = 13.5, w = 3.8, h = 7 },
+					},
+					backDoor = { { center = -10 }, { center = 10 } },
+				},
 			},
-			description = "Ashby's market hall: open bays on the green below, a room above that looks down both legs.",
+			features = { { kind = "ClockTurret", x = 0, z = 0, y = 0.6 + 22 + 3, width = 8, height = 15, cupola = 20 } },
+			description = "Ashby's town hall: an open market floor, the council room above, a clock turret under a lead cupola.",
+		},
+		-- Ashby's allotments on the town's edge (the design sheet: "the open sides fill with allotments, orchards"): a tool
+		-- shed, rows of vegetable beds and a few fruit trees.
+		Allotments = {
+			folder = "Landmarks",
+			width = 12,
+			depth = 8,
+			stories = 1,
+			roofPitch = 30,
+			class = "Wood",
+			wallThickness = 1,
+			walls = { "TarBoard" },
+			roofs = { "DarkTile" },
+			blocks = {
+				{
+					name = "Shed",
+					x = 0,
+					z = 0,
+					width = 12,
+					depth = 8,
+					stories = 1,
+					storyHeight = 8,
+					roofPitch = 30,
+					roofStyle = "Tile",
+					windows = 1,
+				},
+			},
+			features = {
+				{ kind = "Beds", x = 14, z = -10, rows = 6, length = 18, gap = 4 },
+				{ kind = "Orchard", x = -20, z = -8, rows = 2, cols = 2, gap = 9 },
+			},
+			description = "Allotments on the edge of Ashby: a tarred tool shed, vegetable beds and fruit trees.",
 		},
 		-- Ashby's pub on the green, south of the flag: the Plough, two storeys of red brick under tile, doors front and
 		-- back, its sign by the door.

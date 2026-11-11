@@ -1535,24 +1535,26 @@ end
 -- A broach spire on a square tower (St Aldhelm's, user approved 2026-11-11: "a hero over the trees"): an eight-sided
 -- cone `H` high from the tower's top, its four corner broaches sloping up onto it, a finial and a weathercock. Its
 -- faces are triangles as an oast's cone; the cone and broaches take the template block's roof swatch (lead).
-function Geometry.spire(parent: Instance, ctx: Ctx, W: number, top: number, H: number)
+function Geometry.spire(parent: Instance, ctx: Ctx, W: number, top: number, H: number, at: CFrame?)
+	local A = at or CFrame.identity
 	local r = W / 2 * 0.86
 	local side = 2 * r * math.tan(math.pi / 8)
 	local phi = math.atan(r / H)
 	local slant = math.sqrt(r * r + H * H)
 	local eaves = Geometry.section(parent, ctx, "Roof", "Tile", 99)
-	Geometry.part(eaves, ctx, "Eaves", CFrame.new(0, top + 0.4, 0), Vector3.new(W + 0.6, 0.8, W + 0.6), "Roof")
+	Geometry.part(eaves, ctx, "Eaves", A * CFrame.new(0, top + 0.4, 0), Vector3.new(W + 0.6, 0.8, W + 0.6), "Roof")
 	local base = top + 0.8
 	for i = 0, 7 do
 		local sec = Geometry.section(parent, ctx, "Roof", "Tile", 99)
-		local frame = CFrame.Angles(0, i * math.pi / 4, 0) * CFrame.new(0, base, -r) * CFrame.Angles(phi, 0, 0)
+		local frame = A * CFrame.Angles(0, i * math.pi / 4, 0) * CFrame.new(0, base, -r) * CFrame.Angles(phi, 0, 0)
 		triangle(sec, ctx, frame, side * 1.06, slant, 0.8, "Roof")
 	end
 	-- the broaches: a sloped wedge over each corner of the square, rising onto the cone's diagonal faces
 	local c = W / 2 - r * math.cos(math.pi / 8) + 1.2
 	for i = 0, 3 do
 		local sec = Geometry.section(parent, ctx, "Roof", "Tile", 99)
-		local corner = CFrame.Angles(0, math.pi / 4 + i * math.pi / 2, 0)
+		local corner = A
+			* CFrame.Angles(0, math.pi / 4 + i * math.pi / 2, 0)
 			* CFrame.new(0, base, -(W / 2) * math.sqrt(2) + c)
 		Geometry.part(
 			sec,
@@ -1570,13 +1572,13 @@ function Geometry.spire(parent: Instance, ctx: Ctx, W: number, top: number, H: n
 		fin,
 		ctx,
 		"Rod",
-		CFrame.new(0, tip + 1.6, 0) * CFrame.Angles(0, 0, math.pi / 2),
+		A * CFrame.new(0, tip + 1.6, 0) * CFrame.Angles(0, 0, math.pi / 2),
 		Vector3.new(4, 0.5, 0.5),
 		"Metal"
 	)
 	rod.Shape = Enum.PartType.Cylinder
-	Geometry.part(fin, ctx, "Cross", CFrame.new(0, tip + 2.6, 0), Vector3.new(2.6, 0.3, 0.3), "Metal")
-	Geometry.part(fin, ctx, "Cock", CFrame.new(0.4, tip + 3.8, 0), Vector3.new(1.8, 1.2, 0.3), "Metal", "WedgePart")
+	Geometry.part(fin, ctx, "Cross", A * CFrame.new(0, tip + 2.6, 0), Vector3.new(2.6, 0.3, 0.3), "Metal")
+	Geometry.part(fin, ctx, "Cock", A * CFrame.new(0.4, tip + 3.8, 0), Vector3.new(1.8, 1.2, 0.3), "Metal", "WedgePart")
 end
 
 -- A bellcote on a ridge (a village school's): two piers, a little gable roof on them and the bell hung between, its foot
@@ -1843,6 +1845,50 @@ function Geometry.calvary(parent: Instance, ctx: Ctx, at: CFrame, H: number)
 			Vector3.new(2.4, 0.3, 1.6),
 			"Trim"
 		)
+	end
+end
+
+-- A clock turret on a roof (Ashby's town hall, user approved 2026-11-11): a boarded square `W` across rising `H` from
+-- `at` (its foot on the roof), a clock face on each side `face` from its top, and an eight-sided lead cupola `cupola`
+-- high over it (Geometry.spire, swatch Lead).
+function Geometry.clockTurret(parent: Instance, ctx: Ctx, at: CFrame, W: number, H: number, cupola: number)
+	local sec = Geometry.section(parent, ctx, "Turret", "Wood", 99)
+	local box = Geometry.part(sec, ctx, "Turret", at * CFrame.new(0, H / 2, 0), Vector3.new(W, H, W), "Wall")
+	box:SetAttribute("Swatch", "WhiteBoard")
+	for i = 0, 3 do
+		local face = at * CFrame.Angles(0, i * math.pi / 2, 0) * CFrame.new(0, H - W * 0.45, -(W / 2 + 0.15))
+		local dial = Geometry.part(
+			sec,
+			ctx,
+			"Clock",
+			face * CFrame.Angles(0, math.pi / 2, 0),
+			Vector3.new(0.3, W * 0.62, W * 0.62),
+			"Sign"
+		)
+		dial.Shape = Enum.PartType.Cylinder
+		Geometry.part(sec, ctx, "Hand", face * CFrame.new(0, W * 0.12, -0.2), Vector3.new(0.3, W * 0.26, 0.15), "Metal")
+		Geometry.part(sec, ctx, "Hand", face * CFrame.new(W * 0.09, 0, -0.2), Vector3.new(W * 0.2, 0.3, 0.15), "Metal")
+	end
+	local cap = Instance.new("Model")
+	cap.Name = "Cupola"
+	cap.Parent = parent
+	Geometry.spire(cap, ctx, W, H, cupola, at)
+	for _, d in cap:GetDescendants() do
+		if d:IsA("BasePart") and d:GetAttribute("Paint") == "Roof" then
+			d:SetAttribute("Swatch", "Lead")
+		end
+	end
+end
+
+-- Vegetable beds (allotments): `rows` strips of turned earth `L` long, a green row of crops along each.
+function Geometry.beds(parent: Instance, ctx: Ctx, at: CFrame, rows: number, L: number, gap: number)
+	for r = 0, rows - 1 do
+		local sec = Geometry.section(parent, ctx, "Bed", "Wood", 0)
+		sec:SetAttribute("OnGround", true)
+		local row = at * CFrame.new(0, 0, r * gap)
+		Geometry.part(sec, ctx, "Soil", row * CFrame.new(0, 0.1, 0), Vector3.new(L, 0.6, gap * 0.6), "Floor")
+		local crop = Geometry.part(sec, ctx, "Crop", row * CFrame.new(0, 0.8, 0), Vector3.new(L - 1, 1, 1.2), "Orchard")
+		crop.CanCollide = false
 	end
 end
 

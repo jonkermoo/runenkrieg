@@ -1412,6 +1412,13 @@ local Assets = {
 			generator = "src/dev/Buildings/init.luau",
 			description = "Map 1's St Aldhelm's: the church with its broach spire in its walled churchyard on S5 (a landmark)",
 		},
+		Allotments = {
+			category = "Buildings",
+			folder = "Landmarks",
+			template = "Allotments",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Map 1's allotments on the edge of Ashby: a shed, vegetable beds, fruit trees (a landmark)",
+		},
 		Brewery = {
 			category = "Buildings",
 			folder = "Landmarks",

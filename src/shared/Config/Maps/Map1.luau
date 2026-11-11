@@ -373,8 +373,11 @@ local Map1 = {
 			-- the watermill on the S3 bank by the rock ford, its door to the west, its wheel in the river
 			{ id = "Mill", style = "Watermill", x = 1666, z = -158, front = { -1, 0 } },
 			-- Ashby's market hall and pub on the green, north and south of the flag
-			{ id = "MarketHall", style = "MarketHall", x = 1955, z = 74, front = { 0, -1 } },
+			{ id = "MarketHall", style = "MarketHall", x = 1955, z = 73, front = { 0, -1 } },
 			{ id = "Plough", style = "Plough", x = 1945, z = -24, front = { 0, 1 } },
+			-- Ashby's allotments on the town's north edges (user approved 2026-11-11)
+			{ id = "AllotmentsWest", style = "Allotments", x = 1828, z = 214, front = { 0, -1 } },
+			{ id = "AllotmentsEast", style = "Allotments", x = 2080, z = 168, front = { 0, -1 } },
 			-- the church close on S5's point (the flag in its churchyard at local -12, -10, clear of East's wave line
 			-- while S5 is its front sector) and the vicarage outside its east wall, on the spawn side
 			{ id = "ChurchClose", style = "ChurchClose", x = PTS[5][1] + 12, z = PTS[5][2] + 10, front = { 0, -1 } },

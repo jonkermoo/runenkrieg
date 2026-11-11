@@ -270,6 +270,10 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.bellcote(model, ctx, at * CFrame.new(0, f.y, 0), f.width, f.height)
 			elseif f.kind == "TowerMill" then
 				Geometry.towerMill(model, ctx, at, f.r0, f.r1, f.height, f.sail)
+			elseif f.kind == "ClockTurret" then
+				Geometry.clockTurret(model, ctx, at * CFrame.new(0, f.y, 0), f.width, f.height, f.cupola)
+			elseif f.kind == "Beds" then
+				Geometry.beds(model, ctx, at, f.rows, f.length, f.gap)
 			elseif f.kind == "Stack" then
 				Geometry.stack(model, ctx, at, f.base, f.top, f.height)
 			elseif f.kind == "Calvary" then
