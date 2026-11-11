@@ -446,6 +446,56 @@ function Village.layout(map: any, B: any, M: any, MT: any, P: any): Layout
 	for _, h in cfg.hedgerows or {} do
 		table.insert(fences, { kind = h.kind or "Hedge", a = h.a, b = h.b })
 	end
+	-- 3d. The fields on the flanks (a map's `fields`, Rules/MapTerrain.fieldLayout): their hedges, fences and walls
+	-- and the meadows' haystacks, none across a road, the river, a house or a kept-clear square
+	if map.fields then
+		local function clear(x: number, z: number, pad: number): boolean
+			if roadDistance(x, z) < pad or MT.isRiver(map, x, z) then
+				return false
+			end
+			for _, l in lots do
+				if Village.pointInQuad(x, z, Village.corners(l, B.RoofOverhang + pad)) then
+					return false
+				end
+			end
+			for _, c in cfg.keepClear do
+				if (x - c.x) ^ 2 + (z - c.z) ^ 2 < c.r * c.r then
+					return false
+				end
+			end
+			return true
+		end
+		local F = MT.fieldLayout(map)
+		for _, r in F.runs do
+			-- cut where it crosses something: the run kept in pieces between the blocked stretches
+			local l = math.sqrt((r.b[1] - r.a[1]) ^ 2 + (r.b[2] - r.a[2]) ^ 2)
+			local n = math.max(1, math.ceil(l / 4))
+			local from: number? = nil
+			for k = 0, n do
+				local t = k / n
+				local ok = clear(r.a[1] + (r.b[1] - r.a[1]) * t, r.a[2] + (r.b[2] - r.a[2]) * t, 3)
+				if ok and not from then
+					from = t
+				end
+				if (not ok or k == n) and from then
+					local to = if ok then t else (k - 1) / n
+					if (to - from) * l >= 8 then
+						table.insert(fences, {
+							kind = r.kind,
+							a = { r.a[1] + (r.b[1] - r.a[1]) * from, r.a[2] + (r.b[2] - r.a[2]) * from },
+							b = { r.a[1] + (r.b[1] - r.a[1]) * to, r.a[2] + (r.b[2] - r.a[2]) * to },
+						})
+					end
+					from = nil
+				end
+			end
+		end
+		for _, s in F.stacks do
+			if clear(s.x, s.z, 4) then
+				table.insert(yard, { kind = s.kind, x = s.x, z = s.z, yaw = s.yaw })
+			end
+		end
+	end
 
 	-- 4. Telegraph poles along one road (a map may have none: Lantern Meadows' lantern poles are features)
 	local poles = {}

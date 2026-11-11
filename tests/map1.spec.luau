@@ -161,8 +161,12 @@ return {
 					local top = h(at(i, side, C.crest.u, 0))
 					local base = h({ s.x, s.z })
 					assert(top - base > 4 or s.isHQ, `{s.id}'s {side} crest stands {top - base} over its point`)
+					-- over the open ground at its foot; the swell further out (user 2026-11-10: "not every sector
+					-- visible") lower than it, so its defenders still see over it
+					local foot = at(i, side, C.crest.u + C.crest.width, 0)
+					assert(top - h(foot) > 4, `{s.id}'s {side} crest stands {top - h(foot)} over the open ground`)
 					local mid = at(i, side, dist(s, o) / 2, 0)
-					assert(top - h(mid) > 4, `{s.id}'s {side} crest stands {top - h(mid)} over the open ground`)
+					assert(top > h(mid), `{s.id}'s {side} crest stands {top - h(mid)} over the swell`)
 					for _, sgn in { -1, 1 } do
 						local k = at(i, side, C.knoll.u, sgn * C.knoll.n)
 						local foot = at(i, side, C.knoll.u, sgn * (C.knoll.n + C.knoll.radius + 6))

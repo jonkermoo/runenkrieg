@@ -46,14 +46,42 @@ local LEGS = {
 		bendScale = 70,
 		vary = 0.8,
 		reach = 0.4,
+		-- lumpy, not one long bank (user 2026-11-10: "still too obviously placed (the hills)"): the bank whole only round
+		-- its middle, a row of hillocks of their own sizes over it (Rules/MapTerrain.hillocks)
+		lumps = {
+			count = 5,
+			base = 0.65,
+			core = 70,
+			fade = 40,
+			radius = { 24, 40 },
+			height = { 0.55, 1.0 },
+			shift = 12,
+			forward = true,
+			across = 0.65,
+			stretch = 1.4,
+		},
+	},
+	-- a broad lumpy swell across each leg's middle: dead ground both ways, and the point beyond the next one out of
+	-- sight (user 2026-11-10: "not every sector visible"); none by the river
+	swell = {
+		at = 0.5,
+		half = 200,
+		taper = 80,
+		width = 110,
+		height = 6,
+		riverClear = 30,
+		riverFade = 40,
+		lumps = { count = 7, core = 60, radius = { 40, 75 }, height = { 0.6, 1.2 }, shift = 30, stretch = 1.3 },
 	},
 	-- no sunken lane cut here (user 2026-11-10: "remove the old trenches"): `depth` 0; the line still marks where the
 	-- enemy's attack forms up (the bots' gather spots)
 	fold = { u = 170, half = 120, depth = 0, floor = 4, wall = 6, ends = 20 },
-	knoll = { u = 90, n = 175, height = 7, top = 6, radius = 30 },
+	knoll = { u = 90, n = 175, height = 9, top = 6, radius = 30 },
 	guns = { u = 140, n = 110, howitzer = 210, pad = 9, fade = 12 },
 	rally = 60,
 	calm = { width = 230, fade = 80, keep = 0.55 },
+	-- the rolling ground calm round each rally, so it never lifts a waiting wave over its own crest
+	rallyCalm = { radius = 40, fade = 40 },
 	-- copses and lone trees on the open ground (user 2026-11-10: "add more trees and such in the really open field. it
 	-- looks really empty"), none within `lane` of the way between the points, round a knoll, a gun pad or a rally
 	open = {
@@ -104,6 +132,27 @@ local Map1 = {
 	},
 	fogEnd = 600,
 	legs = LEGS,
+	-- uneven ground all over, the way between the points lower (user 2026-11-10: "make it just a overall uneven terrain,
+	-- with this area more unelevated (does not have to be a perfect line, make it natural)"): the rolling ground bent by
+	-- noise, the flanks lifted and rougher past a wandering edge (Rules/MapTerrain.valleyAt, warped)
+	ground = {
+		warp = { amp = 45, scale = 220 },
+		valley = { lift = 12, near = 120, far = 330, edge = 55, edgeScale = 160, rough = 1.8 },
+	},
+	-- the farmland up the flanks (user 2026-11-10: "it can be open, it just cant look empty"; Rules/MapTerrain.fieldAt,
+	-- fieldLayout; Historic England: hedged closes round the farms): ploughland, hay meadows with ricks, pasture,
+	-- each edged by a hedge, a rail fence or a stone wall with a gate's gap, or open
+	fields = {
+		angle = 6,
+		size = { 130, 90 },
+		near = 170,
+		pointClear = 60,
+		kinds = { Plough = 0.3, Meadow = 0.3, Pasture = 0.4 },
+		edges = { Hedge = 0.35, RailFence = 0.25, StoneWall = 0.15 },
+		gate = 14,
+		stacks = { max = 3, inset = 15 },
+		stripe = 4,
+	},
 
 	-- Capture points ~520 apart, each fair to its two neighbours (tests/sectors.spec.luau: S2 and S4 stand 11 toward
 	-- their HQs, where the farm's walls and the town's houses would slow the attacker from the HQ). The strongpoints and
@@ -354,6 +403,9 @@ local Map1 = {
 		sectorClearFrac = 0.4,
 		riverClear = 6,
 		maxCount = 5000,
+		-- clumps instead of lone trees (user 2026-11-10: "the minimum tree cluster has too little trees, some are just
+		-- alone"; Rules/MapTerrain.clumpAt): most of 4-7 trees, a few of 15-20
+		clumps = { cell = 80, chance = 0.22, radius = { 18, 40 }, tail = 2.2, density = 0.8 },
 	},
 }
 

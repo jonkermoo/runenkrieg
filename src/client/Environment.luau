@@ -14,6 +14,7 @@ local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local LiveMap = require(Shared.LiveMap)
 local Cfg = require(Shared.Config.Environment)
 local Rules = require(Shared.Rules.Environment)
 local Audio = require(script.Parent.Audio)
@@ -104,12 +105,19 @@ function Environment.start()
 		atm.Parent = Lighting
 	end
 	local atmosphere = atm :: Atmosphere
-	local base: Rules.Haze = {
+	local placeHaze: Rules.Haze = {
 		density = atmosphere.Density,
 		haze = atmosphere.Haze,
 		color = triple(atmosphere.Color),
 		decay = triple(atmosphere.Decay),
 	}
+	-- the match map's own clear-sky haze where it gives one (`haze`, user 2026-11-10: "the mix of environment and
+	-- lighting and settings should make not every sector visible"), else the place's Atmosphere; followed on a map switch
+	local function baseHaze(): Rules.Haze
+		local ok, m = pcall(LiveMap.get)
+		local h = ok and m and (m :: any).haze
+		return if h then h else placeHaze
+	end
 	local clouds = workspace.Terrain:FindFirstChildOfClass("Clouds")
 	if not clouds then
 		clouds = Instance.new("Clouds")
@@ -133,8 +141,13 @@ function Environment.start()
 		local clock = Rules.clockNow(t, num(A.dayStart, t), if typeof(paused) == "number" then paused else nil, Cfg.Day)
 		local kind = workspace:GetAttribute(A.weather)
 		local w = Rules.strength(t, num(A.from, 0), num(A.to, 0), Cfg.Weather.fade)
-		local l =
-			Rules.look(Rules.daylight(clock, Cfg.Day), if typeof(kind) == "string" then kind else "Clear", w, base, Cfg)
+		local l = Rules.look(
+			Rules.daylight(clock, Cfg.Day),
+			if typeof(kind) == "string" then kind else "Clear",
+			w,
+			baseHaze(),
+			Cfg
+		)
 		Lighting.ClockTime = clock
 		Lighting.Brightness = l.brightness
 		Lighting.Ambient = rgb(l.ambient)
