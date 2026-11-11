@@ -28,7 +28,7 @@ local function points(list: { { number } }): { { number } }
 	return out
 end
 
--- The points (local): an arch, each leg turning 8-23° (user 2026-11-06: "variety in direction (not too much that the
+-- The points (local): an arch, each leg turning 8-23Â° (user 2026-11-06: "variety in direction (not too much that the
 -- map gets complicated)"), mirrored about S3's x so each side's legs are alike.
 local PTS = { { 420, -170 }, { 900, 30 }, { 1420, 100 }, { 1940, 30 }, { 2420, -170 } }
 local S3 = PTS[3]
@@ -142,10 +142,6 @@ for deg = 0, 330, 30 do
 end
 for _, q in { { 1400, 174 }, { 1440, 174 } } do
 	table.insert(features, { kind = "LanternPole", x = q[1], z = CZ + q[2] })
-end
--- haystacks on the brickfield farm's north side, one either side of its kiln
-for _, x in { 868, 932 } do
-	table.insert(features, { kind = "Haystack", x = x, z = CZ + 132, yaw = 15 })
 end
 
 local LanternMeadows = {
@@ -382,17 +378,17 @@ local LanternMeadows = {
 		{ id = "Festival", minX = 1360, maxX = 1480, minZ = CZ + 165, maxZ = CZ + 300 },
 		{ id = "Footbridge", minX = 1632, maxX = 1742, minZ = CZ + 160, maxZ = CZ + 220 },
 		{ id = "RockFord", minX = 1636, maxX = 1742, minZ = CZ - 95, maxZ = CZ - 35 },
-		{ id = "Farm", minX = 830, maxX = 970, minZ = CZ - 40, maxZ = CZ + 140 },
+		{ id = "Farm", minX = 820, maxX = 980, minZ = CZ - 40, maxZ = CZ + 230 }, -- (and the brickworks)
 		{ id = "Town", minX = 1770, maxX = 2110, minZ = CZ - 150, maxZ = CZ + 210 },
 	},
 
 	-- The festival road along the arch and over the ford, the landmarks, and the lanes' hedge banks (Rules/Village).
-	-- The brickfield farm (S2) and the river town (S4) wait for their design sheet (MAP_RULES §3: design first).
+	-- The brickfield farm (S2) and the river town (S4) wait for their design sheet (MAP_RULES Â§3: design first).
 	village = {
 		-- (houses only in the town round S4: Borgo Aurel, user approved 2026-11-06)
 		-- (inside the two sunken lanes' hedges, which stand ~157 out from the point)
 		area = rect(1800, 2095, -165, 205),
-		kit = "Selvara",
+		kit = "Borgo", -- (the Selvaran kit with Borgo Aurel's three-storey arcaded houses)
 		roads = {
 			{
 				id = "Main",
@@ -445,16 +441,33 @@ local LanternMeadows = {
 			-- the festival stage and the lantern-makers' hall on S3's north flank, on its x, facing the point: a support
 			-- position looking down both legs
 			{ id = "Stage", style = "FestivalStage", x = S3[1], z = CZ + 200, front = { 0, -1 } },
-			{ id = "LanternHall", style = "LanternHall", x = S3[1], z = CZ + 262, front = { 0, -1 } },
-			-- the old watchtower behind S1's point on its north side, Katzmark's camp round it
-			{ id = "Watchtower", style = "Watchtower", x = 340, z = CZ - 84, front = { 1, 0 } },
+			{ id = "LanternHall", style = "LanternHall", x = S3[1], z = CZ + 285, front = { 0, -1 } },
+			-- the Lantern Tower between them (S3's hero, user approved 2026-11-11), its strings, carousel and stalls
+			{ id = "LanternTower", style = "LanternTower", x = S3[1], z = CZ + 240, front = { 0, -1 } },
+			-- Katzmark Burg behind S1's point on its north side (S1's hero, user approved 2026-11-11), its keep where the
+			-- old watchtower stood (340, -84), Katzmark's camp in its bailey
+			{ id = "Burg", style = "KatzmarkBurg", x = 348, z = CZ - 68, front = { 1, 0 } },
 			-- the brickfield farm on S2's point, the flag in its yard (user approved 2026-11-06)
 			{ id = "BrickfieldFarm", style = "BrickfieldFarm", x = PTS[2][1], z = CZ + PTS[2][2], front = { 0, -1 } },
+			-- Fornace Aurelia behind it, north of the point on its x (S2's hero, user approved 2026-11-11): the ring kiln and
+			-- its 78-stud chimney, seen across the valley; the workers' row behind the clay pit
+			{ id = "Fornace", style = "Fornace", x = PTS[2][1], z = CZ + PTS[2][2] + 100, front = { 0, -1 } },
+			{ id = "WorkersRow", style = "WorkersRow", x = PTS[2][1], z = CZ + PTS[2][2] + 180, front = { 0, -1 } },
 			-- the cascina on S5's point, its south side, facing the flag; Selvara's camp
+			-- (Cascina Selvara, S5's hero, user approved 2026-11-11: the house where it stood, its wide walled yard
+			-- behind it toward the river, the stable across the back and the chapel on its east side facing into it)
 			{ id = "Cascina", style = "Cascina", x = PTS[5][1], z = CZ - 228, front = { 0, 1 } },
+			{ id = "CascinaStable", style = "CascinaStable", x = PTS[5][1] - 2, z = CZ - 296, front = { 0, 1 } },
+			{ id = "CascinaChapel", style = "CascinaChapel", x = PTS[5][1] + 58, z = CZ - 262, front = { -1, 0 } },
 			-- Borgo Aurel's campanile and loggia on the piazza, north and south of the flag
 			{ id = "Campanile", style = "Campanile", x = 1944, z = CZ + 78, front = { 0, -1 } },
 			{ id = "Loggia", style = "Loggia", x = 1934, z = CZ - 20, front = { 0, 1 } },
+			-- S4's hero's compound (user approved 2026-11-11): the church beside the campanile, its front on the piazza;
+			-- the town gate over the Main road where it comes in from the festival ford; a broken stretch of the old wall
+			-- on the Aurel's east bank above the ferry
+			{ id = "Church", style = "BorgoChurch", x = 1904, z = CZ + 82, front = { 0, -1 } },
+			{ id = "Porta", style = "PortaAurel", x = 1790, z = CZ + 44.4, front = { -1, 0 } },
+			{ id = "OldWall", style = "BorgoWall", x = 1718, z = CZ + 144, front = { -1, 0 } },
 			-- the ferry house on the east bank above the festival ford, facing the river
 			{ id = "Ferry", style = "FerryHouse", x = 1716, z = CZ + 100, front = { -1, 0 } },
 		},

@@ -1892,4 +1892,1271 @@ function Geometry.beds(parent: Instance, ctx: Ctx, at: CFrame, rows: number, L: 
 	end
 end
 
+-- A part in its own colour (a Palette.Buildings.Walls / Roofs key for `paint` Wall / Roof), whatever the copy's scheme.
+local function swatched(
+	sec: Instance,
+	ctx: Ctx,
+	name: string,
+	cf: CFrame,
+	size: Vector3,
+	paint: string,
+	key: string
+): BasePart
+	local p = Geometry.part(sec, ctx, name, cf, size, paint)
+	p:SetAttribute("Swatch", key)
+	return p
+end
+
+-- Two roof slabs `pitch` degrees either side of a ridge along local X over `at` (its eaves at y 0), `half` out to each
+-- eave and `L` long, and a ridge cap: a drying shed's or a ring kiln's roof. Returns the rise to the ridge.
+local function pitchedRoof(
+	sec: Instance,
+	ctx: Ctx,
+	at: CFrame,
+	L: number,
+	half: number,
+	pitch: number,
+	key: string
+): number
+	local a = math.rad(pitch)
+	local rise = half * math.tan(a)
+	for _, s in { -1, 1 } do
+		swatched(
+			sec,
+			ctx,
+			"Roof",
+			at * CFrame.new(0, rise / 2 + 0.25, s * half / 2) * CFrame.Angles(s * a, 0, 0),
+			Vector3.new(L, 0.5, half / math.cos(a) + 0.3),
+			"Roof",
+			key
+		)
+	end
+	swatched(sec, ctx, "Ridge", at * CFrame.new(0, rise + 0.35, 0), Vector3.new(L + 0.2, 0.6, 0.9), "Roof", key)
+	return rise
+end
+
+-- Fornace Aurelia's chimney (Config/Buildings.Smokestack): a square brick shaft `H` high on a stone plinth, `base`
+-- across at its foot narrowing course by course to `top`, banded near the top, a dark flue and an iron rod on it.
+-- Each course a section of its own, so shells bring it down where they hit; solid, nobody climbs it.
+function Geometry.smokestack(parent: Instance, ctx: Ctx, at: CFrame, base: number, top: number, H: number)
+	local S = ctx.B.Smokestack
+	local depth = ctx.B.FoundationDepth
+	local plinth = Geometry.section(parent, ctx, "Chimney", "Stone", 0)
+	local pw = base + 2 * S.plinthOut
+	swatched(
+		plinth,
+		ctx,
+		"Plinth",
+		at * CFrame.new(0, (S.plinth - depth) / 2, 0),
+		Vector3.new(pw, S.plinth + depth, pw),
+		"Wall",
+		S.base
+	)
+	swatched(
+		plinth,
+		ctx,
+		"Coping",
+		at * CFrame.new(0, S.plinth + 0.3, 0),
+		Vector3.new(pw - 0.8, 0.6, pw - 0.8),
+		"Wall",
+		S.base
+	)
+	local y0 = S.plinth + 0.6
+	local per = (H - y0) / S.segments
+	local function width(y: number): number
+		return base + (top - base) * (y - y0) / (H - y0)
+	end
+	for i = 0, S.segments - 1 do
+		local a, b = y0 + i * per, y0 + (i + 1) * per
+		local w = width((a + b) / 2)
+		local sec = Geometry.section(parent, ctx, "Chimney", "Brick", 0)
+		swatched(sec, ctx, "Shaft", at * CFrame.new(0, (a + b) / 2, 0), Vector3.new(w, per + 0.05, w), "Wall", S.wall)
+	end
+	local bands = Geometry.section(parent, ctx, "Chimney", "Brick", 0)
+	for _, share in S.bands do
+		local y = math.min(H * share, H - S.band / 2)
+		local w = width(y) + 2 * S.bandOut
+		swatched(bands, ctx, "Band", at * CFrame.new(0, y, 0), Vector3.new(w, S.band, w), "Wall", S.trim)
+	end
+	swatched(
+		bands,
+		ctx,
+		"Flue",
+		at * CFrame.new(0, H + 0.05, 0),
+		Vector3.new(top - 1.4, 0.2, top - 1.4),
+		"Wall",
+		S.dark
+	)
+	Geometry.part(
+		bands,
+		ctx,
+		"Rod",
+		at * CFrame.new(top / 2 - 0.3, H + S.rod / 2, top / 2 - 0.3),
+		Vector3.new(0.25, S.rod, 0.25),
+		"Metal"
+	)
+end
+
+-- A Hoffmann ring kiln (Config/Buildings.RingKiln) `L` along local X, `D` deep and `H` to its cornice: a solid brick
+-- mass on a foundation in `bays` bays, a pilaster between each two (through to the back) and at the ends, a dark
+-- arched wicket in every bay front and back and one in each end, a cornice, a terracotta roof over it with brick
+-- gables. Each bay a section of its own.
+function Geometry.ringKiln(parent: Instance, ctx: Ctx, at: CFrame, L: number, D: number, H: number, bays: number)
+	local K = ctx.B.RingKiln
+	local depth = ctx.B.FoundationDepth
+	local base = ctx.B.Foundation
+	Geometry.part(
+		parent,
+		ctx,
+		"Foundation",
+		at * CFrame.new(0, (base - 1 - depth) / 2, 0),
+		Vector3.new(L + K.pier + 2 * K.pierOut + 0.6, base - 1 + depth, D + 2 * K.pierOut + 0.6),
+		"Foundation"
+	)
+	local bay = L / bays
+	local w, h = K.wicket[1], K.wicket[2]
+	-- a wicket on a face (`face`: the wall's outside frame, -Z out, at its foot), `cx` along it: the opening and its
+	-- head stepping in, standing just proud of the brick
+	local function wicket(sec: Instance, face: CFrame, cx: number)
+		swatched(sec, ctx, "Wicket", face * CFrame.new(cx, h / 2, -0.06), Vector3.new(w, h, 0.2), "Wall", K.dark)
+		swatched(
+			sec,
+			ctx,
+			"Head",
+			face * CFrame.new(cx, h + 0.3, -0.06),
+			Vector3.new(w * 0.72, 0.6, 0.2),
+			"Wall",
+			K.dark
+		)
+		swatched(
+			sec,
+			ctx,
+			"Head",
+			face * CFrame.new(cx, h + 0.8, -0.06),
+			Vector3.new(w * 0.4, 0.4, 0.2),
+			"Wall",
+			K.dark
+		)
+	end
+	local front = at * CFrame.new(0, 0, -D / 2)
+	local back = at * CFrame.Angles(0, math.pi, 0) * CFrame.new(0, 0, -D / 2)
+	for i = 1, bays do
+		local cx = -L / 2 + (i - 0.5) * bay
+		local sec = Geometry.section(parent, ctx, "Kiln", "Brick", 0)
+		swatched(sec, ctx, "Body", at * CFrame.new(cx, H / 2, 0), Vector3.new(bay + 0.05, H, D), "Wall", K.wall)
+		wicket(sec, front, cx)
+		wicket(sec, back, -cx)
+	end
+	for i = 0, bays do
+		local sec = Geometry.section(parent, ctx, "Pier", "Brick", 0)
+		swatched(
+			sec,
+			ctx,
+			"Pier",
+			at * CFrame.new(-L / 2 + i * bay, (H - K.cornice) / 2, 0),
+			Vector3.new(K.pier, H - K.cornice, D + 2 * K.pierOut),
+			"Wall",
+			K.pierWall
+		)
+	end
+	for _, s in { -1, 1 } do
+		local sec = Geometry.section(parent, ctx, "Kiln", "Brick", 0)
+		wicket(sec, at * CFrame.Angles(0, -s * math.pi / 2, 0) * CFrame.new(0, 0, -L / 2 - K.pier / 2), 0)
+	end
+	local top = Geometry.section(parent, ctx, "Kiln", "Brick", 0)
+	swatched(
+		top,
+		ctx,
+		"Cornice",
+		at * CFrame.new(0, H - K.cornice / 2, 0),
+		Vector3.new(L + K.pier + 2 * K.pierOut, K.cornice, D + 2 * K.pierOut + 0.4),
+		"Wall",
+		K.pierWall
+	)
+	local roof = Geometry.section(parent, ctx, "Roof", "Tile", 99)
+	local half = D / 2 + K.pierOut + K.overhang
+	local rise = pitchedRoof(roof, ctx, at * CFrame.new(0, H, 0), L + K.pier + 2 * K.overhang, half, K.pitch, K.roof)
+	for _, s in { -1, 1 } do
+		local frame = at * CFrame.new(s * (L / 2 + K.pier / 2 - 0.4), H, 0) * CFrame.Angles(0, math.pi / 2, 0)
+		for _, p in triangle(top, ctx, frame, D + 2 * K.pierOut, rise * (D / 2 + K.pierOut) / half, 0.8, "Wall") do
+			p:SetAttribute("Swatch", K.pierWall)
+		end
+	end
+end
+
+-- An open drying shed (Config/Buildings.DryingShed) `L` along local X, `span` across, its eaves `height` up: posts on a
+-- brick floor, a low terracotta roof, two rows of green bricks drying in hacks (hoppable cover) and a canvas screen
+-- hung along its back (+Z) eave.
+function Geometry.dryingShed(parent: Instance, ctx: Ctx, at: CFrame, L: number, span: number, height: number)
+	local S = ctx.B.DryingShed
+	local depth = ctx.B.FoundationDepth
+	local floor = Geometry.section(parent, ctx, "Platform", "Stone", -1)
+	Geometry.part(
+		floor,
+		ctx,
+		"Bed",
+		at * CFrame.new(0, (0.4 - depth) / 2, 0),
+		Vector3.new(L + 0.6, 0.4 + depth, span + 0.6),
+		"Foundation"
+	)
+	local bays = math.max(1, math.round(L / S.bay))
+	for i = 0, bays do
+		local x = -L / 2 + i * L / bays
+		local sec = Geometry.section(parent, ctx, "Post", "Wood", 0)
+		for _, sz in { -1, 1 } do
+			Geometry.part(
+				sec,
+				ctx,
+				"Post",
+				at * CFrame.new(x, height / 2, sz * (span / 2 - 0.5)),
+				Vector3.new(1, height, 1),
+				"Trim"
+			)
+		end
+		Geometry.part(sec, ctx, "Beam", at * CFrame.new(x, height - 0.35, 0), Vector3.new(0.7, 0.7, span), "Trim")
+	end
+	for _, sz in { -1, 1 } do
+		local sec = Geometry.section(parent, ctx, "Beam", "Wood", 0)
+		Geometry.part(
+			sec,
+			ctx,
+			"Plate",
+			at * CFrame.new(0, height - 0.35, sz * (span / 2 - 0.5)),
+			Vector3.new(L, 0.7, 0.8),
+			"Trim"
+		)
+	end
+	local roof = Geometry.section(parent, ctx, "Roof", "Tile", 99)
+	pitchedRoof(roof, ctx, at * CFrame.new(0, height, 0), L + 2 * S.overhang, span / 2 + S.overhang, S.pitch, S.roof)
+	-- the hacks: a row of brick stacks either side of the middle, a gap between each two
+	local piece = L / bays - S.gap
+	for _, sz in { -1, 1 } do
+		for i = 1, bays do
+			local sec = Geometry.section(parent, ctx, "Hack", "Brick", 0)
+			swatched(
+				sec,
+				ctx,
+				"Hack",
+				at * CFrame.new(-L / 2 + (i - 0.5) * L / bays, 0.4 + S.hack[1] / 2, sz * span / 4),
+				Vector3.new(piece, S.hack[1], S.hack[2]),
+				"Wall",
+				S.green
+			)
+		end
+	end
+	local screen = Geometry.section(parent, ctx, "Screen", "Wood", 0)
+	festival(
+		screen,
+		ctx,
+		"Canvas",
+		at * CFrame.new(0, height - 0.7 - S.screen / 2, span / 2 - 0.2),
+		Vector3.new(L - 1, S.screen, 0.15),
+		S.canvas
+	)
+end
+
+-- A flooded clay pit (Config/Buildings.ClayPit), an oval `L` along local X and `W` across, `depth` deep at its middle:
+-- an invisible marker ("Pit", the oval's box) that VillageBuild digs into the terrain and floods, and spoil heaps of
+-- clay on the real ground at its two ends.
+function Geometry.clayPit(parent: Instance, ctx: Ctx, at: CFrame, L: number, W: number, depth: number)
+	local K = ctx.B.ClayPit
+	local sec = Geometry.section(parent, ctx, "ClayPit", "Stone", 0)
+	sec:SetAttribute("Pit", depth)
+	local marker = Geometry.part(sec, ctx, "Pit", at, Vector3.new(L, 1, W), "Foundation")
+	marker.Transparency = 1
+	marker.CanCollide = false
+	marker.CanQuery = false
+	marker.CanTouch = false
+	marker.CastShadow = false
+	for _, s in { -1, 1 } do
+		local heap = Geometry.section(parent, ctx, "Spoil", "Stone", 0)
+		heap:SetAttribute("OnGround", true)
+		local frame = at * CFrame.new(s * (L / 2 + 5), -0.4, 0) * CFrame.Angles(0, math.pi / 2, 0)
+		for _, p in triangle(heap, ctx, frame, W * 0.6, K.spoil + 0.4, 4, "Wall") do
+			p:SetAttribute("Swatch", K.clay)
+		end
+	end
+end
+
+-- A square pyramid `W` across at its foot (y 0 of `at`) and `h` high: four triangles leaning in to the apex, each `thick`
+-- through (a campanile's cap). Returns the parts.
+local function pyramid(sec: Instance, ctx: Ctx, at: CFrame, W: number, h: number, thick: number): { BasePart }
+	local lean = math.atan((W / 2) / h)
+	local slant = math.sqrt(h * h + (W / 2) ^ 2)
+	local out = {}
+	for k = 0, 3 do
+		local frame = at * CFrame.Angles(0, k * math.pi / 2, 0) * CFrame.new(0, 0, -W / 2) * CFrame.Angles(lean, 0, 0)
+		for _, p in triangle(sec, ctx, frame, W, slant, thick, "Roof") do
+			table.insert(out, p)
+		end
+	end
+	return out
+end
+
+-- Borgo Aurel's campanile above its tower block (Config/Buildings.BellTower): a square brick shaft `W` across from `y0`
+-- (the block's wall top) in stages, each with a string course, corner pilasters and a slit a face; an open belfry of
+-- two arches a face round a dark core with a bell in each arch; a cornice; a terracotta pyramid cap to `H`. Solid: the
+-- stair inside the block below stops at its top floor.
+function Geometry.bellTower(parent: Instance, ctx: Ctx, at: CFrame, W: number, y0: number, H: number)
+	local K = ctx.B.BellTower
+	local capY = H - K.cap
+	local belfryY = capY - K.cornice - K.belfry
+	local stages = math.max(1, math.round((belfryY - y0) / K.stage))
+	local per = (belfryY - y0) / stages
+	local faces = {}
+	for k = 0, 3 do
+		table.insert(faces, at * CFrame.Angles(0, k * math.pi / 2, 0) * CFrame.new(0, 0, -W / 2))
+	end
+	for i = 0, stages - 1 do
+		local a, b = y0 + i * per, y0 + (i + 1) * per
+		local sec = Geometry.section(parent, ctx, "Tower", "Brick", 4 + i)
+		swatched(sec, ctx, "Shaft", at * CFrame.new(0, (a + b) / 2, 0), Vector3.new(W, per + 0.05, W), "Wall", K.wall)
+		swatched(
+			sec,
+			ctx,
+			"Course",
+			at * CFrame.new(0, b - K.course / 2, 0),
+			Vector3.new(W + 2 * K.out + 0.3, K.course, W + 2 * K.out + 0.3),
+			"Wall",
+			K.trim
+		)
+		for _, f in faces do
+			for _, s in { -1, 1 } do
+				swatched(
+					sec,
+					ctx,
+					"Pilaster",
+					f * CFrame.new(s * (W / 2 - K.pilaster / 2), (a + b) / 2, -K.out / 2),
+					Vector3.new(K.pilaster, per, K.out + 0.05),
+					"Wall",
+					K.trim
+				)
+			end
+			if i % 2 == 1 then
+				swatched(
+					sec,
+					ctx,
+					"Slit",
+					f * CFrame.new(0, (a + b) / 2, -0.06),
+					Vector3.new(K.slit[1], K.slit[2], 0.2),
+					"Wall",
+					K.dark
+				)
+			end
+		end
+	end
+	-- the belfry: a sill, the dark core, piers at the corners and a mullion in each face, the arch heads, the bells
+	local bel = Geometry.section(parent, ctx, "Belfry", "Brick", 4 + stages)
+	local top = belfryY + K.belfry
+	swatched(
+		bel,
+		ctx,
+		"Core",
+		at * CFrame.new(0, (belfryY + top) / 2, 0),
+		Vector3.new(W - 2 * K.inset, K.belfry, W - 2 * K.inset),
+		"Wall",
+		K.dark
+	)
+	local span = (W - 2 * K.pier - K.mullion) / 2
+	for _, f in faces do
+		for _, s in { -1, 1 } do
+			swatched(
+				bel,
+				ctx,
+				"Pier",
+				f * CFrame.new(s * (W / 2 - K.pier / 2), (belfryY + top) / 2, K.pier / 2),
+				Vector3.new(K.pier, K.belfry, K.pier),
+				"Wall",
+				K.wall
+			)
+			local cx = s * (K.mullion / 2 + span / 2)
+			-- the arch's head: two steps in from the piers under the cornice
+			for k, share in { 0.28, 0.12 } do
+				local y = top - (k - 0.5) * 0.8
+				for _, side in { -1, 1 } do
+					swatched(
+						bel,
+						ctx,
+						"Head",
+						f * CFrame.new(cx + side * (span / 2 - share * span / 2), y, K.inset / 2),
+						Vector3.new(share * span, 0.8, K.inset),
+						"Wall",
+						K.wall
+					)
+				end
+			end
+			local bell = swatched(
+				bel,
+				ctx,
+				"Bell",
+				f * CFrame.new(cx, top - 3.4, K.inset - K.bell / 2 - 0.1),
+				Vector3.new(K.bell, K.bell * 1.1, K.bell),
+				"Wall",
+				K.bronze
+			)
+			bell.CanCollide = false
+		end
+		swatched(
+			bel,
+			ctx,
+			"Mullion",
+			f * CFrame.new(0, (belfryY + top) / 2, K.inset / 2),
+			Vector3.new(K.mullion, K.belfry, K.inset),
+			"Wall",
+			K.wall
+		)
+		swatched(
+			bel,
+			ctx,
+			"Sill",
+			f * CFrame.new(0, belfryY + 0.4, K.inset / 2),
+			Vector3.new(W, 0.8, K.inset + 0.6),
+			"Wall",
+			K.trim
+		)
+	end
+	swatched(
+		bel,
+		ctx,
+		"Cornice",
+		at * CFrame.new(0, top + K.cornice / 2, 0),
+		Vector3.new(W + 2 * K.eave, K.cornice, W + 2 * K.eave),
+		"Wall",
+		K.trim
+	)
+	local cap = Geometry.section(parent, ctx, "Roof", "Tile", 99)
+	for _, p in pyramid(cap, ctx, at * CFrame.new(0, capY, 0), W + 2 * K.eave, K.cap, 0.6) do
+		p:SetAttribute("Swatch", K.roof)
+	end
+	Geometry.part(cap, ctx, "Finial", at * CFrame.new(0, H + 0.6, 0), Vector3.new(0.6, 1.6, 0.6), "Metal")
+end
+
+-- A church's front screen (Config/Buildings.Facade) standing before its front wall (local -Z out), `W` across: the
+-- wall `H` up round the door's opening (the block's door, Metrics.Building's size, in the middle), pilasters, a
+-- cornice, a pediment over the roof's gable (`pitch` degrees) with a cross, a rose window over the door.
+function Geometry.facade(parent: Instance, ctx: Ctx, at: CFrame, W: number, H: number, pitch: number)
+	local K = ctx.B.Facade
+	local Bm = ctx.M.Building
+	local floor = ctx.B.Foundation
+	local ow, oh = Bm.DoorWidth + 0.4, floor + Bm.DoorHeight + 0.3
+	local sec = Geometry.section(parent, ctx, "Facade", "Stone", 0)
+	local side = (W - ow) / 2
+	for _, s in { -1, 1 } do
+		swatched(
+			sec,
+			ctx,
+			"Screen",
+			at * CFrame.new(s * (ow / 2 + side / 2), (H - 1) / 2, 0),
+			Vector3.new(side, H + 1, K.thick),
+			"Wall",
+			K.wall
+		)
+		for _, x in { W / 2 - K.pilaster / 2, ow / 2 + K.pilaster / 2 + 0.6 } do
+			swatched(
+				sec,
+				ctx,
+				"Pilaster",
+				at * CFrame.new(s * x, (H - 1) / 2, -K.thick / 2 - K.out / 2),
+				Vector3.new(K.pilaster, H + 1, K.out + 0.05),
+				"Wall",
+				K.trim
+			)
+		end
+	end
+	swatched(
+		sec,
+		ctx,
+		"Screen",
+		at * CFrame.new(0, (oh + H) / 2, 0),
+		Vector3.new(ow + 0.1, H - oh, K.thick),
+		"Wall",
+		K.wall
+	)
+	swatched(
+		sec,
+		ctx,
+		"Lintel",
+		at * CFrame.new(0, oh + 0.3, -K.thick / 2 - K.out / 2),
+		Vector3.new(ow + 1.2, 0.6, K.out + 0.05),
+		"Wall",
+		K.trim
+	)
+	swatched(
+		sec,
+		ctx,
+		"Cornice",
+		at * CFrame.new(0, H + K.cornice / 2, -K.out / 2),
+		Vector3.new(W + 0.6, K.cornice, K.thick + K.out + 0.4),
+		"Wall",
+		K.trim
+	)
+	-- the pediment: over the nave's gable (half the screen across at its pitch), a little taller
+	local rise = (W / 2) * math.tan(math.rad(pitch)) + K.rise
+	local ped = Geometry.section(parent, ctx, "Facade", "Stone", 1)
+	for _, p in triangle(ped, ctx, at * CFrame.new(0, H + K.cornice, 0), W, rise, K.thick, "Wall") do
+		p:SetAttribute("Swatch", K.wall)
+	end
+	local apex = H + K.cornice + rise
+	Geometry.part(ped, ctx, "Cross", at * CFrame.new(0, apex + K.cross / 2, 0), Vector3.new(0.5, K.cross, 0.5), "Metal")
+	Geometry.part(ped, ctx, "Cross", at * CFrame.new(0, apex + K.cross * 0.68, 0), Vector3.new(1.8, 0.5, 0.5), "Metal")
+	-- the rose window between the door and the cornice
+	local ry = (oh + 0.6 + H) / 2
+	local ring = swatched(
+		sec,
+		ctx,
+		"Ring",
+		at * CFrame.new(0, ry, -K.thick / 2 - 0.15) * CFrame.Angles(0, math.pi / 2, 0),
+		Vector3.new(0.3, K.rose + 2 * K.ring, K.rose + 2 * K.ring),
+		"Wall",
+		K.trim
+	)
+	ring.Shape = Enum.PartType.Cylinder
+	local rose = Geometry.part(
+		sec,
+		ctx,
+		"Rose",
+		at * CFrame.new(0, ry, -K.thick / 2 - 0.3) * CFrame.Angles(0, math.pi / 2, 0),
+		Vector3.new(0.2, K.rose, K.rose),
+		"Glass"
+	)
+	rose.Shape = Enum.PartType.Cylinder
+	for _, a in { 0, 45, 90, 135 } do
+		Geometry.part(
+			sec,
+			ctx,
+			"Tracery",
+			at * CFrame.new(0, ry, -K.thick / 2 - 0.42) * CFrame.Angles(0, 0, math.rad(a)),
+			Vector3.new(K.rose, 0.25, 0.1),
+			"Trim"
+		)
+	end
+end
+
+-- A piazza fountain on the real ground (Config/Buildings.Fountain), `r` out to its rim: an eight-sided stone basin you
+-- hop over, its water, a pillar with a bowl and a finial in the middle.
+function Geometry.fountain(parent: Instance, ctx: Ctx, at: CFrame, r: number)
+	local K = ctx.B.Fountain
+	local sec = Geometry.section(parent, ctx, "Fountain", "Stone", 0)
+	sec:SetAttribute("OnGround", true)
+	local side = 2 * r * math.tan(math.pi / 8)
+	for i = 0, 7 do
+		swatched(
+			sec,
+			ctx,
+			"Rim",
+			at * CFrame.Angles(0, i * math.pi / 4, 0) * CFrame.new(0, (K.rim - 1) / 2, -(r - K.thick / 2)),
+			Vector3.new(side + K.thick * 0.85, K.rim + 1, K.thick),
+			"Wall",
+			K.stone
+		)
+	end
+	local function disc(name: string, y: number, h: number, d: number, paint: string): BasePart
+		local p = Geometry.part(
+			sec,
+			ctx,
+			name,
+			at * CFrame.new(0, y, 0) * CFrame.Angles(0, 0, math.pi / 2),
+			Vector3.new(h, d, d),
+			paint
+		)
+		p.Shape = Enum.PartType.Cylinder
+		return p
+	end
+	disc("Floor", -0.3, 1.4, 2 * r - 0.6, "Foundation")
+	local water = disc("Water", K.water - 0.1, 0.2, 2 * r - 1.2, "Glass")
+	water.Transparency = 0.25
+	water.CanCollide = false
+	local pillar = disc("Pillar", K.bowlY / 2, K.bowlY, K.pillar, "Wall")
+	pillar.Size = Vector3.new(K.bowlY, K.pillar, K.pillar)
+	pillar:SetAttribute("Swatch", K.stone)
+	disc("Bowl", K.bowlY, 0.6, K.bowl, "Wall"):SetAttribute("Swatch", K.stone)
+	disc("Spill", K.bowlY + 0.35, 0.15, K.bowl - 0.6, "Glass").CanCollide = false
+	disc("Finial", (K.bowlY + K.top) / 2, K.top - K.bowlY, 0.8, "Wall"):SetAttribute("Swatch", K.stone)
+end
+
+-- A town gate tower (Config/Buildings.GateTower) `W` across, `D` deep (its way through along local Z) and `H` to its
+-- merlons' tops: two piers, the way `way` { width, height } between them under a stepped arch head, the tower over it,
+-- a string course, quoins, arrow slits front and back, a battlemented top. Solid; the road runs through. `wallKey`: its
+-- own wall colour; `onGround`: the whole of it on the real ground where it stands; `capRoof`: a tiled cap (that Roofs
+-- key) instead of merlons, no slits (a cascina's gateway).
+function Geometry.gateTower(
+	parent: Instance,
+	ctx: Ctx,
+	at: CFrame,
+	W: number,
+	D: number,
+	H: number,
+	way: { number },
+	wallKey: string?,
+	onGround: boolean?,
+	capRoof: string?
+)
+	local K = ctx.B.GateTower
+	local wall = wallKey or K.wall
+	if onGround then
+		-- (all of it on the real ground where it stands: a burg's gatehouse out on its slope)
+		local m = Instance.new("Model")
+		m.Name = "Gatehouse"
+		m:SetAttribute("OnGround", true)
+		m.Parent = parent
+		parent = m
+	end
+	local depth = ctx.B.FoundationDepth
+	local ww, wh = way[1], way[2]
+	local pw = (W - ww) / 2
+	local body = if capRoof then H else H - K.merlon[2]
+	for _, s in { -1, 1 } do
+		local sec = Geometry.section(parent, ctx, "Pier", "Stone", 0)
+		swatched(
+			sec,
+			ctx,
+			"Pier",
+			at * CFrame.new(s * (ww / 2 + pw / 2), (wh - depth) / 2, 0),
+			Vector3.new(pw, wh + depth, D),
+			"Wall",
+			wall
+		)
+		for k, share in K.steps do
+			swatched(
+				sec,
+				ctx,
+				"Corbel",
+				at * CFrame.new(s * (ww / 2 - share * ww / 2), wh + (k - 0.5) * K.corbel, 0),
+				Vector3.new(share * ww, K.corbel, D),
+				"Wall",
+				wall
+			)
+		end
+	end
+	local headY = wh + #K.steps * K.corbel
+	local tiers = 2
+	local per = (body - wh) / tiers
+	for i = 0, tiers - 1 do
+		local a = wh + i * per
+		local b = a + per
+		local sec = Geometry.section(parent, ctx, "Tower", "Stone", 1 + i)
+		for _, s in { -1, 1 } do
+			swatched(
+				sec,
+				ctx,
+				"Wall",
+				at * CFrame.new(s * (ww / 2 + pw / 2), (a + b) / 2, 0),
+				Vector3.new(pw, per + 0.05, D),
+				"Wall",
+				wall
+			)
+		end
+		local a2 = math.max(a, headY)
+		swatched(
+			sec,
+			ctx,
+			"Wall",
+			at * CFrame.new(0, (a2 + b) / 2, 0),
+			Vector3.new(ww + 0.1, b - a2 + 0.05, D),
+			"Wall",
+			wall
+		)
+		-- arrow slits front and back: one over each pier, one over the way (none on a cascina's roofed gateway)
+		for _, face in if capRoof then {} else { 0, math.pi } do
+			local f = at * CFrame.Angles(0, face, 0) * CFrame.new(0, 0, -D / 2)
+			for _, x in { -(ww / 2 + pw / 2), 0, ww / 2 + pw / 2 } do
+				swatched(
+					sec,
+					ctx,
+					"Slit",
+					f * CFrame.new(x, (a + b) / 2 + 1, -0.06),
+					Vector3.new(K.slit[1], K.slit[2], 0.2),
+					"Wall",
+					K.dark
+				)
+			end
+		end
+	end
+	local trim = Geometry.section(parent, ctx, "Tower", "Stone", 3)
+	if capRoof then
+		-- a gateway's tiled cap instead of a string course and merlons
+		pitchedRoof(trim, ctx, at * CFrame.new(0, body, 0), W + 1.2, D / 2 + 0.8, K.capPitch, capRoof)
+	end
+	swatched(
+		trim,
+		ctx,
+		"Course",
+		at * CFrame.new(0, wh + per, 0),
+		Vector3.new(W + 0.5, if capRoof then 0.05 else K.course, D + 0.5),
+		"Wall",
+		K.trim
+	)
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			swatched(
+				trim,
+				ctx,
+				"Quoin",
+				at * CFrame.new(sx * (W / 2 - K.quoin / 2 + 0.15), body / 2, sz * (D / 2 - K.quoin / 2 + 0.15)),
+				Vector3.new(K.quoin, body, K.quoin),
+				"Wall",
+				K.trim
+			)
+		end
+	end
+	-- the merlons round the top, a merlon at every corner
+	if capRoof then
+		return
+	end
+	local runs = { { CFrame.new(0, 0, -D / 2 + 0.6), W }, { CFrame.new(0, 0, D / 2 - 0.6), W } }
+	table.insert(runs, { CFrame.new(-W / 2 + 0.6, 0, 0) * CFrame.Angles(0, math.pi / 2, 0), D })
+	table.insert(runs, { CFrame.new(W / 2 - 0.6, 0, 0) * CFrame.Angles(0, math.pi / 2, 0), D })
+	for _, r in runs do
+		local L = r[2]
+		local n = math.max(3, math.floor(L / K.merlon[1] / 2) * 2 + 1)
+		for i = 0, n - 1, 2 do
+			swatched(
+				trim,
+				ctx,
+				"Merlon",
+				at * r[1] * CFrame.new(-L / 2 + (i + 0.5) * L / n, body + K.merlon[2] / 2, 0),
+				Vector3.new(L / n, K.merlon[2], 1.2),
+				"Wall",
+				wall
+			)
+		end
+	end
+end
+
+-- A stretch of old town wall (Config/Buildings.TownWall) along local X, `thick` thick: each piece { from, to, height }
+-- on the real ground where it stands, a tall piece battlemented, a low one broken off in steps; gaps between them; a
+-- round tower stump `tower` { x, radius, height } with a string course and merlons.
+function Geometry.townWall(parent: Instance, ctx: Ctx, at: CFrame, thick: number, pieces: { any }, tower: any?)
+	local K = ctx.B.TownWall
+	for i, q in pieces do
+		local a, b, h = q[1], q[2], q[3]
+		local L = b - a
+		local cx = (a + b) / 2
+		local sec = Geometry.section(parent, ctx, "Wall", "Stone", 0)
+		sec:SetAttribute("OnGround", true)
+		swatched(sec, ctx, "Wall", at * CFrame.new(cx, (h - 1) / 2, 0), Vector3.new(L, h + 1, thick), "Wall", K.stone)
+		if h >= K.crenel then
+			local n = math.max(3, math.floor(L / K.merlon[1] / 2) * 2 + 1)
+			for k = 0, n - 1, 2 do
+				swatched(
+					sec,
+					ctx,
+					"Merlon",
+					at * CFrame.new(a + (k + 0.5) * L / n, h + K.merlon[2] / 2, 0),
+					Vector3.new(L / n, K.merlon[2], thick),
+					"Wall",
+					K.stone
+				)
+			end
+		else
+			-- broken off: the rubble of the courses above in steps toward one end
+			local side = if i % 2 == 0 then 1 else -1
+			for k, share in { 0.55, 0.25 } do
+				swatched(
+					sec,
+					ctx,
+					"Rubble",
+					at * CFrame.new(cx + side * L * (1 - share) / 2, h + (k - 0.5) * K.step, 0),
+					Vector3.new(L * share, K.step, thick - 0.3 * k),
+					"Wall",
+					K.stone
+				)
+			end
+		end
+	end
+	if tower then
+		local r, h = tower.radius, tower.height
+		local sec = Geometry.section(parent, ctx, "Tower", "Stone", 0)
+		sec:SetAttribute("OnGround", true)
+		local c = at * CFrame.new(tower.x, 0, 0)
+		local n = K.sides
+		local side = 2 * r * math.tan(math.pi / n)
+		swatched(
+			sec,
+			ctx,
+			"Core",
+			c * CFrame.new(0, (h - 1) / 2, 0),
+			Vector3.new(1.5 * r, h + 1, 1.5 * r),
+			"Wall",
+			K.stone
+		)
+		for k = 0, n - 1 do
+			local face = c * CFrame.Angles(0, k * 2 * math.pi / n, 0)
+			swatched(
+				sec,
+				ctx,
+				"Drum",
+				face * CFrame.new(0, (h - 1) / 2, -(r - 0.6)),
+				Vector3.new(side + 0.5, h + 1, 1.2),
+				"Wall",
+				K.stone
+			)
+			if k % 2 == 0 then
+				swatched(
+					sec,
+					ctx,
+					"Merlon",
+					face * CFrame.new(0, h + K.merlon[2] / 2, -(r - 0.6)),
+					Vector3.new(side + 0.3, K.merlon[2], 1.2),
+					"Wall",
+					K.stone
+				)
+			end
+			swatched(
+				sec,
+				ctx,
+				"Course",
+				face * CFrame.new(0, h * 0.6, -(r - 0.4)),
+				Vector3.new(side + 0.7, K.course, 1.2),
+				"Wall",
+				K.trim
+			)
+		end
+	end
+end
+
+-- A beam between two points (its length along local Z), `w` square.
+local function beam(sec: Instance, ctx: Ctx, name: string, p0: Vector3, p1: Vector3, w: number, paint: string): BasePart
+	local len = (p1 - p0).Magnitude
+	return Geometry.part(sec, ctx, name, CFrame.lookAt((p0 + p1) / 2, p1), Vector3.new(w, w, len + w * 0.6), paint)
+end
+
+-- A cone of `n` triangles leaning in from a ring `r` out (to its corners) at y 0 of `at` to an apex `h` up, `thick`
+-- through. Returns each face's parts in order round it (a striped canopy colours them by turns).
+local function cone(
+	sec: Instance,
+	ctx: Ctx,
+	at: CFrame,
+	r: number,
+	h: number,
+	n: number,
+	thick: number
+): { { BasePart } }
+	local a = r * math.cos(math.pi / n)
+	local side = 2 * r * math.sin(math.pi / n)
+	local lean = math.atan(a / h)
+	local slant = math.sqrt(h * h + a * a)
+	local out = {}
+	for k = 0, n - 1 do
+		local frame = at * CFrame.Angles(0, k * 2 * math.pi / n, 0) * CFrame.new(0, 0, -a) * CFrame.Angles(lean, 0, 0)
+		table.insert(out, triangle(sec, ctx, frame, side + 0.1, slant, thick, "Roof"))
+	end
+	return out
+end
+
+-- The Lantern Tower (Config/Buildings.LatticeTower): a timber lattice tower `b` across at its foot narrowing to `t` at
+-- its deck `H` up, in `stages` stages (four legs, a ring of beams and crossed braces on every face, each stage a
+-- section); a railed deck, a lantern cabin glowing under a cone, a pennant, lanterns hung round the deck's edge. You
+-- see through it; nobody climbs it.
+function Geometry.latticeTower(parent: Instance, ctx: Ctx, at: CFrame, b: number, t: number, H: number, stages: number)
+	local K = ctx.B.LatticeTower
+	local depth = ctx.B.FoundationDepth
+	local function half(y: number): number
+		return (b - (b - t) * y / H) / 2
+	end
+	local feet = Geometry.section(parent, ctx, "Platform", "Stone", -1)
+	for _, sx in { -1, 1 } do
+		for _, sz in { -1, 1 } do
+			Geometry.part(
+				feet,
+				ctx,
+				"Foot",
+				at * CFrame.new(sx * half(0), (0.6 - depth) / 2, sz * half(0)),
+				Vector3.new(2.6, 0.6 + depth, 2.6),
+				"Foundation"
+			)
+		end
+	end
+	for i = 0, stages - 1 do
+		local y0, y1 = H * i / stages, H * (i + 1) / stages
+		local h0, h1 = half(y0), half(y1)
+		local sec = Geometry.section(parent, ctx, "Tower", "Wood", i)
+		for k = 0, 3 do
+			local f = at * CFrame.Angles(0, k * math.pi / 2, 0)
+			local function P(x: number, y: number, z: number): Vector3
+				return (f * CFrame.new(x, y, z)).Position
+			end
+			beam(sec, ctx, "Leg", P(-h0, y0, -h0), P(-h1, y1, -h1), K.leg, "Wood")
+			beam(sec, ctx, "Ring", P(-h1, y1, -h1), P(h1, y1, -h1), K.beam, "Trim")
+			beam(sec, ctx, "Brace", P(-h0, y0, -h0), P(h1, y1, -h1), K.beam * 0.8, "Trim")
+			beam(sec, ctx, "Brace", P(h0, y0, -h0), P(-h1, y1, -h1), K.beam * 0.8, "Trim")
+		end
+	end
+	-- the deck, its rail, the lantern cabin, the cone and pennant
+	local top = Geometry.section(parent, ctx, "Tower", "Wood", stages)
+	local d = t + 2
+	Geometry.part(top, ctx, "Deck", at * CFrame.new(0, H + K.deck / 2, 0), Vector3.new(d, K.deck, d), "Floor")
+	local y = H + K.deck
+	for k = 0, 3 do
+		local f = at * CFrame.Angles(0, k * math.pi / 2, 0)
+		Geometry.part(top, ctx, "Rail", f * CFrame.new(0, y + K.rail, -d / 2 + 0.2), Vector3.new(d, 0.3, 0.3), "Trim")
+		Geometry.part(
+			top,
+			ctx,
+			"Post",
+			f * CFrame.new(-d / 2 + 0.2, y + K.rail / 2, -d / 2 + 0.2),
+			Vector3.new(0.4, K.rail, 0.4),
+			"Trim"
+		)
+		Geometry.part(
+			top,
+			ctx,
+			"Post",
+			f * CFrame.new(-t / 2 + 0.6, y + K.cabin / 2, -t / 2 + 0.6),
+			Vector3.new(0.6, K.cabin, 0.6),
+			"Wood"
+		)
+	end
+	festival(
+		top,
+		ctx,
+		"Lantern",
+		at * CFrame.new(0, y + K.cabin / 2, 0),
+		Vector3.new(t - 2, K.cabin - 0.4, t - 2),
+		"Lantern"
+	)
+	local roofY = y + K.cabin
+	for _, face in cone(top, ctx, at * CFrame.new(0, roofY, 0), t / 2 + 1.2, K.cone, K.sides, 0.4) do
+		for _, p in face do
+			p:SetAttribute("Swatch", K.roof)
+		end
+	end
+	local apex = roofY + K.cone
+	Geometry.part(
+		top,
+		ctx,
+		"Pole",
+		at * CFrame.new(0, apex + K.pole / 2 - 0.5, 0),
+		Vector3.new(0.3, K.pole, 0.3),
+		"Metal"
+	)
+	local flag = at * CFrame.new(0.15, apex + K.pole - 0.5 - K.pennant[2] / 2, 0) * CFrame.Angles(0, 0, -math.pi / 2)
+	for _, p in triangle(top, ctx, flag, K.pennant[2], K.pennant[1], 0.15, "Festival") do
+		p:SetAttribute("Swatch", K.pennantKey)
+	end
+	local lanterns = Geometry.section(parent, ctx, "Lanterns", "Wood", 99)
+	for k = 0, K.cluster - 1 do
+		local a = k * 2 * math.pi / K.cluster
+		lantern(lanterns, ctx, at, math.cos(a) * (d / 2 - 0.3), H, math.sin(a) * (d / 2 - 0.3))
+	end
+end
+
+-- A string of paper lanterns (Config/Buildings.LanternString) from `from` { x, y, z } (on the tower) down to `to` { x,
+-- z } at `up` over the template's base, sagging, a lantern every `gap`; VillageBuild then lifts its far end to `up`
+-- over the real ground there (the "Start" and "End" markers, the section's String attribute). Soldiers walk through.
+function Geometry.lanternString(parent: Instance, ctx: Ctx, at: CFrame, from: { number }, to: { number }, up: number)
+	local K = ctx.B.LanternString
+	local sec = Geometry.section(parent, ctx, "Lanterns", "Wood", 99)
+	sec:SetAttribute("String", up)
+	local S = Vector3.new(from[1], from[2], from[3])
+	local E = Vector3.new(to[1], up, to[2])
+	local len = (E - S).Magnitude
+	local function point(t: number): Vector3
+		return (at * CFrame.new(S:Lerp(E, t) - Vector3.new(0, K.sag * len * 4 * t * (1 - t), 0))).Position
+	end
+	local n = math.max(2, math.ceil(len / K.piece))
+	for i = 0, n - 1 do
+		local cord = beam(sec, ctx, "Cord", point(i / n), point((i + 1) / n), K.cord, "Metal")
+		cord.CanCollide, cord.CanQuery, cord.CanTouch = false, false, false
+	end
+	for k = 1, math.floor(len / K.gap) - 1 do
+		local p = at:PointToObjectSpace(point(k * K.gap / len))
+		lantern(sec, ctx, at, p.X, p.Y, p.Z)
+	end
+	for name, t in { Start = 0, End = 1 } do
+		local m = Geometry.part(sec, ctx, name, CFrame.new(point(t)), Vector3.new(0.2, 0.2, 0.2), "Metal")
+		m.Transparency = 1
+		m.CanCollide, m.CanQuery, m.CanTouch = false, false, false
+	end
+end
+
+-- A market stall on the real ground (Config/Buildings.Stall) `L` along local X and `D` deep, open to its front (-Z):
+-- posts, a counter, a canvas back, a striped canvas roof falling to the back, two lanterns at its front edge.
+function Geometry.stall(parent: Instance, ctx: Ctx, at: CFrame, L: number, D: number)
+	local K = ctx.B.Stall
+	local sec = Geometry.section(parent, ctx, "Stall", "Wood", 0)
+	sec:SetAttribute("OnGround", true)
+	local back = K.height - K.back
+	for _, sx in { -1, 1 } do
+		for _, q in { { -D / 2, K.height }, { D / 2, back } } do
+			Geometry.part(
+				sec,
+				ctx,
+				"Post",
+				at * CFrame.new(sx * (L / 2 - K.post / 2), (q[2] - 1) / 2, q[1]),
+				Vector3.new(K.post, q[2] + 1, K.post),
+				"Trim"
+			)
+		end
+	end
+	Geometry.part(
+		sec,
+		ctx,
+		"Counter",
+		at * CFrame.new(0, (K.counter - 1) / 2, -D / 2 + K.deep / 2),
+		Vector3.new(L - K.post, K.counter + 1, K.deep),
+		"Wood"
+	)
+	festival(sec, ctx, "Canvas", at * CFrame.new(0, back / 2, D / 2), Vector3.new(L - K.post, back, 0.15), "Canvas")
+	local run = D + 1
+	local tilt = math.atan(K.back / run)
+	local w = L / K.stripes
+	for i = 1, K.stripes do
+		festival(
+			sec,
+			ctx,
+			"Awning",
+			at * CFrame.new(-L / 2 + (i - 0.5) * w, (K.height + back) / 2 + 0.15, 0) * CFrame.Angles(-tilt, 0, 0),
+			Vector3.new(w + 0.02, 0.2, run / math.cos(tilt)),
+			K.canvas[(i % #K.canvas) + 1]
+		)
+	end
+	for _, x in { -L / 4, L / 4 } do
+		lantern(sec, ctx, at, x, K.height - 0.1, -D / 2 - 0.3)
+	end
+end
+
+-- A burg's round corner tower on the real ground (Config/Buildings.RoundTower), `r` out and `H` to its eaves: a
+-- many-sided stone drum round a solid core, a string course, arrow slits, a slate cone `cone` high with a finial.
+function Geometry.roundTower(parent: Instance, ctx: Ctx, at: CFrame, r: number, H: number, coneH: number)
+	local K = ctx.B.RoundTower
+	local tower = Instance.new("Model")
+	tower.Name = "RoundTower"
+	tower:SetAttribute("OnGround", true)
+	tower.Parent = parent
+	local n = K.sides
+	local side = 2 * r * math.tan(math.pi / n)
+	local tiers = 2
+	for i = 0, tiers - 1 do
+		local y0, y1 = if i == 0 then -1 else H * i / tiers, H * (i + 1) / tiers
+		local sec = Geometry.section(tower, ctx, "Tower", "Stone", i)
+		swatched(
+			sec,
+			ctx,
+			"Core",
+			at * CFrame.new(0, (y0 + y1) / 2, 0),
+			Vector3.new(1.4 * r, y1 - y0, 1.4 * r),
+			"Wall",
+			K.wall
+		)
+		for k = 0, n - 1 do
+			local face = at * CFrame.Angles(0, k * 2 * math.pi / n, 0)
+			swatched(
+				sec,
+				ctx,
+				"Drum",
+				face * CFrame.new(0, (y0 + y1) / 2, -(r - K.thick / 2)),
+				Vector3.new(side + 0.4, y1 - y0, K.thick),
+				"Wall",
+				K.wall
+			)
+			if k % 3 == 0 then
+				swatched(
+					sec,
+					ctx,
+					"Slit",
+					face * CFrame.new(0, (y0 + y1) / 2 + 1, -r - 0.05),
+					Vector3.new(K.slit[1], K.slit[2], 0.2),
+					"Wall",
+					K.dark
+				)
+			end
+		end
+	end
+	local top = Geometry.section(tower, ctx, "Roof", "Tile", 99)
+	for k = 0, n - 1 do
+		local face = at * CFrame.Angles(0, k * 2 * math.pi / n, 0)
+		swatched(
+			top,
+			ctx,
+			"Course",
+			face * CFrame.new(0, H * 0.55, -r - 0.1),
+			Vector3.new(side + 0.6, K.course, 0.6),
+			"Wall",
+			K.trim
+		)
+	end
+	for _, face in cone(top, ctx, at * CFrame.new(0, H, 0), r + K.eave, coneH, n, 0.5) do
+		for _, p in face do
+			p:SetAttribute("Swatch", K.roof)
+		end
+	end
+	Geometry.part(top, ctx, "Finial", at * CFrame.new(0, H + coneH + 0.8, 0), Vector3.new(0.4, 2, 0.4), "Metal")
+end
+
+-- Arrow slits on the four faces of a square block `size` across centred on `at` (a keep with no windows): `per` on
+-- each face every `step` from `y0` to `y1`, every other storey's set shifted, each a dark slit in a stone surround.
+function Geometry.slits(
+	parent: Instance,
+	ctx: Ctx,
+	at: CFrame,
+	size: number,
+	y0: number,
+	y1: number,
+	step: number,
+	per: number
+)
+	local K = ctx.B.Slits
+	local sec = Geometry.section(parent, ctx, "Slits", ctx.class, 99)
+	local i = 0
+	for y = y0, y1, step do
+		local shift = if i % 2 == 0 then 0 else size / (2 * per + 2)
+		for k = 0, 3 do
+			local face = at * CFrame.Angles(0, k * math.pi / 2, 0) * CFrame.new(0, 0, -size / 2)
+			for j = 1, per do
+				local x = -size / 2 + j * size / (per + 1) - shift
+				Geometry.part(
+					sec,
+					ctx,
+					"Surround",
+					face * CFrame.new(x, y, -0.08),
+					Vector3.new(K.slit[1] + 2 * K.surround, K.slit[2] + 2 * K.surround, 0.16),
+					"Quoin"
+				)
+				local s = Geometry.part(
+					sec,
+					ctx,
+					"Slit",
+					face * CFrame.new(x, y, -0.2),
+					Vector3.new(K.slit[1], K.slit[2], 0.12),
+					"Wall"
+				)
+				s:SetAttribute("Swatch", K.dark)
+			end
+		end
+		i += 1
+	end
+end
+
+-- A chapel's bell gable (Config/Buildings.BellGable): a flat wall `W` across rising from `y0` (its gable) `H` high in
+-- the plane of local X, two piers round an opening with a bell in it, a lintel and a little gable cap; its own colour.
+function Geometry.bellGable(parent: Instance, ctx: Ctx, at: CFrame, W: number, y0: number, H: number, key: string)
+	local K = ctx.B.BellGable
+	local sec = Geometry.section(parent, ctx, "BellGable", ctx.class, 99)
+	local pier = (W - K.open) / 2
+	local top = y0 + H - K.lintel
+	for _, s in { -1, 1 } do
+		swatched(
+			sec,
+			ctx,
+			"Pier",
+			at * CFrame.new(s * (K.open / 2 + pier / 2), (y0 + top) / 2, 0),
+			Vector3.new(pier, top - y0, K.thick),
+			"Wall",
+			key
+		)
+	end
+	swatched(
+		sec,
+		ctx,
+		"Lintel",
+		at * CFrame.new(0, top + K.lintel / 2, 0),
+		Vector3.new(W, K.lintel, K.thick),
+		"Wall",
+		key
+	)
+	for _, p in triangle(sec, ctx, at * CFrame.new(0, y0 + H, 0), W + 0.4, K.cap, K.thick, "Wall") do
+		p:SetAttribute("Swatch", key)
+	end
+	local bell = swatched(
+		sec,
+		ctx,
+		"Bell",
+		at * CFrame.new(0, top - K.bell * 0.6, 0),
+		Vector3.new(K.bell, K.bell * 1.1, K.bell),
+		"Wall",
+		K.bronze
+	)
+	bell.CanCollide = false
+end
+
+-- A flag mast on the real ground (Config/Buildings.FlagMast): a pole `H` high on a stone base, a cross-yard, a flag.
+function Geometry.flagMast(parent: Instance, ctx: Ctx, at: CFrame, H: number)
+	local K = ctx.B.FlagMast
+	local sec = Geometry.section(parent, ctx, "Mast", "Wood", 0)
+	sec:SetAttribute("OnGround", true)
+	Geometry.part(sec, ctx, "Base", at * CFrame.new(0, 0.2, 0), Vector3.new(2.4, 1.6, 2.4), "Foundation")
+	Geometry.part(sec, ctx, "Mast", at * CFrame.new(0, H / 2, 0), Vector3.new(0.5, H, 0.5), "Trim")
+	Geometry.part(sec, ctx, "Yard", at * CFrame.new(0, H - 2.4, 0), Vector3.new(3.6, 0.25, 0.25), "Trim")
+	Geometry.part(
+		sec,
+		ctx,
+		"Flag",
+		at * CFrame.new(K.flag[1] / 2 + 0.3, H - 0.4 - K.flag[2] / 2, 0),
+		Vector3.new(K.flag[1], K.flag[2], 0.12),
+		"Cloth"
+	)
+end
+
+-- A carousel pavilion on the real ground (Config/Buildings.Carousel), `r` out to its posts: a round deck you hop
+-- onto, posts round it, a striped cone canopy with a valance, a centre pole, horses on brass poles.
+function Geometry.carousel(parent: Instance, ctx: Ctx, at: CFrame, r: number)
+	local K = ctx.B.Carousel
+	local sec = Geometry.section(parent, ctx, "Carousel", "Wood", 0)
+	sec:SetAttribute("OnGround", true)
+	local deck = Geometry.part(
+		sec,
+		ctx,
+		"Deck",
+		at * CFrame.new(0, (K.deck - 1) / 2, 0) * CFrame.Angles(0, 0, math.pi / 2),
+		Vector3.new(K.deck + 1, 2 * r + 0.8, 2 * r + 0.8),
+		"Floor"
+	)
+	deck.Shape = Enum.PartType.Cylinder
+	local n = K.sides
+	local side = 2 * r * math.sin(math.pi / n)
+	for k = 0, n - 1 do
+		local a = (k + 0.5) * 2 * math.pi / n
+		local f = at * CFrame.Angles(0, k * 2 * math.pi / n, 0)
+		Geometry.part(
+			sec,
+			ctx,
+			"Post",
+			at * CFrame.new(math.sin(a) * r, K.deck + (K.eave - K.deck) / 2, -math.cos(a) * r),
+			Vector3.new(K.post, K.eave - K.deck, K.post),
+			"Trim"
+		)
+		festival(
+			sec,
+			ctx,
+			"Valance",
+			f * CFrame.new(0, K.eave - 0.4, -r * math.cos(math.pi / n) - 0.6),
+			Vector3.new(side + 0.5, 0.9, 0.15),
+			K.canvas[(k % #K.canvas) + 1]
+		)
+	end
+	for k, face in cone(sec, ctx, at * CFrame.new(0, K.eave, 0), r + 0.8, K.cone, n, 0.3) do
+		for _, p in face do
+			p.Name = "Canopy"
+			p:SetAttribute("Paint", "Festival")
+			p:SetAttribute("Swatch", K.canvas[(k % #K.canvas) + 1])
+		end
+	end
+	local pole = Geometry.part(
+		sec,
+		ctx,
+		"Pole",
+		at * CFrame.new(0, (K.deck + K.eave + K.cone) / 2, 0),
+		Vector3.new(K.pole, K.eave + K.cone - K.deck, K.pole),
+		"Wall"
+	)
+	pole:SetAttribute("Swatch", "Sienna")
+	for k = 0, K.horses - 1 do
+		local f = at * CFrame.Angles(0, k * 2 * math.pi / K.horses, 0) * CFrame.new(0, K.deck, -r * 0.62)
+		local y = 1.6 + (k % 2) * 0.6
+		Geometry.part(
+			sec,
+			ctx,
+			"Rod",
+			f * CFrame.new(0, (K.eave - K.deck) / 2, 0),
+			Vector3.new(0.2, K.eave - K.deck, 0.2),
+			"Metal"
+		)
+		Geometry.part(sec, ctx, "Horse", f * CFrame.new(0, y, 0), Vector3.new(2.4, 1.1, 0.8), "Linen")
+		Geometry.part(sec, ctx, "Head", f * CFrame.new(1.3, y + 0.8, 0), Vector3.new(0.7, 1.3, 0.6), "Linen")
+		Geometry.part(sec, ctx, "Legs", f * CFrame.new(0, y - 0.9, 0), Vector3.new(1.8, 0.8, 0.5), "Linen")
+		Geometry.part(sec, ctx, "Saddle", f * CFrame.new(-0.1, y + 0.6, 0), Vector3.new(0.9, 0.2, 0.9), "Cloth")
+	end
+end
+
 return Geometry

@@ -286,6 +286,40 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.yew(model, ctx, at, f.height)
 			elseif f.kind == "Waterwheel" then
 				Geometry.waterwheel(model, ctx, at * CFrame.new(0, f.y, 0), f.radius, f.width)
+			elseif f.kind == "Smokestack" then
+				Geometry.smokestack(model, ctx, at, f.base, f.top, f.height)
+			elseif f.kind == "RingKiln" then
+				Geometry.ringKiln(model, ctx, at, f.length, f.depth, f.height, f.bays)
+			elseif f.kind == "DryingShed" then
+				Geometry.dryingShed(model, ctx, at, f.length, f.span, f.height)
+			elseif f.kind == "ClayPit" then
+				Geometry.clayPit(model, ctx, at, f.length, f.width, f.depth)
+			elseif f.kind == "BellTower" then
+				Geometry.bellTower(model, ctx, at, f.width, f.from, f.height)
+			elseif f.kind == "Facade" then
+				Geometry.facade(model, ctx, at, f.width, f.height, f.pitch)
+			elseif f.kind == "Fountain" then
+				Geometry.fountain(model, ctx, at, f.radius)
+			elseif f.kind == "GateTower" then
+				Geometry.gateTower(model, ctx, at, f.width, f.depth, f.height, f.way, f.wall, f.onGround, f.capRoof)
+			elseif f.kind == "BellGable" then
+				Geometry.bellGable(model, ctx, at, f.width, f.y, f.height, f.wall)
+			elseif f.kind == "RoundTower" then
+				Geometry.roundTower(model, ctx, at, f.radius, f.height, f.cone)
+			elseif f.kind == "Slits" then
+				Geometry.slits(model, ctx, at, f.size, f.from, f.to, f.step, f.per)
+			elseif f.kind == "FlagMast" then
+				Geometry.flagMast(model, ctx, at, f.height)
+			elseif f.kind == "TownWall" then
+				Geometry.townWall(model, ctx, at, f.thick, f.pieces, f.tower)
+			elseif f.kind == "LatticeTower" then
+				Geometry.latticeTower(model, ctx, at, f.base, f.top, f.height, f.stages)
+			elseif f.kind == "LanternString" then
+				Geometry.lanternString(model, ctx, at, f.from, f.to, f.up)
+			elseif f.kind == "Stall" then
+				Geometry.stall(model, ctx, at, f.length, f.depth)
+			elseif f.kind == "Carousel" then
+				Geometry.carousel(model, ctx, at, f.radius)
 			else
 				error(`unknown landmark feature {f.kind}`)
 			end

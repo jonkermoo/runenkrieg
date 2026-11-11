@@ -50,6 +50,22 @@ export type Template = {
 	-- length, width, height } (a ridge tent, its door -Z), { kind = "Crates", x, z, yaw?, count }, { kind = "Lattice", x,
 	-- z, y, yaw?, width, height } (a brick vent on a wall, the wall behind it +Z). An Arcade may stand `y` up, `raised`
 	-- (a loggia on the one below) or with `roof = false`; a Tent's `canvas` is a Palette.Buildings.Festival key.
+	-- { kind = "Smokestack", x, z, base, top, height } (a square brick chimney, `base` across at its foot, `top` at its
+	-- top), { kind = "RingKiln", x, z, yaw?, length, depth, height, bays } (a brick ring kiln, its length along local X),
+	-- { kind = "DryingShed", x, z, yaw?, length, span, height } (open, its ridge along local X), { kind = "ClayPit", x,
+	-- z, length, width, depth } (a flooded pit dug into the ground, an oval `length` along local X).
+	-- { kind = "BellTower", x, z, width, from, height } (a campanile's shaft from `from` up, its belfry and pyramid cap
+	-- to `height`), { kind = "Facade", x, z, width, height, pitch } (a church's front screen before a front wall, its
+	-- door's opening kept), { kind = "Fountain", x, z, radius } (on the real ground), { kind = "GateTower", x, z,
+	-- width, depth, height, way } (a gate tower, its way { width, height } through it along local Z), { kind =
+	-- "TownWall", x, z, thick, pieces = { { from, to, height } } along local X, tower = { x, radius, height }? } (each
+	-- piece and the tower on the real ground; a GateTower may take `wall`, `onGround` and `capRoof` too), { kind =
+	-- "BellGable", x, z, width, y, height, wall } (a chapel's bell gable in the plane of local X), { kind = "RoundTower", x,
+	-- z, radius, height, cone } and { kind = "FlagMast", x, z, height } (on the real ground), { kind = "Slits", x, z,
+	-- size, from, to, step, per } (arrow slits on a square block's faces), { kind = "LatticeTower", x, z, base, top, height, stages } (a timber
+	-- lattice tower, `base` across at its foot, `top` at its deck), { kind = "LanternString", x, z, from = { x, y, z }, to = {
+	-- x, z }, up } (lanterns on a cord to `up` over the real ground at `to`), { kind = "Stall", x, z, yaw?, length, depth }
+	-- and { kind = "Carousel", x, z, radius } (on the real ground).
 	features: { any }?,
 	description: string,
 }
@@ -169,6 +185,188 @@ local Buildings = {
 	Crate = 2.4, -- a supply crate's side (the Katzmark camp)
 	Lattice = { cell = 0.9 }, -- a brick lattice vent's squares (the field barn)
 	Stage = { board = 3.2, rise = 2.2, stripes = 8, lanterns = 5, step = { rise = 0.8, run = 1.4, width = 8 } },
+	-- Lantern Meadows' brickworks (Fornace Aurelia, S2; user approved 2026-11-11). A square brick chimney: a stone
+	-- plinth `plinth` high and `plinthOut` wider a side, the shaft in `segments` courses narrowing from its foot to its
+	-- top, bands `bandOut` proud and `band` high at the shares `bands` of its height (the last one its cap), a dark
+	-- flue on top, an iron rod `rod` over it; colours (Palette.Buildings.Walls keys)
+	Smokestack = {
+		plinth = 4,
+		plinthOut = 1.2,
+		segments = 12,
+		bands = { 0.8, 0.88, 1 },
+		band = 1.4,
+		bandOut = 0.7,
+		rod = 4,
+		wall = "RedBrick",
+		trim = "Brick",
+		base = "Stone",
+		dark = "TarBoard",
+	},
+	-- a Hoffmann ring kiln: a long brick mass in bays `bay` long, a pilaster `pier` wide and `pierOut` proud between
+	-- them, a wicket (a dark arched opening, `wicket` wide x high, its head stepped in) in each bay front and back and
+	-- one in each end, a cornice `cornice` high, a pitched roof `pitch` degrees over it `overhang` past the walls;
+	-- colours (Walls / Roofs keys). Solid: cover, not a building to walk in.
+	RingKiln = {
+		bay = 8,
+		pier = 1.4,
+		pierOut = 0.5,
+		wicket = { 3.6, 5.4 },
+		cornice = 1.2,
+		pitch = 24,
+		overhang = 1.2,
+		wall = "Brick",
+		pierWall = "RedBrick",
+		dark = "TarBoard",
+		roof = "Terracotta",
+	},
+	-- an open drying shed: posts every `bay`, a low pitched roof `pitch` degrees `overhang` past the posts, rows of
+	-- green bricks drying in hacks `hack` (height, thick; hoppable), each `gap` apart along the row; a canvas screen
+	-- `screen` high on its back side; colours
+	DryingShed = {
+		bay = 6,
+		pitch = 18,
+		overhang = 1,
+		hack = { 1.8, 1.6 },
+		gap = 1.2,
+		screen = 3.2,
+		roof = "Terracotta",
+		green = "Sienna",
+		canvas = "Canvas",
+	},
+	-- a flooded clay pit (VillageBuild digs it into the terrain): the water `drop` under the lowest ground round its
+	-- rim, its banks of mud `bank` over the water at the rim falling to its flat bottom over the outer `shelf` of the
+	-- oval (a share of e = (u/a)^2 + (v/b)^2), its spoil heaps `spoil` high; colours
+	ClayPit = { drop = 1.2, bank = 0.6, shelf = 0.45, spoil = 2.6, clay = "Sienna" },
+	-- Borgo Aurel (S4's hero, user approved 2026-11-11). A campanile's upper tower: the shaft in stages `stage` high,
+	-- a string course `course` high and corner pilasters `pilaster` wide `out` proud on each, a slit `slit` (w, h) in
+	-- each face; an open belfry `belfry` high (corner piers `pier` square, a mullion `mullion` wide in each face, the
+	-- dark core `inset` in from the faces, a bell `bell` across in each opening), a cornice `cornice` high and
+	-- `eave` out, a pyramid cap to the top; colours (Walls / Roofs keys)
+	BellTower = {
+		stage = 7,
+		course = 0.7,
+		pilaster = 1.4,
+		out = 0.3,
+		slit = { 0.9, 3 },
+		belfry = 12,
+		pier = 1.8,
+		mullion = 1,
+		inset = 1.6,
+		bell = 1.8,
+		bronze = "Ochre",
+		cornice = 1.4,
+		eave = 0.8,
+		cap = 12,
+		wall = "Sienna",
+		trim = "Brick",
+		dark = "TarBoard",
+		roof = "Terracotta",
+	},
+	-- a church's front screen: `thick` thick, pilasters `pilaster` wide `out` proud, a cornice `cornice` high over its
+	-- wall, a pediment rising `rise` over its roof's gable, a rose window `rose` across with a ring `ring` round it, a
+	-- cross `cross` high on the top; colours
+	Facade = {
+		thick = 1,
+		pilaster = 1.4,
+		out = 0.4,
+		cornice = 1,
+		rise = 1.6,
+		rose = 5,
+		ring = 0.7,
+		cross = 3.4,
+		wall = "Cream",
+		trim = "Stone",
+	},
+	-- a piazza fountain on the real ground: an eight-sided basin rim `rim` high (under a hop) and `thick` thick, the
+	-- water `water` up, a pillar `pillar` across carrying a bowl `bowl` across at `bowlY`, a finial to `top`
+	Fountain = { rim = 1.6, thick = 0.9, water = 1.1, pillar = 1.4, bowl = 5, bowlY = 3.6, top = 5.6, stone = "Stone" },
+	-- a town wall's pieces (Borgo Aurel's old wall): a battlemented top on pieces at least `crenel` high (merlons
+	-- `merlon` long and high), lower pieces broken off in steps `step` high; a round tower
+	-- stump of `sides` sides with a string course
+	TownWall = {
+		crenel = 6,
+		merlon = { 2, 1.6 },
+		step = 1.2,
+		sides = 10,
+		course = 0.8,
+		stone = "Stone",
+		trim = "Ochre",
+	},
+	-- The Lantern Tower (S3's hero, user approved 2026-11-11): a timber lattice tower, its legs `leg` square, ring beams
+	-- and braces `beam` square, a deck `deck` thick with a rail `rail` high on top, a lantern cabin `cabin` high under a
+	-- cone `cone` high (`sides` sides), a pennant on a pole `pole` high, `cluster` lanterns round the deck's edge
+	LatticeTower = {
+		leg = 1.6,
+		beam = 0.8,
+		deck = 0.8,
+		rail = 1.2,
+		cabin = 3,
+		cone = 4,
+		sides = 8,
+		pole = 6,
+		pennant = { 4, 2 },
+		cluster = 8,
+		roof = "Terracotta",
+		pennantKey = "Lantern",
+	},
+	-- a string of paper lanterns from the tower down to a pole: a cord `cord` thick in pieces `piece` long, sagging
+	-- `sag` of its length in the middle, a lantern every `gap`
+	LanternString = { cord = 0.15, piece = 5, sag = 0.06, gap = 6 },
+	-- a market stall on the real ground: posts `height` high at the front (the back `back` lower), a counter `counter`
+	-- high and `deep` deep at the front, a striped canvas roof in `stripes` stripes (Festival keys)
+	Stall = {
+		height = 6.5,
+		back = 1,
+		counter = 3.4,
+		deep = 1.4,
+		post = 0.5,
+		stripes = 5,
+		canvas = { "Canvas", "RunePaint" },
+	},
+	-- a carousel pavilion on the real ground: a `sides`-sided deck `deck` high (a hop), a post at every corner, the
+	-- eaves `eave` up, a striped cone `cone` high over them, a centre pole `pole` across, `horses` horses on the deck
+	Carousel = {
+		sides = 12,
+		deck = 0.9,
+		post = 0.4,
+		eave = 7,
+		cone = 4,
+		pole = 1.4,
+		horses = 6,
+		canvas = { "Canvas", "RunePaint" },
+	},
+	-- Katzmark Burg (S1's hero, user approved 2026-11-11): a round corner tower of `sides` sides, its drum `thick`
+	-- thick, slits `slit` (w, h), a string course, a cone `eave` past the drum; a flag mast's flag (long, high)
+	RoundTower = {
+		sides = 12,
+		thick = 1.4,
+		slit = { 0.7, 2.8 },
+		course = 0.7,
+		eave = 0.8,
+		wall = "Stone",
+		trim = "Ochre",
+		dark = "TarBoard",
+		roof = "Slate",
+	},
+	FlagMast = { flag = { 5, 3.2 } },
+	-- Cascina Selvara (S5's hero): a chapel's bell gable, its opening `open` wide under a lintel `lintel` high, a cap
+	-- `cap` high, `thick` thick, a bell `bell` across
+	BellGable = { open = 2.2, lintel = 1.2, cap = 2, thick = 1.2, bell = 1.4, bronze = "Ochre" },
+	Slits = { slit = { 0.8, 2.8 }, surround = 0.35, dark = "TarBoard" }, -- a keep's arrow slits (w, h) in their surrounds
+	-- a town gate tower: the arch's head in two corbel steps `corbel` high (each a share of the way), a string course,
+	-- quoins `quoin` wide, arrow slits `slit`, merlons `merlon` (long, high); colours
+	GateTower = {
+		capPitch = 30, -- a cascina gateway's tiled cap (its capRoof)
+		corbel = 0.8,
+		steps = { 0.12, 0.28 },
+		course = 0.8,
+		quoin = 1.4,
+		slit = { 0.8, 3.2 },
+		merlon = { 2.2, 1.8 },
+		wall = "Ochre",
+		trim = "Stone",
+		dark = "TarBoard",
+	},
 
 	-- One at a time (user, 2026-10-09): start with a basic small house; add others once it's right.
 	Templates = {
@@ -330,6 +528,40 @@ local Buildings = {
 				{ kind = "Arcade", x = -6, z = -6.2, length = 18, depth = 5.4, height = 9, bays = 3 },
 			},
 			description = "Selvaran long house: two storeys of stucco under terracotta, a three-arch portico along half its front.",
+		},
+		-- Borgo Aurel's town house (S4's compound, user approved 2026-11-11): three storeys of stucco under a low
+		-- terracotta roof over an arcade the width of its front, lining the streets
+		SelvaArcadeHouse = {
+			folder = "Houses",
+			width = 24,
+			depth = 21,
+			stories = 3,
+			storyHeight = 10,
+			roofPitch = 22,
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Rose", "Ochre", "Sienna" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					name = "House",
+					x = 0,
+					z = 3,
+					width = 22,
+					depth = 14,
+					stories = 3,
+					storyHeight = 10,
+					roofPitch = 22,
+					roofStyle = "Tile",
+					gableChimney = 1,
+					doors = { { center = -5 }, { center = 5 } },
+					backDoor = { { center = 0 } },
+				},
+			},
+			features = {
+				{ kind = "Arcade", x = 0, z = -6.7, length = 22, depth = 5.4, height = 9, bays = 4 },
+			},
+			description = "Borgo Aurel's town house: three storeys of stucco under terracotta over a four-arch arcade.",
 		},
 
 		-- Map 1's landmarks (user 2026-11-01, the six designs: church, coaching inn, oast house, Dutch barn, watermill,
@@ -719,6 +951,38 @@ local Buildings = {
 			},
 			description = "The lantern-makers' hall: a long cream stucco workshop under terracotta, a five-bay arcade hung with lanterns.",
 		},
+		-- The Lantern Tower, S3's hero (Lantern Meadows' landmarks, user approved 2026-11-11): a timber lattice tower
+		-- between the stage and the lantern-makers' hall on S3's x (both sides see it alike), its deck 60 up with a
+		-- lantern cabin, cone and pennant to 66; strings of paper lanterns from it down to the stage's two poles, to the
+		-- ring's two north poles and to the hall's arcade; a carousel pavilion on S3's x before the stage and four market
+		-- stalls either side of it, mirrored, all outside the capture zone.
+		LanternTower = {
+			folder = "Landmarks",
+			width = 20,
+			depth = 20,
+			stories = 1,
+			roofPitch = 0,
+			class = "Wood",
+			wallThickness = 1,
+			walls = { "Cream" },
+			roofs = { "Terracotta" },
+			blocks = {},
+			features = {
+				{ kind = "LatticeTower", x = 0, z = 0, base = 18, top = 6, height = 60, stages = 7 },
+				{ kind = "LanternString", x = 0, z = 0, from = { -2.5, 46, -4.4 }, to = { -20, -66 }, up = 11.2 },
+				{ kind = "LanternString", x = 0, z = 0, from = { 2.5, 46, -4.4 }, to = { 20, -66 }, up = 11.2 },
+				{ kind = "LanternString", x = 0, z = 0, from = { -3, 54, -3.4 }, to = { -46.8, -113 }, up = 11.2 },
+				{ kind = "LanternString", x = 0, z = 0, from = { 3, 54, -3.4 }, to = { 46.8, -113 }, up = 11.2 },
+				{ kind = "LanternString", x = 0, z = 0, from = { -3, 40, 5 }, to = { -18, 34 }, up = 10.5 },
+				{ kind = "LanternString", x = 0, z = 0, from = { 3, 40, 5 }, to = { 18, 34 }, up = 10.5 },
+				{ kind = "Carousel", x = 0, z = -76, radius = 7 },
+				{ kind = "Stall", x = -48, z = -80, length = 8, depth = 5 },
+				{ kind = "Stall", x = 48, z = -80, length = 8, depth = 5 },
+				{ kind = "Stall", x = -74, z = -98, yaw = -20, length = 8, depth = 5 },
+				{ kind = "Stall", x = 74, z = -98, yaw = 20, length = 8, depth = 5 },
+			},
+			description = "The Lantern Tower: a timber lattice tower 66 high hung with lantern strings, a carousel and market stalls.",
+		},
 		-- The ferry house on the east bank by the festival ford, facing the river: a two-storey rose stucco house under
 		-- terracotta with an outside stone stair down its south gable (toward the ford) from the upper door, a stone
 		-- landing on the bank with steps down to the water, mooring posts with lanterns, and the ferry's boat on the water.
@@ -792,6 +1056,110 @@ local Buildings = {
 				{ kind = "Crates", x = 9, z = -10, yaw = 20, count = 2 },
 			},
 			description = "The old watchtower: a square stone tower with a climbable battlemented roof walk, Katzmark's tents and crates round it.",
+		},
+		-- Katzmark Burg, S1's hero (Lantern Meadows' landmarks, user approved 2026-11-11): the hill fort behind S1 under
+		-- the mountains, its front (-Z) toward the point. A square battlemented stone keep 56 high (seven stages, a stair
+		-- up through it to the roof walk: the West's lookout), a timber barrack hut beside it; round them a broken
+		-- curtain wall, a gatehouse with its arched way in the front wall, a round corner tower under a slate cone;
+		-- Katzmark's grey tents, crates and flag mast in the bailey. The footprint is the keep and the hut (the copy
+		-- stands on that ground); the walls, gatehouse, tower and camp stand on their own ground.
+		KatzmarkBurg = {
+			folder = "Landmarks",
+			width = 58,
+			depth = 34,
+			stories = 1,
+			roofPitch = 0,
+			class = "Stone",
+			wallThickness = 1.6,
+			walls = { "Stone" },
+			roofs = { "Slate" },
+			blocks = {
+				{
+					name = "Keep",
+					x = -16,
+					z = 8,
+					width = 16,
+					depth = 16,
+					stories = 7,
+					storyHeight = 7.4,
+					windows = 0, -- arrow slits instead (the Slits feature)
+					roofPitch = 0,
+					roofStyle = "Battlement",
+					quoins = true,
+					climb = true,
+				},
+				{
+					name = "Barracks",
+					x = 20,
+					z = 9,
+					width = 18,
+					depth = 10,
+					stories = 1,
+					storyHeight = 9,
+					roofPitch = 28,
+					roofStyle = "Tile",
+					class = "Wood",
+					wall = "TarBoard",
+					roof = "DarkTile",
+					windows = 2,
+					doors = { { center = -4 }, { center = 4 } },
+					gableChimney = 1,
+				},
+			},
+			features = {
+				-- the curtain wall round the bailey (local X -40..40, Z -36..36), broken in places
+				{
+					kind = "TownWall",
+					x = 0,
+					z = -36,
+					thick = 2.4,
+					pieces = { { -40, -26, 7 }, { -21, -12, 4 }, { 12, 22, 7.5 }, { 28, 40, 3.5 } },
+				},
+				{
+					kind = "TownWall",
+					x = 0,
+					z = 36,
+					thick = 2.4,
+					pieces = { { -40, -16, 7 }, { -16, -6, 3 }, { 4, 26, 7 }, { 31, 40, 4.5 } },
+				},
+				{
+					kind = "TownWall",
+					x = -40,
+					z = 0,
+					yaw = 90,
+					thick = 2.4,
+					pieces = { { -36, -14, 7 }, { -8, 6, 4 }, { 12, 36, 7 } },
+				},
+				{
+					kind = "TownWall",
+					x = 40,
+					z = 0,
+					yaw = 90,
+					thick = 2.4,
+					pieces = { { -32, -10, 7.5 }, { -5, 10, 2.8 }, { 16, 30, 7 } },
+				},
+				{
+					kind = "GateTower",
+					x = 0,
+					z = -36,
+					width = 16,
+					depth = 9,
+					height = 22,
+					way = { 6, 8 },
+					wall = "Stone",
+					onGround = true,
+				},
+				{ kind = "RoundTower", x = 40, z = -36, radius = 5, height = 20, cone = 9 },
+				{ kind = "Slits", x = -16, z = 8, size = 16, from = 12, to = 52, step = 7.4, per = 2 },
+				{ kind = "Tent", x = -26, z = -20, length = 9, width = 7, height = 5.5 },
+				{ kind = "Tent", x = -8, z = -22, length = 9, width = 7, height = 5.5 },
+				{ kind = "Tent", x = 22, z = -20, yaw = 180, length = 8, width = 6, height = 5 },
+				{ kind = "Crates", x = 33, z = -6, count = 3 },
+				{ kind = "Crates", x = 6, z = -12, yaw = 20, count = 2 },
+				{ kind = "Crates", x = -33, z = 6, yaw = -15, count = 3 },
+				{ kind = "FlagMast", x = 2, z = 2, height = 18 },
+			},
+			description = "Katzmark Burg: a battlemented stone keep 56 high with a roof walk, a broken curtain wall, a gatehouse, a round tower, Katzmark's camp.",
 		},
 		-- The field barn among S2's hedgerows, south of the point on its x, facing it: a Selvaran hay barn, two storeys
 		-- of brick under a low terracotta roof, three wide barn doors below and brick lattice vents in the hayloft
@@ -928,16 +1296,78 @@ local Buildings = {
 				{ kind = "Wall", a = { -36, 6 }, b = { -36, 40 }, height = 3, thick = 1.4, swatch = "Brick" },
 				{ kind = "Wall", a = { 36, -40 }, b = { 36, -6 }, height = 3, thick = 1.4, swatch = "Brick" },
 				{ kind = "Wall", a = { 36, 6 }, b = { 36, 40 }, height = 3, thick = 1.4, swatch = "Brick" },
-				-- the bottle kiln behind the barn on the flag's line, and brick stacks on the flanks (thick low walls)
-				{ kind = "BottleKiln", x = 0, z = 60, radius = 6.5, height = 32 },
+				-- brick stacks on the flanks (thick low walls); the bottle kilns stand with the brickworks behind (Fornace)
 				{ kind = "Wall", a = { -66, 52 }, b = { -54, 52 }, height = 2.4, thick = 5, swatch = "RedBrick" },
 				{ kind = "Wall", a = { 54, 52 }, b = { 66, 52 }, height = 2.4, thick = 5, swatch = "RedBrick" },
 			},
-			description = "The brickfield farm: a walled brick yard with a barn, farmhouse, cart sheds, sties and a bottle kiln.",
+			description = "The brickfield farm: a walled brick yard with a barn, farmhouse, cart sheds and sties.",
 		},
-		-- Borgo Aurel's bell tower on S4's piazza, north side, on the flag's line (map rework, user approved 2026-11-06):
-		-- ochre stucco, four stages, a stair inside up to a battlemented belfry walk that looks down both legs. Fair
-		-- because it stands on the point: whoever holds the point holds the tower.
+		-- Fornace Aurelia, S2's hero (Lantern Meadows' landmarks, user approved 2026-11-11): the brickworks behind the
+		-- brickfield farm, north of the point on its x, clear of both approaches. A Hoffmann ring kiln under terracotta
+		-- with a square brick chimney 78 high rising from its middle (seen across the valley, with Borgo Aurel's
+		-- campanile), the two bottle kilns in front of it, open drying sheds at its ends, the flooded clay pit behind.
+		-- Its footprint is the kiln and the sheds (the copy stands on that ground); the rest stands on its own ground.
+		-- The west half mirrors the east half.
+		Fornace = {
+			folder = "Landmarks",
+			width = 136,
+			depth = 20,
+			stories = 1,
+			roofPitch = 24,
+			class = "Brick",
+			wallThickness = 1.4,
+			walls = { "Brick" },
+			roofs = { "Terracotta" },
+			blocks = {},
+			features = {
+				{ kind = "RingKiln", x = 0, z = 0, length = 64, depth = 16, height = 12, bays = 8 },
+				{ kind = "Smokestack", x = 0, z = 0, base = 10, top = 6, height = 78 },
+				{ kind = "BottleKiln", x = -36, z = -34, radius = 6.5, height = 30 },
+				{ kind = "BottleKiln", x = 36, z = -34, radius = 6.5, height = 30 },
+				{ kind = "DryingShed", x = -62, z = 0, yaw = 90, length = 24, span = 10, height = 6 },
+				{ kind = "DryingShed", x = 62, z = 0, yaw = 90, length = 24, span = 10, height = 6 },
+				{ kind = "ClayPit", x = 0, z = 36, length = 46, width = 20, depth = 5 },
+			},
+			description = "Fornace Aurelia: a ring kiln with a 78-stud brick chimney, two bottle kilns, drying sheds and a flooded clay pit.",
+		},
+		-- the brickworks' workers' row (Fornace Aurelia): a two-storey brick terrace of four houses under terracotta,
+		-- a door and a chimney each, facing the works across the lane
+		WorkersRow = {
+			folder = "Landmarks",
+			width = 50,
+			depth = 15,
+			stories = 2,
+			storyHeight = 10,
+			roofPitch = 28,
+			class = "Brick",
+			wallThickness = 1.4,
+			walls = { "Brick", "RedBrick" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					name = "Row",
+					x = 0,
+					z = 0,
+					width = 48,
+					depth = 14,
+					stories = 2,
+					storyHeight = 10,
+					roofPitch = 28,
+					roofStyle = "Tile",
+					quoins = true,
+					windows = 4,
+					chimneys = { -0.75, -0.25, 0.25, 0.75 },
+					doors = { { center = -18 }, { center = -6 }, { center = 6 }, { center = 18 } },
+					backDoor = { { center = -12 }, { center = 12 } },
+				},
+			},
+			description = "The brickworks' workers' row: four brick houses in a two-storey terrace under terracotta.",
+		},
+		-- Borgo Aurel's campanile on S4's piazza, north side, on the flag's line (map rework, user approved 2026-11-06),
+		-- raised to S4's hero (Lantern Meadows' landmarks, user approved 2026-11-11): Sienna brick, four stages with a
+		-- stair inside up to the top floor's windows (its old height, the lookout down both legs; fair because it stands
+		-- on the point), then a solid shaft to an open belfry of arches with its bells, a pyramid terracotta cap 84 up:
+		-- with Fornace Aurelia's chimney it frames the valley. A fountain on the piazza before it, on the flag's line.
 		Campanile = {
 			folder = "Landmarks",
 			width = 12,
@@ -946,7 +1376,7 @@ local Buildings = {
 			roofPitch = 0,
 			class = "Stone",
 			wallThickness = 1.4,
-			walls = { "Ochre", "Cream" },
+			walls = { "Sienna" },
 			roofs = { "Terracotta" },
 			blocks = {
 				{
@@ -961,10 +1391,92 @@ local Buildings = {
 					roofPitch = 0,
 					roofStyle = "Battlement",
 					quoins = true,
-					climb = true,
+					wall = "Sienna",
 				},
 			},
-			description = "Borgo Aurel's campanile: an ochre bell tower on the piazza with a climbable belfry walk.",
+			features = {
+				{ kind = "BellTower", x = 0, z = 0, width = 12.4, from = 30.6, height = 84 },
+				{ kind = "Fountain", x = 0, z = -25, radius = 5.5 },
+			},
+			description = "Borgo Aurel's campanile: a Sienna brick bell tower 84 high on the piazza, a belfry of arches under a pyramid cap, a fountain before it.",
+		},
+		-- Borgo Aurel's church beside the campanile, its front on the piazza (S4's hero's compound, user approved
+		-- 2026-11-11): a cream nave under terracotta, a front screen taller than its roof (pilasters, a rose window over
+		-- the door, a pediment with a cross)
+		BorgoChurch = {
+			folder = "Landmarks",
+			width = 24,
+			depth = 26,
+			stories = 1,
+			storyHeight = 20,
+			roofPitch = 24,
+			class = "Stone",
+			wallThickness = 1.6,
+			walls = { "Cream" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					-- turned a quarter so a gable faces the piazza: its right wall is the front, its left the back
+					name = "Nave",
+					x = 0,
+					z = 0,
+					yaw = 90,
+					width = 24,
+					depth = 22,
+					stories = 1,
+					storyHeight = 20,
+					roofPitch = 24,
+					roofStyle = "Tile",
+					quoins = true,
+					windows = 3,
+					doors = {},
+					leftDoor = true,
+					rightDoor = true,
+				},
+			},
+			features = { { kind = "Facade", x = 0, z = -12.5, width = 24, height = 20.6, pitch = 24 } },
+			description = "Borgo Aurel's church: a cream nave under terracotta, its front on the piazza with a rose window and pediment.",
+		},
+		-- Borgo Aurel's town gate over the Main road where it enters from the festival ford (S4's compound): an ochre
+		-- tower with an arched way through it along local Z, battlements, arrow slits. Solid; the road runs under it.
+		PortaAurel = {
+			folder = "Landmarks",
+			width = 22,
+			depth = 12,
+			stories = 1,
+			roofPitch = 0,
+			class = "Stone",
+			wallThickness = 1.6,
+			walls = { "Ochre" },
+			roofs = { "Terracotta" },
+			blocks = {},
+			features = { { kind = "GateTower", x = 0, z = 0, width = 22, depth = 12, height = 34, way = { 10, 12 } } },
+			description = "Borgo Aurel's town gate: an ochre tower over the road with an arched way through it.",
+		},
+		-- a stretch of Borgo Aurel's old wall on the Aurel's east bank (S4's compound): stone, broken, its pieces of
+		-- different heights with gaps through it, along local X
+		BorgoWall = {
+			folder = "Landmarks",
+			width = 46,
+			depth = 9,
+			stories = 1,
+			roofPitch = 0,
+			class = "Stone",
+			wallThickness = 1.6,
+			walls = { "Stone" },
+			roofs = { "Slate" },
+			blocks = {},
+			features = {
+				{
+					kind = "TownWall",
+					x = 0,
+					z = 0,
+					thick = 3,
+					pieces = { { -23, -12, 7.5 }, { -12, -7, 3.5 }, { -2, 9, 8 }, { 9, 13, 4.5 } },
+					tower = { x = 18, radius = 4.5, height = 13 },
+				},
+			},
+			description = "A broken stretch of Borgo Aurel's old stone wall on the Aurel's bank.",
 		},
 		-- Borgo Aurel's market loggia on S4's piazza, south side: one storey open on both long sides through five arched
 		-- bays (wide doors), under terracotta. Cover on the piazza, the same from both legs.
@@ -996,10 +1508,14 @@ local Buildings = {
 			},
 			description = "Borgo Aurel's loggia: an open market arcade on the piazza, five bays front and back.",
 		},
-		-- The cascina at S5, south of the point on its x between it and the river, facing it: a two-storey ochre farmhouse
-		-- under terracotta with a portico below and an open loggia above, an arched gateway through to the courtyard
-		-- behind, a three-stage dovecote tower at its west end (pigeon holes at the top, stairs inside: about the
-		-- watchtower's height at the other end) and Selvara's green tents and crates in front.
+		-- The cascina at S5, south of the point on its x between it and the river, facing it (built 2026-11-02), opened
+		-- out round a wide threshing yard as S5's hero, Cascina Selvara (Lantern Meadows' landmarks, user approved
+		-- 2026-11-11; "spread the builds apart way more"): the owner's house of three storeys along the front (-Z) with
+		-- its portico below and its loggia above (an arched gateway through to the yard), the dovecote standing apart at
+		-- its west end raised to 50 (stairs inside to its top floor: the East's lookout, as the burg's keep is the
+		-- West's); the yard behind it (+Z) closed by yard walls with a tiled gateway arch (portone) in the west one, the
+		-- stable-hayloft across its back and the chapel on its east side (CascinaStable, CascinaChapel: each on its own
+		-- ground); Selvara's green tents and crates in front.
 		Cascina = {
 			folder = "Landmarks",
 			width = 64,
@@ -1018,7 +1534,7 @@ local Buildings = {
 					z = 2,
 					width = 36,
 					depth = 14,
-					stories = 2,
+					stories = 3,
 					storyHeight = 10,
 					roofPitch = 26,
 					roofStyle = "Tile",
@@ -1030,12 +1546,12 @@ local Buildings = {
 				},
 				{
 					name = "Dovecote",
-					x = 21,
+					x = 24,
 					z = 2,
 					width = 12,
 					depth = 12,
-					stories = 3,
-					storyHeight = 8,
+					stories = 6,
+					storyHeight = 7.5,
 					roofPitch = 40,
 					roofStyle = "Tile",
 					windows = 1,
@@ -1056,12 +1572,112 @@ local Buildings = {
 					bays = 5,
 					raised = true,
 				},
-				{ kind = "Lattice", x = 21, z = -4.2, y = 21, width = 6.3, height = 2.7 },
+				-- the dovecote's pigeon holes at its top
+				{ kind = "Lattice", x = 24, z = -4.2, y = 41, width = 6.3, height = 2.7 },
+				-- the yard walls (the yard local X -60..48, Z 12..58): the west one either side of the portone, the east
+				-- one either side of the chapel, short ones at the back past the stable's ends
+				{ kind = "Wall", a = { 48, 12 }, b = { 48, 28 }, height = 3, thick = 1.4, swatch = "Ochre" },
+				{ kind = "Wall", a = { 48, 40 }, b = { 48, 58 }, height = 3, thick = 1.4, swatch = "Ochre" },
+				{ kind = "Wall", a = { 48, 58 }, b = { 34, 58 }, height = 3, thick = 1.4, swatch = "Ochre" },
+				{ kind = "Wall", a = { -60, 12 }, b = { -60, 20 }, height = 3, thick = 1.4, swatch = "Ochre" },
+				{ kind = "Wall", a = { -60, 46 }, b = { -60, 58 }, height = 3, thick = 1.4, swatch = "Ochre" },
+				{ kind = "Wall", a = { -60, 58 }, b = { -34, 58 }, height = 3, thick = 1.4, swatch = "Ochre" },
+				{
+					kind = "GateTower",
+					x = 48,
+					z = 34,
+					yaw = 90,
+					width = 11,
+					depth = 3,
+					height = 10,
+					way = { 5.4, 7.4 },
+					wall = "Ochre",
+					onGround = true,
+					capRoof = "Terracotta",
+				},
 				{ kind = "Tent", x = -27, z = -9, length = 8, width = 6, height = 5, canvas = "TentGreen" },
-				{ kind = "Tent", x = 30, z = -10, yaw = 90, length = 8, width = 6, height = 5, canvas = "TentGreen" },
-				{ kind = "Crates", x = 14, z = -12, count = 3 },
+				{ kind = "Tent", x = 36, z = -10, yaw = 90, length = 8, width = 6, height = 5, canvas = "TentGreen" },
+				{ kind = "Crates", x = 16, z = -12, count = 3 },
 			},
-			description = "The cascina: an ochre farmhouse with a portico and loggia, an arched gateway and a dovecote tower, Selvara's tents in front.",
+			description = "Cascina Selvara: the owner's house of three storeys with portico and loggia, a dovecote 50 high, the walled yard behind with its gateway arch.",
+		},
+		-- Cascina Selvara's stable-hayloft across the back of its yard, facing it (front -Z): two storeys of brick under
+		-- terracotta, four stable doors on an eight-bay portico, brick lattice vents in the hayloft over it
+		CascinaStable = {
+			folder = "Landmarks",
+			width = 50,
+			depth = 21,
+			stories = 2,
+			storyHeight = 10,
+			roofPitch = 24,
+			class = "Brick",
+			wallThickness = 1.4,
+			walls = { "Brick" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					name = "Stable",
+					x = 0,
+					z = 3.5,
+					width = 48,
+					depth = 14,
+					stories = 2,
+					storyHeight = 10,
+					roofPitch = 24,
+					roofStyle = "Tile",
+					quoins = true,
+					windows = 0,
+					doors = {
+						{ center = -15, w = 5, h = 7 },
+						{ center = -5, w = 5, h = 7 },
+						{ center = 5, w = 5, h = 7 },
+						{ center = 15, w = 5, h = 7 },
+					},
+					backDoor = { { center = 0, w = 5, h = 7 } },
+				},
+			},
+			features = {
+				{ kind = "Arcade", x = 0, z = -6.2, length = 48, depth = 5.4, height = 9, bays = 8 },
+				{ kind = "Lattice", x = -18, z = -3.7, y = 15.6, width = 7.2, height = 4.5 },
+				{ kind = "Lattice", x = -6, z = -3.7, y = 15.6, width = 7.2, height = 4.5 },
+				{ kind = "Lattice", x = 6, z = -3.7, y = 15.6, width = 7.2, height = 4.5 },
+				{ kind = "Lattice", x = 18, z = -3.7, y = 15.6, width = 7.2, height = 4.5 },
+			},
+			description = "Cascina Selvara's stable-hayloft: two storeys of brick, a portico on the yard, brick lattice vents above.",
+		},
+		-- Cascina Selvara's chapel on the east side of its yard, its gable front (-Z) on the yard with a bell gable on it
+		CascinaChapel = {
+			folder = "Landmarks",
+			width = 12,
+			depth = 18,
+			stories = 1,
+			storyHeight = 12,
+			roofPitch = 35,
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Cream" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					-- turned a quarter so a gable faces the yard: its right wall is the front
+					name = "Chapel",
+					x = 0,
+					z = 0,
+					yaw = 90,
+					width = 16,
+					depth = 10,
+					stories = 1,
+					storyHeight = 12,
+					roofPitch = 35,
+					roofStyle = "Tile",
+					quoins = true,
+					windows = 2,
+					doors = {},
+					rightDoor = true,
+				},
+			},
+			features = { { kind = "BellGable", x = 0, z = -7.3, width = 5, y = 14, height = 7, wall = "Cream" } },
+			description = "Cascina Selvara's chapel: cream stucco under terracotta, a bell gable over its front.",
 		},
 		-- Map 1's S2, Hopfield Court (user approved 2026-11-11, the landmark design sheet; the oast farm since 2026-11-10):
 		-- one walled yard on the point with the flag in it, the west half mirroring the east so both legs see the same
@@ -1593,6 +2209,14 @@ local Buildings = {
 			Main = { "SelvaCasetta", "SelvaStairHouse", "SelvaLongHouse", "SelvaCasetta" },
 			Lane = { "SelvaCasetta", "SelvaStairHouse", "SelvaCasetta" },
 			Row = { "SelvaStairHouse" },
+			boundaries = { "StoneWall", "StoneWall", "Hedge", "RailFence" },
+		},
+		-- Borgo Aurel (Lantern Meadows' town, user approved 2026-11-11): the Selvaran kit with three-storey arcaded
+		-- houses lining its streets
+		Borgo = {
+			Main = { "SelvaArcadeHouse", "SelvaStairHouse", "SelvaArcadeHouse", "SelvaLongHouse" },
+			Lane = { "SelvaArcadeHouse", "SelvaCasetta", "SelvaStairHouse", "SelvaArcadeHouse" },
+			Row = { "SelvaArcadeHouse" },
 			boundaries = { "StoneWall", "StoneWall", "Hedge", "RailFence" },
 		},
 	},
