@@ -14,10 +14,11 @@ local SketchMap = {
 		-- with room round them (tools/ui/sketchmap_ground.py from tools/ui/sketchmap_export.luau; was 88967963615019,
 		-- the Image behind the uploaded Decal 136207333793204, over x 120..2330)
 		Map1 = {
-			image = 140380853576177, -- (the Image behind the uploaded Decal 124242256197041)
-			size = { 1024, 286 },
+			image = 84146277958910, -- (the Image behind the uploaded Decal 102592142569198; redrawn for the 2026-11-11
+			-- stretch, was 140380853576177 behind 124242256197041)
+			size = { 1024, 252 },
 			pad = 24,
-			x = { 270, 2570 },
+			x = { 80, 2760 }, -- (the 2026-11-11 stretch, points 600 apart and 560 wide; was 270..2570, 1024 x 286)
 			z = { -280, 280 },
 		},
 		-- the campaign's opening map (map vote, user 2026-11-02): the same area as Map 1's image, in world z (its middle
@@ -27,11 +28,12 @@ local SketchMap = {
 		-- the map"): both HQs with room round them, centred on the points (tools/ui/sketchmap.py from
 		-- tools/ui/sketchmap_export.luau; was 107148285709134 over x 120..2330, z -6280..-5720)
 		LanternMeadows = {
-			image = 124788788277258, -- (the Image behind the uploaded Decal 96847302300448)
-			size = { 1024, 286 },
+			image = 115752208035587, -- (the Image behind the uploaded Decal 98705614522282; redrawn for the 2026-11-11
+			-- stretch, was 124788788277258 behind 96847302300448)
+			size = { 1024, 252 },
 			pad = 24,
-			x = { 270, 2570 },
-			z = { -6315, -5755 },
+			x = { 80, 2760 }, -- (the 2026-11-11 stretch, points 600 apart and 560 wide; was 270..2570, z -6315..-5755)
+			z = { -6275, -5715 },
 		},
 		-- the zone-capture FFA map (tools/ui/sketchmap_playtest.py; user 2026-10-30: "make the hold v to show map appear
 		-- for FFA mode ... also the title mode too. just have your player and the moving point"): the same image shape
