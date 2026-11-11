@@ -150,6 +150,7 @@ local Map1 = {
 	fields = {
 		angle = 6,
 		size = { 130, 90 },
+		jitter = { 0.35, 0.35 },
 		near = 170,
 		beyond = 60, -- (past the bounds no further than this: the forest frames the map)
 		pointClear = 60,

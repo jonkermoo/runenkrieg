@@ -186,6 +186,7 @@ local LanternMeadows = {
 	fields = {
 		angle = 0,
 		size = { 120, 85 },
+		jitter = { 0.35, 0.35 },
 		near = 170,
 		beyond = 60,
 		pointClear = 60,
@@ -324,7 +325,7 @@ local LanternMeadows = {
 		moundAmp = 5,
 		moundScale = 80,
 		moundThreshold = 0.3,
-		patchThreshold = 0.5,
+		patchThreshold = 0.62,
 		surfaceDepth = 1.5,
 	},
 	-- mountains outside the bounds (user 2026-11-10: "make mountainous terrains mountanous"): the Katzmark mountains
@@ -340,7 +341,8 @@ local LanternMeadows = {
 		roughAmp = 9,
 		roughScale = 40,
 		sides = { west = 1.3, north = 0.9, east = 0.6, south = 0.3 },
-		snowY = 120,
+		snowY = 95,
+		rockSlope = 30,
 	},
 	-- The Aurel: from the north edge south through the open ground between S3 and S4, then bending east along the
 	-- south edge past the cascina. Fords are points on it.

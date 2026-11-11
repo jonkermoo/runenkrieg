@@ -861,12 +861,15 @@ end
 -- middle. Ref: Historic England farmstead guidance (hedged closes round the farms), docs/maps/ENVIRONMENT_RESEARCH.md.
 --------------------------------------------------------------------------------------------------------------------
 
-type FieldGrid = { mx: number, mz: number, c: number, s: number, w: number, h: number }
+type FieldGrid = { mx: number, mz: number, c: number, s: number, w: number, h: number, jx: number, jy: number }
 local function fieldGrid(map: any): FieldGrid
 	local F = map.fields
 	local m = map.sectors[math.ceil(#map.sectors / 2)]
 	local a = math.rad(F.angle)
-	return { mx = m.x, mz = m.z, c = math.cos(a), s = math.sin(a), w = F.size[1], h = F.size[2] }
+	local w, h = F.size[1], F.size[2]
+	-- (`jitter`: shares of a parcel's width and height its lines wander, under a half so the lines never cross)
+	local J = F.jitter or { 0, 0 }
+	return { mx = m.x, mz = m.z, c = math.cos(a), s = math.sin(a), w = w, h = h, jx = J[1] * w, jy = J[2] * h }
 end
 
 -- (u, v) in the grid's frame, and back
@@ -878,6 +881,47 @@ local function fromGrid(g: FieldGrid, u: number, v: number): (number, number)
 	return g.mx + u * g.c - v * g.s, g.mz + u * g.s + v * g.c
 end
 
+-- An irregular grid (user 2026-11-10: the square fields looked placed): column line i at U(i), each column of its
+-- own width, and in column i row line j at V(i, j), each column's rows staggered from its neighbours'. Both kinds of
+-- twin map u to -u, so column line i twins line -i; column i twins column -i - 1, its row line j the twin's row
+-- line -j through the point (v to -v) or row line j across the x (v kept).
+local function colLine(map: any, g: FieldGrid, i: number): number
+	if i == 0 then
+		return 0
+	end
+	local k = math.abs(i)
+	local u = k * g.w + g.jx * (2 * hash01(k + 5000, 7, map.seed + 88) - 1)
+	return if i < 0 then -u else u
+end
+local function rowLine(map: any, g: FieldGrid, i: number, j: number): number
+	local function canonical(c: number, r: number): number
+		return r * g.h + g.jy * (2 * hash01(c + 5000, r + 5000, map.seed + 89) - 1)
+	end
+	if i >= 0 then
+		return canonical(i, j)
+	elseif map.symmetry == "x" then
+		return canonical(-i - 1, j)
+	end
+	return -canonical(-i - 1, -j)
+end
+
+-- the parcel (i, j) holding (u, v)
+local function parcelAt(map: any, g: FieldGrid, u: number, v: number): (number, number)
+	local i = math.floor(u / g.w)
+	if u < colLine(map, g, i) then
+		i -= 1
+	elseif u >= colLine(map, g, i + 1) then
+		i += 1
+	end
+	local j = math.floor(v / g.h)
+	if v < rowLine(map, g, i, j) then
+		j -= 1
+	elseif v >= rowLine(map, g, i, j + 1) then
+		j += 1
+	end
+	return i, j
+end
+
 -- a parcel's canonical twin and whether (i, j) is the twin (its spots mirror): through the middle point (i, j) <->
 -- (-i - 1, -j - 1); across its x (`symmetry = "x"`, the grid unturned) (i, j) <-> (-i - 1, j)
 local function canon(map: any, i: number, j: number): (number, number, boolean)
@@ -885,20 +929,6 @@ local function canon(map: any, i: number, j: number): (number, number, boolean)
 		return -i - 1, if map.symmetry == "x" then j else -j - 1, true
 	end
 	return i, j, false
-end
--- an edge's canonical twin: the west edge of (i, j) (u = i * w) twins the west edge of (-i, -j - 1) through the point,
--- of (-i, j) across the x; its south edge (v = j * h) the south edge of (-i - 1, -j), or of (-i - 1, j)
-local function westEdge(map: any, i: number, j: number): (number, number)
-	if map.symmetry == "x" then
-		return math.abs(i), j
-	end
-	return if i < 0 or (i == 0 and j < 0) then -i else i, if i < 0 or (i == 0 and j < 0) then -j - 1 else j
-end
-local function southEdge(map: any, i: number, j: number): (number, number)
-	if map.symmetry == "x" then
-		return if i < 0 then -i - 1 else i, j
-	end
-	return if j < 0 or (j == 0 and i < 0) then -i - 1 else i, if j < 0 or (j == 0 and i < 0) then -j else j
 end
 
 local function pick(shares: { [string]: number }, order: { string }, r: number): string?
@@ -929,10 +959,12 @@ local function parcelKind(map: any, i: number, j: number): string?
 	end
 	local F = map.fields
 	local g = fieldGrid(map)
+	local u0, u1 = colLine(map, g, i), colLine(map, g, i + 1)
+	local v0, v1 = rowLine(map, g, i, j), rowLine(map, g, i, j + 1)
 	local ok = true
 	local b, mg = map.bounds, F.beyond
 	for _, p in { { 0, 0 }, { 1, 0 }, { 0, 1 }, { 1, 1 }, { 0.5, 0.5 }, { 0.5, 0 }, { 0, 0.5 }, { 1, 0.5 }, { 0.5, 1 } } do
-		local x, z = fromGrid(g, (i + p[1]) * g.w, (j + p[2]) * g.h)
+		local x, z = fromGrid(g, u0 + (u1 - u0) * p[1], v0 + (v1 - v0) * p[2])
 		-- (checked at the twin's mirrored spot too, so a parcel and its twin are fields alike)
 		local x2, z2 = twinOf(map, x, z)
 		for _, q in { { x, z }, { x2, z2 } } do
@@ -943,8 +975,8 @@ local function parcelKind(map: any, i: number, j: number): string?
 			then
 				ok = false
 			end
-			for _, s in map.sectors do
-				if (q[1] - s.x) ^ 2 + (q[2] - s.z) ^ 2 < (s.radius + F.pointClear) ^ 2 then
+			for _, sec in map.sectors do
+				if (q[1] - sec.x) ^ 2 + (q[2] - sec.z) ^ 2 < (sec.radius + F.pointClear) ^ 2 then
 					ok = false
 				end
 			end
@@ -971,7 +1003,8 @@ function MapTerrain.fieldAt(map: any, x: number, z: number): (string?, boolean)
 	end
 	local g = fieldGrid(map)
 	local u, v = toGrid(g, x, z)
-	local kind = parcelKind(map, math.floor(u / g.w), math.floor(v / g.h))
+	local i, j = parcelAt(map, g, u, v)
+	local kind = parcelKind(map, i, j)
 	return kind, kind == "Plough" and math.floor(u / map.fields.stripe) % 2 == 0
 end
 
@@ -995,14 +1028,13 @@ function MapTerrain.fieldLayout(map: any): { runs: { FieldRun }, stacks: { Field
 	local b, mg = map.bounds, map.terrainMargin
 	local u0, v0 = math.huge, math.huge
 	local u1, v1 = -math.huge, -math.huge
-	for _, p in
-		{
-			{ b.minX - mg, b.minZ - mg },
-			{ b.maxX + mg, b.minZ - mg },
-			{ b.minX - mg, b.maxZ + mg },
-			{ b.maxX + mg, b.maxZ + mg },
-		}
-	do
+	local box = {
+		{ b.minX - mg, b.minZ - mg },
+		{ b.maxX + mg, b.minZ - mg },
+		{ b.minX - mg, b.maxZ + mg },
+		{ b.maxX + mg, b.maxZ + mg },
+	}
+	for _, p in box do
 		local u, v = toGrid(g, p[1], p[2])
 		u0, v0, u1, v1 = math.min(u0, u), math.min(v0, v), math.max(u1, u), math.max(v1, v)
 	end
@@ -1011,50 +1043,84 @@ function MapTerrain.fieldLayout(map: any): { runs: { FieldRun }, stacks: { Field
 		local bx, bz = fromGrid(g, ub, vb)
 		table.insert(out.runs, { kind = kind, a = { ax, az }, b = { bx, bz } })
 	end
-	-- an edge along the grid's line from (ua, va) to (ub, vb), split by a gate in its middle
+	-- an edge from (ua, va) to (ub, vb), split by a gate in its middle when it's long enough for one
 	local function edge(kind: string, ua: number, va: number, ub: number, vb: number)
 		local l = math.sqrt((ub - ua) ^ 2 + (vb - va) ^ 2)
+		if l < F.gate + 16 then
+			run(kind, ua, va, ub, vb)
+			return
+		end
 		local k = (l - F.gate) / 2 / l
 		run(kind, ua, va, ua + (ub - ua) * k, va + (vb - va) * k)
 		run(kind, ub - (ub - ua) * k, vb - (vb - va) * k, ub, vb)
 	end
-	for i = math.floor(u0 / g.w), math.floor(u1 / g.w) do
-		for j = math.floor(v0 / g.h), math.floor(v1 / g.h) do
-			local here = parcelKind(map, i, j)
-			local ci, cj, twin = canon(map, i, j)
-			-- its west edge (u = i * w) and south edge (v = j * h), each where a field lies either side; an edge's kind
-			-- keyed by the edge and its twin alike
-			if here or parcelKind(map, i - 1, j) then
-				local ei, ej = westEdge(map, i, j)
-				local kind = pick(F.edges, EDGE_KINDS, hash01(ei + 5000, ej + 5000, map.seed + 82))
-				if kind then
-					edge(kind, i * g.w, j * g.h, i * g.w, (j + 1) * g.h)
+	local i0, i1 = math.floor(u0 / g.w) - 1, math.floor(u1 / g.w) + 1
+	local j0, j1 = math.floor(v0 / g.h) - 1, math.floor(v1 / g.h) + 1
+	for i = i0, i1 do
+		local ua, ub = colLine(map, g, i), colLine(map, g, i + 1)
+		-- the column line U(i), cut wherever a row line of either column beside it meets it: each piece's twin is a
+		-- piece of the twin line, cut the same (the twin's two columns are this one's two, mirrored); a piece's kind
+		-- keyed by the line and its middle, the twin's alike (through the point the twin's middle is at -vm)
+		local cuts = {}
+		for j = j0, j1 do
+			table.insert(cuts, rowLine(map, g, i - 1, j))
+			table.insert(cuts, rowLine(map, g, i, j))
+		end
+		table.sort(cuts)
+		for k = 1, #cuts - 1 do
+			local va, vb = cuts[k], cuts[k + 1]
+			if vb - va > 6 then
+				local vm = (va + vb) / 2
+				local _, jw = parcelAt(map, g, ua - 1, vm)
+				local _, je = parcelAt(map, g, ua + 1, vm)
+				if parcelKind(map, i - 1, jw) or parcelKind(map, i, je) then
+					local along = vm
+					if map.symmetry ~= "x" then
+						along = if i < 0 then -vm elseif i == 0 then math.abs(vm) else vm
+					end
+					local r = hash01(math.abs(i) + 5000, math.floor(along * 4 + 0.5) + 500000, map.seed + 82)
+					local kind = pick(F.edges, EDGE_KINDS, r)
+					if kind then
+						edge(kind, ua, va, ua, vb)
+					end
 				end
 			end
+		end
+		for j = j0, j1 do
+			local here = parcelKind(map, i, j)
+			local ci, cj, twin = canon(map, i, j)
+			-- its south edge (row line V(i, j) across the column), where a field lies either side; through the point
+			-- the twin of row line j in column i is row line -j of column -i - 1 (that column's cell -j's south side)
 			if here or parcelKind(map, i, j - 1) then
-				local ei, ej = southEdge(map, i, j)
+				local ei, ej = ci, cj
+				if map.symmetry ~= "x" and i < 0 then
+					ej += 1
+				end
 				local kind = pick(F.edges, EDGE_KINDS, hash01(ei + 5000, ej + 5000, map.seed + 83))
 				if kind then
-					edge(kind, i * g.w, j * g.h, (i + 1) * g.w, j * g.h)
+					local v = rowLine(map, g, i, j)
+					edge(kind, ua, v, ub, v)
 				end
 			end
 			-- a meadow's haystacks, in from its edges (a twin's at the mirrored spots)
 			if here == "Meadow" then
+				local va, vb = rowLine(map, g, i, j), rowLine(map, g, i, j + 1)
 				local n = math.floor(hash01(ci + 5000, cj + 5000, map.seed + 84) * (F.stacks.max + 1))
 				for k = 1, n do
-					local lu = F.stacks.inset
-						+ (g.w - 2 * F.stacks.inset) * hash01(ci + 5000, cj + 5000 + k * 97, map.seed + 85)
-					local lv = F.stacks.inset
-						+ (g.h - 2 * F.stacks.inset) * hash01(ci + 5000, cj + 5000 + k * 97, map.seed + 86)
+					local fu = hash01(ci + 5000, cj + 5000 + k * 97, map.seed + 85)
+					local fv = hash01(ci + 5000, cj + 5000 + k * 97, map.seed + 86)
 					local yaw = hash01(ci + 5000, cj + 5000 + k * 97, map.seed + 87) * 360
 					if twin then
 						if map.symmetry == "x" then
-							lu, yaw = g.w - lu, (360 - yaw) % 360
+							fu, yaw = 1 - fu, (360 - yaw) % 360
 						else
-							lu, lv, yaw = g.w - lu, g.h - lv, (yaw + 180) % 360
+							fu, fv, yaw = 1 - fu, 1 - fv, (yaw + 180) % 360
 						end
 					end
-					local x, z = fromGrid(g, i * g.w + lu, j * g.h + lv)
+					local inset = F.stacks.inset
+					local u = ua + inset + (ub - ua - 2 * inset) * fu
+					local v = va + inset + (vb - va - 2 * inset) * fv
+					local x, z = fromGrid(g, u, v)
 					table.insert(out.stacks, { kind = "Haystack", x = x, z = z, yaw = yaw })
 				end
 			end
@@ -1083,12 +1149,14 @@ function MapTerrain.materialAt(map: any, x: number, z: number): string
 	end
 	local slope = MapTerrain.slopeAt(map, x, z)
 	-- snow on the mountains' tops (`wild.snowY`, its line wandering by noise), rock where too steep to hold it
+	-- on the mountains (`wild.snowY`) grey rock on the cliffs, grass up the gentler slopes, not bare earth
 	local W = map.wild
 	if W and W.snowY and outside(map.bounds, x, z) > W.start then
 		local line = W.snowY + 10 * math.noise(x / 60, z / 60, map.seed * 0.001 + 77.7)
 		if MapTerrain.heightAt(map, x, z) > line then
 			return if slope > 50 then "Rock" else "Snow"
 		end
+		return if slope > (W.rockSlope or 30) then "Rock" else "Grass"
 	end
 	if slope > 34 then
 		return "Rock"
