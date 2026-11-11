@@ -2024,29 +2024,34 @@ solidParams.FilterDescendantsInstances = { workspace.Terrain }
 -- `clear` of their lines), what its diggers would wait on; `wet` for each spot along any run (every Trench.block
 -- studs) in water, where no square is planned; and `solid` for each thing standing across a run (walls, poles,
 -- buildings: Trenches.plan's "In the way", which no digger clears)
+-- the things standing across run `r` (within `half` of its line, Site.clear if none; not its trees nor soldiers; the
+-- pieces laid too: a measured match siting past them had their footprints refuse its runs, "A structure is in the way")
+local function solidOn(r: BotTrenches.Run, half: number?): number
+	local len = math.sqrt((r.bx - r.ax) ^ 2 + (r.bz - r.az) ^ 2)
+	if len <= 1e-3 then
+		return 0
+	end
+	local mid = Routes.ground((r.ax + r.bx) / 2, (r.az + r.bz) / 2)
+	local box = CFrame.lookAt(mid, mid + Vector3.new(r.bx - r.ax, 0, r.bz - r.az))
+	local seen: { [Instance]: boolean } = {}
+	local size = Vector3.new(2 * (half or TR.Site.clear), 2 * BuildCfg.Trench.wayHeight, len)
+	local n = 0
+	for _, p in workspace:GetPartBoundsInBox(box, size, solidParams) do
+		local top: Instance = p:FindFirstAncestorWhichIsA("Model") or p
+		local tree = top:IsA("Model") and Trees.standing(top :: Model)
+		if p.CanCollide and not tree and not seen[top] and not (top :: any):FindFirstChildOfClass("Humanoid") then
+			seen[top] = true
+			n += 1
+		end
+	end
+	return n
+end
+
 local function treesOn(runs: { BotTrenches.Run }): number
 	local n = 0
 	for _, r in runs do
 		local len = math.sqrt((r.bx - r.ax) ^ 2 + (r.bz - r.az) ^ 2)
-		if len > 1e-3 then
-			local mid = Routes.ground((r.ax + r.bx) / 2, (r.az + r.bz) / 2)
-			local box = CFrame.lookAt(mid, mid + Vector3.new(r.bx - r.ax, 0, r.bz - r.az))
-			local seen: { [Instance]: boolean } = {}
-			local size = Vector3.new(2 * TR.Site.clear, 2 * BuildCfg.Trench.wayHeight, len)
-			for _, p in workspace:GetPartBoundsInBox(box, size, solidParams) do
-				local top: Instance = p:FindFirstAncestorWhichIsA("Model") or p
-				local tree = top:IsA("Model") and Trees.standing(top :: Model)
-				if
-					p.CanCollide
-					and not tree
-					and not seen[top]
-					and not (top :: any):FindFirstChildOfClass("Humanoid")
-				then
-					seen[top] = true
-					n += TR.Site.solid
-				end
-			end
-		end
+		n += solidOn(r) * TR.Site.solid
 		for i = 0, math.ceil(len / BuildCfg.Trench.block) do
 			local t = math.min(i * BuildCfg.Trench.block / math.max(len, 1e-3), 1)
 			local x, z = r.ax + (r.bx - r.ax) * t, r.az + (r.bz - r.az) * t
@@ -2101,7 +2106,9 @@ local function sited(
 	make: (number, number) -> { BotTrenches.Run },
 	side: string,
 	eye: Vector3?,
-	flag: { x: number, z: number }?
+	flag: { x: number, z: number }?,
+	others: { BotTrenches.Run }?,
+	keep: number?
 ): { BotTrenches.Run }
 	-- (the clearest ground first, what the planner refuses; of the layouts within Care.Site.slack of the clearest,
 	-- the least shelled and seen: a measured match sited for cover first ran its fire bays into walls; none of its
@@ -2115,6 +2122,10 @@ local function sited(
 				if flag and BotTrenches.offRun(flag.x, flag.z, r.ax, r.az, r.bx, r.bz) < CA.Site.flag then
 					n += math.huge
 				end
+			end
+			-- (not nearer than `keep` to the lines `others`, where any spot is: the planner refuses it "Too close")
+			if others and keep and BotTrenches.apart(runs, others) < keep then
+				n += 1e6
 			end
 			table.insert(all, { runs = runs, n = n })
 			fewest = math.min(fewest, n)
@@ -2278,6 +2289,156 @@ local function forwardLines(
 			return
 		end
 		last = sys
+	end
+end
+
+-- the free ends of a side's squares as laid, dug or only planned (no link at that end)
+local function freeEnds(squares: { TrenchSquare }): { { x: number, z: number } }
+	local ends: { { x: number, z: number } } = {}
+	for _, sq in squares do
+		for _, which in { "A", "B" } do
+			local p = sq.model:GetAttribute("Block" .. which)
+			if typeof(p) == "Vector3" and sq.model:GetAttribute("Link" .. which) == "" then
+				table.insert(ends, { x = p.X, z = p.Z })
+			end
+		end
+	end
+	return ends
+end
+
+-- a system's fire trench ends as laid (its first bay's start and last bay's end, each the nearest real free end
+-- within Trenches.Lanes.endNear of where it was planned to: Rules/BotTrenches.join)
+local function fireEndsOf(sys: TrenchSystem, ends: { { x: number, z: number } }): { { x: number, z: number } }
+	local first, last
+	for _, r in sys.runs do
+		if (r.run :: BotTrenches.Run).kind == "Fire" and not r.gaveUp then
+			first = first or r
+			last = r
+		end
+	end
+	if not first or not last then
+		return {}
+	end
+	local out = {}
+	for _, p in { { x = first.job.x, z = first.job.z }, { x = last.job.ex :: number, z = last.job.ez :: number } } do
+		local best, bestD = p, TR.Lanes.endNear
+		for _, e in ends do
+			local d = math.sqrt((e.x - p.x) ^ 2 + (e.z - p.z) ^ 2)
+			if d < bestD then
+				best, bestD = e, d
+			end
+		end
+		table.insert(out, best)
+	end
+	return out
+end
+
+-- a line in each lane across the open field (Config/Bots.Trenches.Lanes; user 2026-11-10 via the map session: "for how
+-- much open field there is, i dont see any trenches", chose a line in each lane): once its front has its own system,
+-- each other lane of the front (Config/Bots.Lanes) gets a fire trench level with it and a way back, the lanes its
+-- holders stand in first, one a tick; neighbouring lines (its front's own in the middle lane, as it stands) are joined
+-- end to end once both are planned, into one line across the field.
+local function laneLines(sbs: SideBuild, side: string, front: number, squares: { TrenchSquare }, now: number)
+	local L = TR.Lanes
+	local main = sbs.systems[`S{front}`]
+	-- (not waiting on its own fire trench: a measured Lantern Meadows match had every point's refused for the village's
+	-- walls and houses, "In the way", and nothing past it ever planned)
+	if not L.on or not LN.on or not main then
+		return
+	end
+	local s = Map.sectors[front]
+	local tx, tz = BotBuild.toward(Map.sectors, front, side)
+	local f = BotLanes.frame(s.x, s.z, tx, tz, s.radius * TR.Fire.edge, laneBounds, LN)
+	local mid = BotLanes.laneOf(f, BotLanes.offset(f, main.mid.x, main.mid.z))
+	local held: { [number]: boolean } = {}
+	for _, st in squads do
+		if st.side == side and st.sector == front and st.slot then
+			held[st.slot :: number] = true
+		end
+	end
+	local function line(k: number): TrenchSystem?
+		return if k == mid then main else sbs.systems[`S{front}L{k}`]
+	end
+	local ends = freeEnds(squares)
+	for k = 1, #f.centres - 1 do
+		local key = `S{front}J{k}`
+		local a, b = line(k), line(k + 1)
+		-- (the front's own line joined as it stands: its ends as laid, else as planned)
+		local ready = a and b and (a == main or fireLaid(a, squares)) and (b == main or fireLaid(b, squares))
+		if not sbs.systems[key] and ready then
+			local runs = BotTrenches.join(
+				fireEndsOf(a :: TrenchSystem, ends),
+				fireEndsOf(b :: TrenchSystem, ends),
+				L.joinMost,
+				L.joinLeast,
+				L.joinFar
+			)
+			local made = systemJobs(sbs, runs, {}, tx, tz, key)
+			sbs.systems[key] = { sector = front, runs = made, mid = { x = 0, z = 0 }, ends = {} }
+			for _, r in made do
+				table.insert(sbs.lay, r)
+			end
+			stats.laneJoins += if #made > 0 then 1 else 0
+			ByTrench.runs[`{side} laneJoins`] = (ByTrench.runs[`{side} laneJoins`] or 0) + (if #made > 0 then 1 else 0)
+			return
+		end
+	end
+	local ahead = front + (if side == "West" then 1 else -1)
+	local eye = if Map.sectors[ahead] then eyeAt(ahead) else nil
+	for _, k in BotTrenches.laneOrder(#f.centres, mid, held) do
+		local key = `S{front}L{k}`
+		if not sbs.systems[key] then
+			local px, pz = BotLanes.point(f, k, tx, tz, 0)
+			local cfg = {
+				gap = L.gap,
+				bay = L.bay,
+				bays = L.bays,
+				back = L.back,
+				traverse = TR.Fire.traverse,
+				short = TR.Comm.short,
+			}
+			-- (every line its side has planned: none sited too close to one)
+			local others: { BotTrenches.Run } = {}
+			for _, r in sbs.lay do
+				if r.run then
+					table.insert(others, r.run :: BotTrenches.Run)
+				end
+			end
+			local runs = sited(function(edge: number, shift: number)
+				-- (nearer or further along the way, across it: Trenches.Site)
+				local along = (edge - TR.Fire.edge) * s.radius
+				return BotTrenches.laneLine(
+					px + tx * along + f.ax * shift * L.shift,
+					pz + tz * along + f.az * shift * L.shift,
+					tx,
+					tz,
+					2 * f.half,
+					cfg
+				)
+			end, side, eye, nil, others, L.keep)
+			-- (its bays with something solid across them left out, the rest in pieces: Lanes.dropBlocked)
+			if L.dropBlocked then
+				-- (as wide as the planner's box: the wall tops and heaps, Trenches.plan's "In the way")
+				local half = BuildRules.trenchTop(BuildCfg.Trench) + BuildCfg.Trench.joins.heapReach
+				local blocked: { [number]: boolean } = {}
+				for i, r in runs do
+					blocked[i] = solidOn(r, half) > 0
+				end
+				local dropped
+				runs, dropped = BotTrenches.dropBlocked(runs, blocked, tx, tz, cfg.short, cfg.back)
+				stats.laneDropped += dropped
+				ByTrench.runs[`{side} laneDropped`] = (ByTrench.runs[`{side} laneDropped`] or 0) + dropped
+			end
+			local made = systemJobs(sbs, runs, threatsOf(side, front, now), tx, tz, key)
+			sbs.systems[key] =
+				{ sector = front, runs = made, mid = BotTrenches.fireMid(runs), ends = BotTrenches.routeEnds(runs) }
+			for _, r in made do
+				table.insert(sbs.lay, r)
+			end
+			stats.laneLines += 1
+			ByTrench.runs[`{side} laneLines`] = (ByTrench.runs[`{side} laneLines`] or 0) + 1
+			return
+		end
 	end
 end
 
@@ -2674,21 +2835,14 @@ local function buildList(side: string, owner: { string }, fromEnd: number)
 		end
 	end
 	forwardLines(sbs, side, owner, front :: number, squares, feet, now)
+	laneLines(sbs, side, front :: number, squares, now)
 	if Clear.everyAt ~= commandTick then
 		Clear.everyAt, Clear.every = commandTick, Build.worksOf(nil)
 	end
 	-- (each fire bay starts where the last one ends, the second communication run where the first ends: at the real free
 	-- end of its squares as laid (dug or only planned), Trenches.Chain, else its planned end; one planned part way goes
 	-- on from its part's real end. A run already laid keeps its line.)
-	local ends: { { x: number, z: number } } = {}
-	for _, sq in squares do
-		for _, which in { "A", "B" } do
-			local p = sq.model:GetAttribute("Block" .. which)
-			if typeof(p) == "Vector3" and sq.model:GetAttribute("Link" .. which) == "" then
-				table.insert(ends, { x = p.X, z = p.Z })
-			end
-		end
-	end
+	local ends = freeEnds(squares)
 	local CH = TR.Chain
 	local chain: { [string]: BuildJob } = {}
 	for _, r in sbs.lay do

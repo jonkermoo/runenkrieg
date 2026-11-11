@@ -711,6 +711,36 @@ local Bots = {
 		-- trenches, each `step` of the way on to the enemy's next sector, joined back by a communication trench (a
 		-- zig-zag where the enemy sees down it), none within `keep` studs of that sector's zone
 		Forward = { lines = 2, step = 1 / 3, keep = 60 },
+		-- a line in each lane across the open field (Rules/BotTrenches.laneLine, join; user 2026-11-10 via the map
+		-- session: "for how much open field there is, i dont see any trenches"; chose a line in each lane): once the
+		-- front has its own system, each other lane of the front (Config/Bots.Lanes) gets a fire trench level
+		-- with it, the lane's width less `gap` in bays of `bay` studs (`bays` min / max), sited as a system is
+		-- (Trenches.Site, its shifts across times `shift`), with a way back `back` studs from its middle bay; the lanes
+		-- its holders stand in first, one a tick. Neighbouring lines are joined end to end (each line's ends: the real
+		-- free end within `endNear` of where planned) in runs of at most `joinMost`, none when their ends lie within
+		-- `joinLeast` or further apart than `joinFar`.
+		Lanes = {
+			on = true,
+			gap = 40,
+			bay = 16,
+			bays = { 3, 6 },
+			shift = 0.5,
+			back = 32,
+			endNear = 12,
+			joinMost = 48,
+			joinLeast = 6,
+			joinFar = 160,
+			field = 20, -- (the trench stats' "in the open field": squares further than this past every sector's zone)
+			-- (no spot for a line nearer than this to a line already planned, where any other is: past
+			-- Config/Build.Trench.spacing, which refuses it "Too close to another trench"; a measured match had 16 such)
+			keep = 30,
+			-- (a digger with no job within Build.take walks this far for a trench job on its front's lines: "every
+			-- calm holder" digs, user 2026-11-10; a measured match had them idle while the lane lines waited)
+			reach = 320,
+			-- (a lane's fire bay with anything solid across it is left out, the rest of the line dug in pieces: a
+			-- measured match retried bays through the village's houses and walls a dozen times each, "In the way")
+			dropBlocked = true,
+		},
 		-- the enemy's dug squares within `takeOver` studs of its front zone's edge give it fire steps as its own (the
 		-- parapet turned: user 2026-11-04, "bots just destroy incoming trenches")
 		takeOver = 30,
@@ -749,7 +779,7 @@ local Bots = {
 		Shape = { maxBend = 100, minRun = 16, sharp = 100, short = 6 },
 		on = 2,
 		ends = 0.15,
-		cap = 160, -- (was 60)
+		cap = 300, -- (was 60, then 160; 300 with the lane lines across the field, Lanes)
 		-- its squares wanting swings within this of its front zone's edge are dug (Build.repair for other pieces; its
 		-- forward lines lie a third of the way to the next sector, Forward)
 		digReach = 220,

@@ -1185,11 +1185,23 @@ local function trenchStats()
 		local dug, planned, pioneers, kit = 0, 0, 0, nil
 		-- (reinforced past 100, and their extra on average: Config/Build.Trench.hp.extra)
 		local reinforced, extra = 0, 0
+		-- (in the open field: further than `field` studs past every sector's zone, Config/Bots.Trenches.Lanes)
+		local fieldDug, fieldPlanned = 0, 0
 		for _, t in (if sb then sb.trench else {}) do
 			if t.built then
 				dug += 1
 			else
 				planned += 1
+			end
+			local open = true
+			for _, s in Map.sectors do
+				if math.sqrt((t.x - s.x) ^ 2 + (t.z - s.z) ^ 2) <= s.radius + Cfg.Trenches.Lanes.field then
+					open = false
+				end
+			end
+			if open then
+				fieldDug += if t.built then 1 else 0
+				fieldPlanned += if t.built then 0 else 1
 			end
 			if t.extra > 0 then
 				reinforced += 1
@@ -1253,7 +1265,11 @@ local function trenchStats()
 			lines,
 			`  runs {n("laid")} laid, {n("refused")} refused ({table.concat(parts, "; ")}); {n("chained")} started at the real end; {n(
 				"redug"
-			)} buried squares planned again`
+			)} buried squares planned again; in the open field {fieldDug} dug, {fieldPlanned} planned; {n(
+				"laneLines"
+			)} lane lines, {n("laneJoins")} joins, {n("laneDropped")} lane bays left out (something across them); {n(
+				"farDigs"
+			)} trench jobs taken past Build.take`
 		)
 		-- (looking after them, Config/Bots.Trenches.Care: each dug square's decision now, new squares held off shelled
 		-- ground, ways up dug whole, its base standing, the squares lost and how long they stood, joins, the gates)

@@ -93,6 +93,171 @@ function BotTrenches.layout(zone: Zone, tx: number, tz: number, cfg: any, fireOn
 	return runs
 end
 
+-- A lane's line (Config/Bots.Trenches.Lanes; user 2026-11-10 via the map session: "for how much open field there is, i
+-- dont see any trenches"; chose a line in each lane): a fire trench across the enemy's way (tx, tz) with its middle at
+-- (x, z), `width` studs of the lane's width (a gap for the run joining the next lane's line, `cfg.gap`), in bays of
+-- about `cfg.bay` studs (`cfg.bays` min / max), with traverses as layout's; then the way back from its middle bay,
+-- `cfg.back` studs toward its own side, starting `short` studs behind it (the planner tees it in).
+function BotTrenches.laneLine(
+	x: number,
+	z: number,
+	tx: number,
+	tz: number,
+	width: number,
+	cfg: {
+		gap: number,
+		bay: number,
+		bays: { number },
+		back: number,
+		traverse: number,
+		short: number,
+	}
+): { Run }
+	local bays = math.clamp(math.floor((width - cfg.gap) / cfg.bay), cfg.bays[1], cfg.bays[2])
+	local fire = { edge = 0, width = bays * cfg.bay, bays = bays, traverse = cfg.traverse }
+	local runs = BotTrenches.layout({ x = x, z = z, radius = 0 }, tx, tz, { Fire = fire }, true)
+	table.insert(runs, BotTrenches.rearFrom(runs[math.ceil(#runs / 2)], tx, tz, cfg.short, cfg.back))
+	return runs
+end
+
+-- The way back from fire bay `bay`, `back` studs toward its own side (-tx, -tz), starting `short` behind a quarter of
+-- the way along it: the middle of its first square, not the joint in its middle (a measured match: a way back teed in
+-- at the joint met the next square, "Stop at the trench").
+function BotTrenches.rearFrom(bay: Run, tx: number, tz: number, short: number, back: number): Run
+	local mx, mz = bay.ax + (bay.bx - bay.ax) * 0.25, bay.az + (bay.bz - bay.az) * 0.25
+	return {
+		kind = "Rear",
+		ax = mx - tx * short,
+		az = mz - tz * short,
+		bx = mx - tx * (short + back),
+		bz = mz - tz * (short + back),
+	}
+end
+
+-- A lane line (laneLine's runs) less its fire bays `blocked` (by index into `runs`: something solid across them,
+-- Config/Bots.Trenches.Lanes.dropBlocked): the bays left in pieces (`route` 1, 2, ... for each piece: each chained on
+-- its own, none across the gap), its way back from the kept bay nearest the line's middle (none if none is kept or
+-- the way back itself is blocked). Second: how many bays were left out.
+function BotTrenches.dropBlocked(
+	runs: { Run },
+	blocked: { [number]: boolean },
+	tx: number,
+	tz: number,
+	short: number,
+	back: number
+): ({ Run }, number)
+	local out: { Run } = {}
+	local kept: { { run: Run, i: number } } = {}
+	local piece, gap, dropped, bays = 0, true, 0, 0
+	local rearBlocked = false
+	for i, r in runs do
+		if r.kind == "Fire" then
+			bays += 1
+			if blocked[i] then
+				dropped += 1
+				gap = true
+			else
+				if gap then
+					piece += 1
+					gap = false
+				end
+				local c = table.clone(r)
+				c.route = piece
+				table.insert(out, c)
+				table.insert(kept, { run = c, i = bays })
+			end
+		elseif r.kind == "Rear" then
+			rearBlocked = blocked[i] == true
+		end
+	end
+	if #kept > 0 and not rearBlocked then
+		local mid = (bays + 1) / 2
+		local best = kept[1]
+		for _, k in kept do
+			if math.abs(k.i - mid) < math.abs(best.i - mid) then
+				best = k
+			end
+		end
+		table.insert(out, BotTrenches.rearFrom(best.run, tx, tz, short, back))
+	end
+	return out, dropped
+end
+
+-- The ends of a fire trench (its runs' "Fire" ones, bay by bay): the first bay's start and the last bay's end
+function BotTrenches.fireEnds(runs: { Run }): { { x: number, z: number } }
+	local first, last
+	for _, r in runs do
+		if r.kind == "Fire" then
+			first = first or r
+			last = r
+		end
+	end
+	if not first then
+		return {}
+	end
+	return { { x = first.ax, z = first.az }, { x = last.bx, z = last.bz } }
+end
+
+-- The runs joining two lines end to end (each `ends`: fireEnds, or the real free ends there): from the nearest pair of
+-- ends, in equal runs of at most `most` studs; none when they lie within `least` (the planner joins them already) or
+-- further apart than `far`.
+function BotTrenches.join(
+	a: { { x: number, z: number } },
+	b: { { x: number, z: number } },
+	most: number,
+	least: number,
+	far: number
+): { Run }
+	local pa, pb, best = nil, nil, math.huge
+	for _, p in a do
+		for _, q in b do
+			local d = math.sqrt((p.x - q.x) ^ 2 + (p.z - q.z) ^ 2)
+			if d < best then
+				pa, pb, best = p, q, d
+			end
+		end
+	end
+	if not pa or not pb or best <= least or best > far then
+		return {}
+	end
+	local n = math.max(math.ceil(best / most), 1)
+	local out = {}
+	for i = 1, n do
+		local t0, t1 = (i - 1) / n, i / n
+		table.insert(out, {
+			kind = "Fire",
+			ax = pa.x + (pb.x - pa.x) * t0,
+			az = pa.z + (pb.z - pa.z) * t0,
+			bx = pa.x + (pb.x - pa.x) * t1,
+			bz = pa.z + (pb.z - pa.z) * t1,
+		})
+	end
+	return out
+end
+
+-- The order a side's lanes get their lines (1..count): those its holders stand in first, then the rest, each the
+-- nearest `mid` (the lane of its point's own system) first, then the lower; `mid` itself not at all.
+function BotTrenches.laneOrder(count: number, mid: number, held: { [number]: boolean }): { number }
+	local out = {}
+	for k = 1, count do
+		if k ~= mid then
+			table.insert(out, k)
+		end
+	end
+	table.sort(out, function(p, q)
+		local hp, hq = held[p] == true, held[q] == true
+		if hp ~= hq then
+			return hp
+		end
+		local dp, dq = math.abs(p - mid), math.abs(q - mid)
+		if dp ~= dq then
+			return dp < dq
+		end
+		return p < q
+	end)
+	return out
+end
+
 -- The middle of a system's fire trench (its runs from layout or forward): the middle of its middle bay
 function BotTrenches.fireMid(runs: { Run }): { x: number, z: number }
 	local fire = {}
@@ -360,6 +525,37 @@ function BotTrenches.clearOf(x: number, z: number, half: number, lines: { Run },
 		end
 	end
 	return true
+end
+
+-- How near (flat studs) any run of `runs` comes to any of `others` (0 where two cross); math.huge when either is empty.
+-- A system sited nearer than Config/Build.Trench.spacing to a line it doesn't join is refused "Too close to another
+-- trench" (a measured Lantern Meadows match: lane lines shifted across into their neighbours).
+function BotTrenches.apart(runs: { Run }, others: { Run }): number
+	local function cross(p: Run, q: Run): boolean
+		local function side(ax: number, az: number, bx: number, bz: number, px: number, pz: number): number
+			return (bx - ax) * (pz - az) - (bz - az) * (px - ax)
+		end
+		local d1, d2 = side(p.ax, p.az, p.bx, p.bz, q.ax, q.az), side(p.ax, p.az, p.bx, p.bz, q.bx, q.bz)
+		local d3, d4 = side(q.ax, q.az, q.bx, q.bz, p.ax, p.az), side(q.ax, q.az, q.bx, q.bz, p.bx, p.bz)
+		return d1 * d2 < 0 and d3 * d4 < 0
+	end
+	local best = math.huge
+	for _, p in runs do
+		for _, q in others do
+			if cross(p, q) then
+				return 0
+			end
+			-- (each in brackets: offRun's second value, where along, is no distance)
+			best = math.min(
+				best,
+				(BotTrenches.offRun(p.ax, p.az, q.ax, q.az, q.bx, q.bz)),
+				(BotTrenches.offRun(p.bx, p.bz, q.ax, q.az, q.bx, q.bz)),
+				(BotTrenches.offRun(q.ax, q.az, p.ax, p.az, p.bx, p.bz)),
+				(BotTrenches.offRun(q.bx, q.bz, p.ax, p.az, p.bx, p.bz))
+			)
+		end
+	end
+	return best
 end
 
 -- What a digger does with a piece in a trench run's way (user 2026-11-02: "plan around structures, destroy them if
