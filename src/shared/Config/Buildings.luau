@@ -59,7 +59,8 @@ export type Template = {
 	-- door's opening kept), { kind = "Fountain", x, z, radius } (on the real ground), { kind = "GateTower", x, z,
 	-- width, depth, height, way } (a gate tower, its way { width, height } through it along local Z), { kind =
 	-- "TownWall", x, z, thick, pieces = { { from, to, height } } along local X, tower = { x, radius, height }? } (each
-	-- piece and the tower on the real ground; a GateTower may take `wall` and `onGround` too), { kind = "RoundTower", x,
+	-- piece and the tower on the real ground; a GateTower may take `wall`, `onGround` and `capRoof` too), { kind =
+	-- "BellGable", x, z, width, y, height, wall } (a chapel's bell gable in the plane of local X), { kind = "RoundTower", x,
 	-- z, radius, height, cone } and { kind = "FlagMast", x, z, height } (on the real ground), { kind = "Slits", x, z,
 	-- size, from, to, step, per } (arrow slits on a square block's faces), { kind = "LatticeTower", x, z, base, top, height, stages } (a timber
 	-- lattice tower, `base` across at its foot, `top` at its deck), { kind = "LanternString", x, z, from = { x, y, z }, to = {
@@ -348,10 +349,14 @@ local Buildings = {
 		roof = "Slate",
 	},
 	FlagMast = { flag = { 5, 3.2 } },
+	-- Cascina Selvara (S5's hero): a chapel's bell gable, its opening `open` wide under a lintel `lintel` high, a cap
+	-- `cap` high, `thick` thick, a bell `bell` across
+	BellGable = { open = 2.2, lintel = 1.2, cap = 2, thick = 1.2, bell = 1.4, bronze = "Ochre" },
 	Slits = { slit = { 0.8, 2.8 }, surround = 0.35, dark = "TarBoard" }, -- a keep's arrow slits (w, h) in their surrounds
 	-- a town gate tower: the arch's head in two corbel steps `corbel` high (each a share of the way), a string course,
 	-- quoins `quoin` wide, arrow slits `slit`, merlons `merlon` (long, high); colours
 	GateTower = {
+		capPitch = 30, -- a cascina gateway's tiled cap (its capRoof)
 		corbel = 0.8,
 		steps = { 0.12, 0.28 },
 		course = 0.8,
@@ -1501,10 +1506,14 @@ local Buildings = {
 			},
 			description = "Borgo Aurel's loggia: an open market arcade on the piazza, five bays front and back.",
 		},
-		-- The cascina at S5, south of the point on its x between it and the river, facing it: a two-storey ochre farmhouse
-		-- under terracotta with a portico below and an open loggia above, an arched gateway through to the courtyard
-		-- behind, a three-stage dovecote tower at its west end (pigeon holes at the top, stairs inside: about the
-		-- watchtower's height at the other end) and Selvara's green tents and crates in front.
+		-- The cascina at S5, south of the point on its x between it and the river, facing it (built 2026-11-02), opened
+		-- out round a wide threshing yard as S5's hero, Cascina Selvara (Lantern Meadows' landmarks, user approved
+		-- 2026-11-11; "spread the builds apart way more"): the owner's house of three storeys along the front (-Z) with
+		-- its portico below and its loggia above (an arched gateway through to the yard), the dovecote standing apart at
+		-- its west end raised to 50 (stairs inside to its top floor: the East's lookout, as the burg's keep is the
+		-- West's); the yard behind it (+Z) closed by yard walls with a tiled gateway arch (portone) in the west one, the
+		-- stable-hayloft across its back and the chapel on its east side (CascinaStable, CascinaChapel: each on its own
+		-- ground); Selvara's green tents and crates in front.
 		Cascina = {
 			folder = "Landmarks",
 			width = 64,
@@ -1523,7 +1532,7 @@ local Buildings = {
 					z = 2,
 					width = 36,
 					depth = 14,
-					stories = 2,
+					stories = 3,
 					storyHeight = 10,
 					roofPitch = 26,
 					roofStyle = "Tile",
@@ -1535,12 +1544,12 @@ local Buildings = {
 				},
 				{
 					name = "Dovecote",
-					x = 21,
+					x = 24,
 					z = 2,
 					width = 12,
 					depth = 12,
-					stories = 3,
-					storyHeight = 8,
+					stories = 6,
+					storyHeight = 7.5,
 					roofPitch = 40,
 					roofStyle = "Tile",
 					windows = 1,
@@ -1561,12 +1570,112 @@ local Buildings = {
 					bays = 5,
 					raised = true,
 				},
-				{ kind = "Lattice", x = 21, z = -4.2, y = 21, width = 6.3, height = 2.7 },
+				-- the dovecote's pigeon holes at its top
+				{ kind = "Lattice", x = 24, z = -4.2, y = 41, width = 6.3, height = 2.7 },
+				-- the yard walls (the yard local X -60..48, Z 12..58): the west one either side of the portone, the east
+				-- one either side of the chapel, short ones at the back past the stable's ends
+				{ kind = "Wall", a = { 48, 12 }, b = { 48, 28 }, height = 3, thick = 1.4, swatch = "Ochre" },
+				{ kind = "Wall", a = { 48, 40 }, b = { 48, 58 }, height = 3, thick = 1.4, swatch = "Ochre" },
+				{ kind = "Wall", a = { 48, 58 }, b = { 34, 58 }, height = 3, thick = 1.4, swatch = "Ochre" },
+				{ kind = "Wall", a = { -60, 12 }, b = { -60, 20 }, height = 3, thick = 1.4, swatch = "Ochre" },
+				{ kind = "Wall", a = { -60, 46 }, b = { -60, 58 }, height = 3, thick = 1.4, swatch = "Ochre" },
+				{ kind = "Wall", a = { -60, 58 }, b = { -34, 58 }, height = 3, thick = 1.4, swatch = "Ochre" },
+				{
+					kind = "GateTower",
+					x = 48,
+					z = 34,
+					yaw = 90,
+					width = 11,
+					depth = 3,
+					height = 10,
+					way = { 5.4, 7.4 },
+					wall = "Ochre",
+					onGround = true,
+					capRoof = "Terracotta",
+				},
 				{ kind = "Tent", x = -27, z = -9, length = 8, width = 6, height = 5, canvas = "TentGreen" },
-				{ kind = "Tent", x = 30, z = -10, yaw = 90, length = 8, width = 6, height = 5, canvas = "TentGreen" },
-				{ kind = "Crates", x = 14, z = -12, count = 3 },
+				{ kind = "Tent", x = 36, z = -10, yaw = 90, length = 8, width = 6, height = 5, canvas = "TentGreen" },
+				{ kind = "Crates", x = 16, z = -12, count = 3 },
 			},
-			description = "The cascina: an ochre farmhouse with a portico and loggia, an arched gateway and a dovecote tower, Selvara's tents in front.",
+			description = "Cascina Selvara: the owner's house of three storeys with portico and loggia, a dovecote 50 high, the walled yard behind with its gateway arch.",
+		},
+		-- Cascina Selvara's stable-hayloft across the back of its yard, facing it (front -Z): two storeys of brick under
+		-- terracotta, four stable doors on an eight-bay portico, brick lattice vents in the hayloft over it
+		CascinaStable = {
+			folder = "Landmarks",
+			width = 50,
+			depth = 21,
+			stories = 2,
+			storyHeight = 10,
+			roofPitch = 24,
+			class = "Brick",
+			wallThickness = 1.4,
+			walls = { "Brick" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					name = "Stable",
+					x = 0,
+					z = 3.5,
+					width = 48,
+					depth = 14,
+					stories = 2,
+					storyHeight = 10,
+					roofPitch = 24,
+					roofStyle = "Tile",
+					quoins = true,
+					windows = 0,
+					doors = {
+						{ center = -15, w = 5, h = 7 },
+						{ center = -5, w = 5, h = 7 },
+						{ center = 5, w = 5, h = 7 },
+						{ center = 15, w = 5, h = 7 },
+					},
+					backDoor = { { center = 0, w = 5, h = 7 } },
+				},
+			},
+			features = {
+				{ kind = "Arcade", x = 0, z = -6.2, length = 48, depth = 5.4, height = 9, bays = 8 },
+				{ kind = "Lattice", x = -18, z = -3.7, y = 15.6, width = 7.2, height = 4.5 },
+				{ kind = "Lattice", x = -6, z = -3.7, y = 15.6, width = 7.2, height = 4.5 },
+				{ kind = "Lattice", x = 6, z = -3.7, y = 15.6, width = 7.2, height = 4.5 },
+				{ kind = "Lattice", x = 18, z = -3.7, y = 15.6, width = 7.2, height = 4.5 },
+			},
+			description = "Cascina Selvara's stable-hayloft: two storeys of brick, a portico on the yard, brick lattice vents above.",
+		},
+		-- Cascina Selvara's chapel on the east side of its yard, its gable front (-Z) on the yard with a bell gable on it
+		CascinaChapel = {
+			folder = "Landmarks",
+			width = 12,
+			depth = 18,
+			stories = 1,
+			storyHeight = 12,
+			roofPitch = 35,
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Cream" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					-- turned a quarter so a gable faces the yard: its right wall is the front
+					name = "Chapel",
+					x = 0,
+					z = 0,
+					yaw = 90,
+					width = 16,
+					depth = 10,
+					stories = 1,
+					storyHeight = 12,
+					roofPitch = 35,
+					roofStyle = "Tile",
+					quoins = true,
+					windows = 2,
+					doors = {},
+					rightDoor = true,
+				},
+			},
+			features = { { kind = "BellGable", x = 0, z = -7.3, width = 5, y = 14, height = 7, wall = "Cream" } },
+			description = "Cascina Selvara's chapel: cream stucco under terracotta, a bell gable over its front.",
 		},
 		-- Map 1's S2 (map rework, user approved 2026-11-10, "Yes, build it"): the oast farm, one walled yard on the point
 		-- with the flag in it. The oast house (hop store between two round kilns) along the back wall, the farmhouse in

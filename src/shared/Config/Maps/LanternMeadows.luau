@@ -454,7 +454,11 @@ local LanternMeadows = {
 			{ id = "Fornace", style = "Fornace", x = PTS[2][1], z = CZ + PTS[2][2] + 84, front = { 0, -1 } },
 			{ id = "WorkersRow", style = "WorkersRow", x = PTS[2][1], z = CZ + PTS[2][2] + 166, front = { 0, -1 } },
 			-- the cascina on S5's point, its south side, facing the flag; Selvara's camp
+			-- (Cascina Selvara, S5's hero, user approved 2026-11-11: the house where it stood, its wide walled yard
+			-- behind it toward the river, the stable across the back and the chapel on its east side facing into it)
 			{ id = "Cascina", style = "Cascina", x = PTS[5][1], z = CZ - 228, front = { 0, 1 } },
+			{ id = "CascinaStable", style = "CascinaStable", x = PTS[5][1] - 2, z = CZ - 296, front = { 0, 1 } },
+			{ id = "CascinaChapel", style = "CascinaChapel", x = PTS[5][1] + 58, z = CZ - 262, front = { -1, 0 } },
 			-- Borgo Aurel's campanile and loggia on the piazza, north and south of the flag
 			{ id = "Campanile", style = "Campanile", x = 1944, z = CZ + 78, front = { 0, -1 } },
 			{ id = "Loggia", style = "Loggia", x = 1934, z = CZ - 20, front = { 0, 1 } },

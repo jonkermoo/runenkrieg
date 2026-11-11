@@ -1405,6 +1405,20 @@ local Assets = {
 			generator = "src/dev/Buildings/init.luau",
 			description = "Lantern Meadows' brickworks workers' row behind S2 (a landmark)",
 		},
+		CascinaStable = {
+			category = "Buildings",
+			folder = "Landmarks",
+			template = "CascinaStable",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Lantern Meadows' Cascina Selvara stable-hayloft at S5 (a landmark)",
+		},
+		CascinaChapel = {
+			category = "Buildings",
+			folder = "Landmarks",
+			template = "CascinaChapel",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Lantern Meadows' Cascina Selvara chapel with its bell gable at S5 (a landmark)",
+		},
 		KatzmarkBurg = {
 			category = "Buildings",
 			folder = "Landmarks",

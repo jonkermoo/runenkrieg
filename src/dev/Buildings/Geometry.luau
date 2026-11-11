@@ -2117,7 +2117,8 @@ end
 -- A town gate tower (Config/Buildings.GateTower) `W` across, `D` deep (its way through along local Z) and `H` to its
 -- merlons' tops: two piers, the way `way` { width, height } between them under a stepped arch head, the tower over it,
 -- a string course, quoins, arrow slits front and back, a battlemented top. Solid; the road runs through. `wallKey`: its
--- own wall colour; `onGround`: the whole of it on the real ground where it stands.
+-- own wall colour; `onGround`: the whole of it on the real ground where it stands; `capRoof`: a tiled cap (that Roofs
+-- key) instead of merlons, no slits (a cascina's gateway).
 function Geometry.gateTower(
 	parent: Instance,
 	ctx: Ctx,
@@ -2127,7 +2128,8 @@ function Geometry.gateTower(
 	H: number,
 	way: { number },
 	wallKey: string?,
-	onGround: boolean?
+	onGround: boolean?,
+	capRoof: string?
 )
 	local K = ctx.B.GateTower
 	local wall = wallKey or K.wall
@@ -2142,7 +2144,7 @@ function Geometry.gateTower(
 	local depth = ctx.B.FoundationDepth
 	local ww, wh = way[1], way[2]
 	local pw = (W - ww) / 2
-	local body = H - K.merlon[2]
+	local body = if capRoof then H else H - K.merlon[2]
 	for _, s in { -1, 1 } do
 		local sec = Geometry.section(parent, ctx, "Pier", "Stone", 0)
 		swatched(
@@ -2194,8 +2196,8 @@ function Geometry.gateTower(
 			"Wall",
 			wall
 		)
-		-- arrow slits front and back: one over each pier, one over the way
-		for _, face in { 0, math.pi } do
+		-- arrow slits front and back: one over each pier, one over the way (none on a cascina's roofed gateway)
+		for _, face in if capRoof then {} else { 0, math.pi } do
 			local f = at * CFrame.Angles(0, face, 0) * CFrame.new(0, 0, -D / 2)
 			for _, x in { -(ww / 2 + pw / 2), 0, ww / 2 + pw / 2 } do
 				swatched(
@@ -2211,12 +2213,16 @@ function Geometry.gateTower(
 		end
 	end
 	local trim = Geometry.section(parent, ctx, "Tower", "Stone", 3)
+	if capRoof then
+		-- a gateway's tiled cap instead of a string course and merlons
+		pitchedRoof(trim, ctx, at * CFrame.new(0, body, 0), W + 1.2, D / 2 + 0.8, K.capPitch, capRoof)
+	end
 	swatched(
 		trim,
 		ctx,
 		"Course",
 		at * CFrame.new(0, wh + per, 0),
-		Vector3.new(W + 0.5, K.course, D + 0.5),
+		Vector3.new(W + 0.5, if capRoof then 0.05 else K.course, D + 0.5),
 		"Wall",
 		K.trim
 	)
@@ -2234,6 +2240,9 @@ function Geometry.gateTower(
 		end
 	end
 	-- the merlons round the top, a merlon at every corner
+	if capRoof then
+		return
+	end
 	local runs = { { CFrame.new(0, 0, -D / 2 + 0.6), W }, { CFrame.new(0, 0, D / 2 - 0.6), W } }
 	table.insert(runs, { CFrame.new(-W / 2 + 0.6, 0, 0) * CFrame.Angles(0, math.pi / 2, 0), D })
 	table.insert(runs, { CFrame.new(W / 2 - 0.6, 0, 0) * CFrame.Angles(0, math.pi / 2, 0), D })
@@ -2657,6 +2666,48 @@ function Geometry.slits(
 		end
 		i += 1
 	end
+end
+
+-- A chapel's bell gable (Config/Buildings.BellGable): a flat wall `W` across rising from `y0` (its gable) `H` high in
+-- the plane of local X, two piers round an opening with a bell in it, a lintel and a little gable cap; its own colour.
+function Geometry.bellGable(parent: Instance, ctx: Ctx, at: CFrame, W: number, y0: number, H: number, key: string)
+	local K = ctx.B.BellGable
+	local sec = Geometry.section(parent, ctx, "BellGable", ctx.class, 99)
+	local pier = (W - K.open) / 2
+	local top = y0 + H - K.lintel
+	for _, s in { -1, 1 } do
+		swatched(
+			sec,
+			ctx,
+			"Pier",
+			at * CFrame.new(s * (K.open / 2 + pier / 2), (y0 + top) / 2, 0),
+			Vector3.new(pier, top - y0, K.thick),
+			"Wall",
+			key
+		)
+	end
+	swatched(
+		sec,
+		ctx,
+		"Lintel",
+		at * CFrame.new(0, top + K.lintel / 2, 0),
+		Vector3.new(W, K.lintel, K.thick),
+		"Wall",
+		key
+	)
+	for _, p in triangle(sec, ctx, at * CFrame.new(0, y0 + H, 0), W + 0.4, K.cap, K.thick, "Wall") do
+		p:SetAttribute("Swatch", key)
+	end
+	local bell = swatched(
+		sec,
+		ctx,
+		"Bell",
+		at * CFrame.new(0, top - K.bell * 0.6, 0),
+		Vector3.new(K.bell, K.bell * 1.1, K.bell),
+		"Wall",
+		K.bronze
+	)
+	bell.CanCollide = false
 end
 
 -- A flag mast on the real ground (Config/Buildings.FlagMast): a pole `H` high on a stone base, a cross-yard, a flag.
