@@ -376,6 +376,11 @@ local Map1 = {
 			-- while S5 is its front sector) and the vicarage outside its east wall, on the spawn side
 			{ id = "ChurchClose", style = "ChurchClose", x = PTS[5][1] + 12, z = PTS[5][2] + 10, front = { 0, -1 } },
 			{ id = "Vicarage", style = "TwoStoryHouse", x = 2508, z = -118, front = { 1, 0 } },
+			-- round St Aldhelm's close (user approved 2026-11-11): the school and the almshouses north of the churchyard,
+			-- facing it, the tithe barn south-east
+			{ id = "School", style = "VillageSchool", x = 2442, z = -78, front = { 0, -1 } },
+			{ id = "Almshouses", style = "Almshouses", x = 2392, z = -78, front = { 0, -1 } },
+			{ id = "TitheBarn", style = "TitheBarn", x = 2526, z = -214, front = { 0, 1 } },
 			-- the railway halt behind the East spawn, on the line along the east edge (railX)
 			{ id = "Halt", style = "RailwayHalt", x = 2902, z = -10, front = { 1, 0 } },
 		},

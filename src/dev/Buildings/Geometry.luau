@@ -1532,4 +1532,87 @@ function Geometry.plinth(parent: Instance, ctx: Ctx, W: number, Dp: number, yTop
 	Geometry.part(parent, ctx, "Plinth", CFrame.new(W / 2 + o / 2, y, 0), Vector3.new(o, h, Dp), "Foundation")
 end
 
+-- A broach spire on a square tower (St Aldhelm's, user approved 2026-11-11: "a hero over the trees"): an eight-sided
+-- cone `H` high from the tower's top, its four corner broaches sloping up onto it, a finial and a weathercock. Its
+-- faces are triangles as an oast's cone; the cone and broaches take the template block's roof swatch (lead).
+function Geometry.spire(parent: Instance, ctx: Ctx, W: number, top: number, H: number)
+	local r = W / 2 * 0.86
+	local side = 2 * r * math.tan(math.pi / 8)
+	local phi = math.atan(r / H)
+	local slant = math.sqrt(r * r + H * H)
+	local eaves = Geometry.section(parent, ctx, "Roof", "Tile", 99)
+	Geometry.part(eaves, ctx, "Eaves", CFrame.new(0, top + 0.4, 0), Vector3.new(W + 0.6, 0.8, W + 0.6), "Roof")
+	local base = top + 0.8
+	for i = 0, 7 do
+		local sec = Geometry.section(parent, ctx, "Roof", "Tile", 99)
+		local frame = CFrame.Angles(0, i * math.pi / 4, 0) * CFrame.new(0, base, -r) * CFrame.Angles(phi, 0, 0)
+		triangle(sec, ctx, frame, side * 1.06, slant, 0.8, "Roof")
+	end
+	-- the broaches: a sloped wedge over each corner of the square, rising onto the cone's diagonal faces
+	local c = W / 2 - r * math.cos(math.pi / 8) + 1.2
+	for i = 0, 3 do
+		local sec = Geometry.section(parent, ctx, "Roof", "Tile", 99)
+		local corner = CFrame.Angles(0, math.pi / 4 + i * math.pi / 2, 0)
+			* CFrame.new(0, base, -(W / 2) * math.sqrt(2) + c)
+		Geometry.part(
+			sec,
+			ctx,
+			"Broach",
+			corner * CFrame.new(0, H * 0.09, 0),
+			Vector3.new(c * 1.6, H * 0.18, c * 1.6),
+			"Roof",
+			"WedgePart"
+		)
+	end
+	local fin = Geometry.section(parent, ctx, "Finial", "Wood", 99)
+	local tip = base + H
+	local rod = Geometry.part(
+		fin,
+		ctx,
+		"Rod",
+		CFrame.new(0, tip + 1.6, 0) * CFrame.Angles(0, 0, math.pi / 2),
+		Vector3.new(4, 0.5, 0.5),
+		"Metal"
+	)
+	rod.Shape = Enum.PartType.Cylinder
+	Geometry.part(fin, ctx, "Cross", CFrame.new(0, tip + 2.6, 0), Vector3.new(2.6, 0.3, 0.3), "Metal")
+	Geometry.part(fin, ctx, "Cock", CFrame.new(0.4, tip + 3.8, 0), Vector3.new(1.8, 1.2, 0.3), "Metal", "WedgePart")
+end
+
+-- A bellcote on a ridge (a village school's): two piers, a little gable roof on them and the bell hung between, its foot
+-- at `at`.
+function Geometry.bellcote(parent: Instance, ctx: Ctx, at: CFrame, W: number, H: number)
+	local sec = Geometry.section(parent, ctx, "Bellcote", "Wood", 99)
+	for _, x in { -1, 1 } do
+		Geometry.part(sec, ctx, "Pier", at * CFrame.new(x * (W / 2 - 0.45), H / 2, 0), Vector3.new(0.9, H, 1.4), "Trim")
+	end
+	Geometry.part(sec, ctx, "Sill", at * CFrame.new(0, 0.3, 0), Vector3.new(W, 0.6, 1.8), "Trim")
+	local bell = Geometry.part(sec, ctx, "Bell", at * CFrame.new(0, H * 0.55, 0), Vector3.new(1.6, 1.6, 1.6), "Metal")
+	bell.Shape = Enum.PartType.Ball
+	Geometry.roof(sec, ctx, at, W + 0.6, 2.4, H, 45, "Tile")
+end
+
+-- A churchyard yew: a short dark trunk under a tall dense crown of overlapping lumps (Palette.Buildings.Foliage), set
+-- on the real ground where it's placed.
+function Geometry.yew(parent: Instance, ctx: Ctx, at: CFrame, H: number)
+	local sec = Geometry.section(parent, ctx, "Yew", "Wood", 0)
+	sec:SetAttribute("OnGround", true)
+	local trunk =
+		Geometry.part(sec, ctx, "Trunk", at * CFrame.new(0, H * 0.12, 0), Vector3.new(1.6, H * 0.3, 1.6), "Trim")
+	trunk.CanCollide = true
+	for i, l in { { 0, 0.42, 0, 0.62 }, { 0.6, 0.6, 0.4, 0.5 }, { -0.5, 0.66, -0.3, 0.48 }, { 0.1, 0.84, 0, 0.36 } } do
+		local s = H * l[4]
+		local lump = Geometry.part(
+			sec,
+			ctx,
+			"Crown",
+			at * CFrame.new(l[1] * H * 0.25, H * l[2], l[3] * H * 0.25) * CFrame.Angles(0, i, 0),
+			Vector3.new(s * 0.9, s, s * 0.9),
+			"Foliage"
+		)
+		lump.Shape = Enum.PartType.Ball
+		lump.CanCollide = false
+	end
+end
+
 return Geometry

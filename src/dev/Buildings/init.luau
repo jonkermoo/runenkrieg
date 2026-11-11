@@ -166,6 +166,9 @@ local function roofAndExtras(model: Model, t: any, ctx: Geometry.Ctx, wallTop: n
 	if t.roofStyle == "Battlement" then
 		Geometry.battlement(model, ctx, W, Dp, wallTop)
 		return 0
+	elseif t.roofStyle == "Spire" then
+		Geometry.spire(model, ctx, W, wallTop, t.spire)
+		return t.spire
 	end
 	for _, side in { -1, 1 } do
 		local frame = CFrame.new(side * (W / 2 - T / 2), wallTop, 0) * CFrame.Angles(0, math.pi / 2, 0)
@@ -263,6 +266,10 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.arcade(model, ctx, at * y, f.length, f.depth, f.height, f.bays, f.raised, f.roof)
 			elseif f.kind == "Stage" then
 				Geometry.stage(model, ctx, at, f.width, f.depth, f.height, f.posts)
+			elseif f.kind == "Bellcote" then
+				Geometry.bellcote(model, ctx, at * CFrame.new(0, f.y, 0), f.width, f.height)
+			elseif f.kind == "Yew" then
+				Geometry.yew(model, ctx, at, f.height)
 			elseif f.kind == "Waterwheel" then
 				Geometry.waterwheel(model, ctx, at * CFrame.new(0, f.y, 0), f.radius, f.width)
 			else
@@ -298,6 +305,7 @@ function Buildings.paint(model: Instance, scheme: any, palette: any)
 		Linen = rgb(P.Linen),
 		Cloth = rgb(P.Cloth),
 		Hay = rgb(P.Hay),
+		Foliage = rgb(P.Foliage),
 	}
 	local door = rgb(P.Doors[scheme.door])
 	colors.DoorDark = Color3.new(door.R * 0.86, door.G * 0.86, door.B * 0.86)
