@@ -855,11 +855,12 @@ local Artillery = {
 			swing = 10,
 			traverseRate = 6,
 			elevationRate = 4,
-			-- 225.8 studs/s (user 2026-11-06, the map rework, "guns (a)": points 520 apart, so the longest shot, 45°,
+			-- 237.8 studs/s (the 2026-11-11 stretch, points 600 apart: its longest shot ~790, one point ahead; was 225.8)
+			-- (225.8 studs/s, user 2026-11-06, the map rework, "guns (a)": points 520 apart, so the longest shot, 45°,
 			-- lands at ~712, one point ahead from the gun pits 140 behind its own point, never two; Reach below. Was 190,
 			-- 504 at 45, user 2026-11-03, for 420 spacing): ~124 at 5 degrees, ~458 at 20, ~618 at 30, ~712 at 45, ~458
 			-- lobbed at 70
-			speed = 225.8,
+			speed = 237.8,
 			gravity = 71.6,
 			charge = 0.45,
 			breechOpens = true,
@@ -1039,8 +1040,9 @@ local Artillery = {
 			traverseRate = 5,
 			elevationRate = 5,
 			-- (176, was 160: the map rework's 520 spacing, user 2026-11-06 "guns (a)": its lowest lay, 45, now ~712, one
-			-- point ahead from its pad 210 behind its own point)
-			speed = 176,
+			-- point ahead from its pad 210 behind its own point; 185.4 since the 2026-11-11 stretch, points 600 apart: its
+			-- lowest lay ~790)
+			speed = 185.4,
 			gravity = 43.5, -- (340 under 196.2 before: the same ranges, ~2.1x the flight: 5.2 s at 45, 7.2 at 80)
 			charge = 1.8, -- its magic charge-up (user 2026-10-21: "make the howitzer have a cinematic magic charge up")
 			breechOpens = false, -- (user 2026-10-21: "remove the close and opening on the howitzer, leave it closed")

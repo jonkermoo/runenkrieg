@@ -104,19 +104,20 @@ return {
 		local _, _, _, dx, _, dz = A.muzzle(BORE, 30, 0)
 		assert(near(A.yawOf(dx, dz), 30, 1e-6))
 	end,
-	["the agreed ranges: the field gun lobs out to ~713 (one point ahead), the howitzer a short-arc mortar"] = function()
+	["the agreed ranges: the field gun lobs out to ~790 (one point ahead), the howitzer a short-arc mortar"] = function()
 		-- (user 2026-11-03: "it should fire similarily to a mortar, maybe with less arc", "its too flat", then "keep the 1
 		-- sector range of the field cannon"; 2026-11-06, the map rework's 520 spacing, "guns (a)"): 5 to 70 degrees, no
-		-- hidden tilt, ~713 studs at 45, ~712 for the howitzer at its lowest
+		-- hidden tilt, ~713 studs at 45, ~712 for the howitzer at its lowest; ~790 both since the 2026-11-11 stretch, points
+		-- 600 apart, user: "Longer shells")
 		assert(QF.elevation[1] == 5 and QF.elevation[2] == 70 and (QF.aimTilt or 0) == 0 and QF.rest == 20)
 		local most = QF.speed * QF.speed / QF.gravity
-		assert(math.abs(most - 713) < 5, most)
-		assert(math.abs(A.range(QF.speed, 5, QF.gravity) - 124) < 5)
-		assert(math.abs(A.range(QF.speed, 70, QF.gravity) - 458) < 5, "lobbed at its highest")
+		assert(math.abs(most - 790) < 5, most)
+		assert(math.abs(A.range(QF.speed, 5, QF.gravity) - 137) < 5)
+		assert(math.abs(A.range(QF.speed, 70, QF.gravity) - 508) < 5, "lobbed at its highest")
 		assert(QF.elevation[2] < HOW.elevation[2], "flatter than the howitzer")
 		assert(HOW.elevation[1] >= 45) -- it only lobs
-		assert(math.abs(A.range(HOW.speed, HOW.elevation[1], HOW.gravity) - 712) < 20)
-		assert(A.range(HOW.speed, HOW.elevation[2], HOW.gravity) < 250)
+		assert(math.abs(A.range(HOW.speed, HOW.elevation[1], HOW.gravity) - 790) < 20)
+		assert(A.range(HOW.speed, HOW.elevation[2], HOW.gravity) < 280)
 		-- slower than under Roblox's gravity (user 2026-10-21): the flights are longer
 		local function flight(g: any, e: number): number
 			return 2 * g.speed * math.sin(math.rad(e)) / g.gravity
@@ -719,8 +720,8 @@ return {
 		for _, name in { "Map1", "LanternMeadows" } do
 			local map = require(`../src/shared/Config/Maps/{name}`) :: any
 			local span = A.sectorSpan(map.sectors)
-			-- (~520 on both since the map rework, user 2026-11-06 and 2026-11-10)
-			assert(span > 400 and span < 560, `{name} span {span}`)
+			-- (~600 on both since the stretch, user 2026-11-11)
+			assert(span > 540 and span < 660, `{name} span {span}`)
 			local cap = A.reachCap(span, R)
 			local qcap = A.reachCap(span, R, "artillery_qf18")
 			assert(near(qcap, cap, 1e-6), `{name} field cannon reach {qcap}`)
@@ -796,7 +797,7 @@ return {
 		assert(#A.path(0, 10, 0, 100, 50, 0, 50, 0.5, 1, -1e9) == 3, "or at its longest flight")
 	end,
 	["layFor: the field gun's low arc, or its lob over cover when asked"] = function()
-		local d = 500
+		local d = 550
 		local lowE = A.layFor(QF, d, 0, nil, "low") :: number
 		local highE = A.layFor(QF, d, 0, nil, "high") :: number
 		assert(lowE < 45 and highE > 45 and highE <= QF.elevation[2], `{lowE} {highE}`)

@@ -180,7 +180,14 @@ return {
 		local O = Map.legs.open
 		local L = MT.legPieces(Map)
 		local open = 0
+		local B = Map.bounds
 		for _, t in MT.trees(Map) do
+			-- (inside the bounds and off their wooded edge: on the narrow map the forest is within `calm.width` of the
+			-- chain)
+			local e = Map.trees.edgeBand
+			if t.x < B.minX or t.x > B.maxX or t.z < B.minZ + e or t.z > B.maxZ - e then
+				continue
+			end
 			local near = MT.chainDistance(Map, t.x, t.z)
 			if near >= Map.legs.calm.width then
 				continue
@@ -194,15 +201,16 @@ return {
 				assert((t.x - p.x) ^ 2 + (t.z - p.z) ^ 2 >= O.padClear ^ 2, `a tree on a gun pad at {t.x}, {t.z}`)
 			end
 		end
-		assert(open >= 150 and open <= 900, `{open} trees on the open ground`)
+		-- (up to 1200 since the 2026-11-11 stretch: a longer chain, the open ground across the whole narrow map)
+		assert(open >= 150 and open <= 1200, `{open} trees on the open ground`)
 	end,
-	["the step: the end legs turn 15-25 degrees south, the middle ones 2-8 north, point-symmetric about S3"] = function()
+	["the step: the end legs turn 8-14 degrees south, the middle ones 2-8 north, point-symmetric about S3"] = function()
 		local c = sectors[3]
 		for i = 1, #sectors - 1 do
 			local a, b = sectors[i], sectors[i + 1]
 			local turn = math.deg(math.atan((b.z - a.z) / (b.x - a.x)))
 			if i == 1 or i == #sectors - 1 then
-				assert(turn <= -15 and turn >= -25, `{a.id}->{b.id} turns {turn}`)
+				assert(turn <= -8 and turn >= -14, `{a.id}->{b.id} turns {turn}`)
 			else
 				assert(turn >= 2 and turn <= 8, `{a.id}->{b.id} turns {turn}`)
 			end
@@ -235,7 +243,7 @@ return {
 	["sector spacing within 15% of the metric"] = function()
 		for i = 1, #sectors - 1 do
 			local d = dist(sectors[i], sectors[i + 1])
-			local target = 520 -- (the map rework's spacing, user 2026-11-06; Metrics.Sector.Spacing is Map 1's 420)
+			local target = M.Sector.Spacing -- (600 since the stretch, user 2026-11-11)
 			assert(math.abs(d - target) / target <= 0.05, `{sectors[i].id}->{sectors[i + 1].id} is {d}`)
 		end
 	end,
@@ -408,11 +416,11 @@ return {
 			assert(lo > 2 and hi < C.height * 2, `sector {cr.sector}'s {cr.side} crest {lo} to {hi} high`)
 		end
 	end,
-	["each spawn sits behind its own HQ, ~400 out, still in the HQ's sector (user 2026-11-02)"] = function()
+	["each spawn sits behind its own HQ, ~300 out, still in the HQ's sector (user 2026-11-02; 300 since the 2026-11-11 stretch)"] = function()
 		for side, i in { West = 1, East = #sectors } do
 			local r, hq = Map.spawnZones[side], sectors[i]
 			local d = dist({ x = (r.minX + r.maxX) / 2, z = (r.minZ + r.maxZ) / 2 }, hq)
-			assert(d > 380 and d < 460, `{side} spawn {d} from its HQ`)
+			assert(d > 280 and d < 340, `{side} spawn {d} from its HQ`)
 			for _, c in { { r.minX, r.minZ }, { r.maxX, r.minZ }, { r.maxX, r.maxZ }, { r.minX, r.maxZ } } do
 				assert(
 					Sec.sectorAt(Map, MT, c[1], c[2], SecCfg.Divider.RiverSegments) == hq.id,

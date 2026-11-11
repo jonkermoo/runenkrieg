@@ -75,7 +75,7 @@ local Metrics = {
 	},
 
 	Sector = {
-		Spacing = 420, -- center to center along the front (was 300; user 2026-11-01: more distance between sectors)
+		Spacing = 600, -- center to center along the front (was 300, then 420 (user 2026-11-01), ~520 (2026-11-06); user 2026-11-11: "maps need to be longer and less wide. trenches feel too short to cross")
 		CaptureRadius = 45,
 	},
 

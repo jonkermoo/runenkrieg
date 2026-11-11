@@ -29,7 +29,7 @@ end
 
 -- The points: a step, the two end legs turning 22° south, the middle two 3° north (user 2026-11-06: "variety in
 -- direction (not too much that the map gets complicated)"), point-symmetric about S3 so each side's legs are alike.
-local PTS = { { 420, 160 }, { 889, -26 }, { 1420, 0 }, { 1951, 26 }, { 2420, -160 } }
+local PTS = { { 230, 73 }, { 810, -31 }, { 1420, 0 }, { 2030, 31 }, { 2610, -73 } }
 
 -- The leg pattern (Rules/MapTerrain: legPieces, rally, tactics; the numbers explained there and in MAP_RULES.md), as
 -- Lantern Meadows
@@ -76,7 +76,7 @@ local LEGS = {
 	-- no sunken lane cut here (user 2026-11-10: "remove the old trenches"): `depth` 0; the line still marks where the
 	-- enemy's attack forms up (the bots' gather spots)
 	fold = { u = 170, half = 120, depth = 0, floor = 4, wall = 6, ends = 20 },
-	knoll = { u = 90, n = 175, height = 7, top = 6, radius = 30 },
+	knoll = { u = 90, n = 150, height = 7, top = 6, radius = 30 },
 	guns = { u = 140, n = 110, howitzer = 210, pad = 9, fade = 12 },
 	rally = 60,
 	calm = { width = 230, fade = 80, keep = 0.55 },
@@ -114,20 +114,20 @@ local Map1 = {
 	-- the two nations that fight here (user 2026-11-04, "fixed pair per map": Rules/Frontline.mapPair), Katzmark always
 	-- one of them; the Allies (Selvara, Sowilo) wear the map's own
 	pair = { West = "uniform1", East = "uniform3" },
-	bounds = rect(-90, 2930, -420, 420),
+	bounds = rect(-160, 3000, -280, 280),
 	terrainMargin = 420, -- detailed terrain + forest past the bounds; relief fades to flat at its edge
 	-- Low-detail flat skirt beyond the margin plus distant hills, so the world edge never shows.
 	skirt = {
 		width = 1000,
 		hills = {
-			{ -1243, -820, 300, 110 },
-			{ 429, -1270, 360, 130 },
-			{ 1714, -1220, 320, 100 },
-			{ 3700, -720, 340, 120 },
-			{ 3800, 620, 300, 95 },
-			{ 1971, 1270, 380, 140 },
-			{ 300, 1220, 320, 105 },
-			{ -1307, 520, 340, 125 },
+			{ -1376, -656, 300, 110 },
+			{ 379, -1016, 360, 130 },
+			{ 1729, -976, 320, 100 },
+			{ 3814, -576, 340, 120 },
+			{ 3919, 496, 300, 95 },
+			{ 1999, 1016, 380, 140 },
+			{ 244, 976, 320, 105 },
+			{ -1443, 416, 340, 125 },
 		}, -- {x, z, radius, peak height}
 	},
 	fogEnd = 600,
@@ -140,7 +140,7 @@ local Map1 = {
 	-- noise, the flanks lifted and rougher past a wandering edge (Rules/MapTerrain.valleyAt, warped)
 	ground = {
 		warp = { amp = 45, scale = 220 },
-		valley = { lift = 16, near = 200, far = 400, edge = 40, edgeScale = 160, rough = 2.5 },
+		valley = { lift = 16, near = 190, far = 300, edge = 40, edgeScale = 160, rough = 2.5 },
 		-- each landmark's plot on settled ground (Rules/MapTerrain.landRaw)
 		settle = { radius = 60, fade = 50, floor = 0.15 },
 	},
@@ -161,7 +161,7 @@ local Map1 = {
 		stripe = 4,
 	},
 
-	-- Capture points ~520 apart, each fair to its two neighbours (tests/sectors.spec.luau: S2 and S4 stand 11 toward
+	-- Capture points ~600 apart (user 2026-11-11: "maps need to be longer and less wide"), each fair to its two neighbours (tests/sectors.spec.luau: S2 and S4 stand 11 toward
 	-- their HQs, where the farm's walls and the town's houses would slow the attacker from the HQ). The strongpoints and
 	-- the town have bigger zones (user 2026-11-06: "the building should take up a good portion of the sector").
 	sectors = {
@@ -189,63 +189,51 @@ local Map1 = {
 		{
 			between = { "S1", "S2" },
 			points = {
-				{ 457, -420 },
-				{ 488, -350 },
-				{ 513, -280 },
-				{ 541, -210 },
-				{ 571, -140 },
-				{ 599, -70 },
-				{ 627, 0 },
-				{ 655, 70 },
-				{ 682, 140 },
-				{ 710, 210 },
-				{ 738, 280 },
-				{ 766, 350 },
-				{ 796, 420 },
+				{ 464, -280 },
+				{ 480, -210 },
+				{ 492, -140 },
+				{ 502, -70 },
+				{ 511, 0 },
+				{ 539, 70 },
+				{ 539, 140 },
+				{ 543, 210 },
+				{ 555, 280 },
 			},
 		},
 		{
 			between = { "S2", "S3" },
 			points = {
-				{ 1179, -420 },
-				{ 1179, -350 },
-				{ 1170, -280 },
-				{ 1160, -210 },
-				{ 1160, -140 },
-				{ 1156, -70 },
-				{ 1153, 0 },
-				{ 1149, 70 },
-				{ 1149, 140 },
-				{ 1152, 210 },
-				{ 1136, 280 },
-				{ 1130, 350 },
-				{ 1129, 420 },
+				{ 1127, -280 },
+				{ 1124, -210 },
+				{ 1123, -140 },
+				{ 1123, -70 },
+				{ 1113, 0 },
+				{ 1110, 70 },
+				{ 1106, 140 },
+				{ 1112, 210 },
+				{ 1111, 280 },
 			},
 		},
 		{ between = { "S3", "S4" }, river = true }, -- the river's middle line
 		{
 			between = { "S4", "S5" },
 			points = {
-				{ 2042, -420 },
-				{ 2072, -350 },
-				{ 2100, -280 },
-				{ 2128, -210 },
-				{ 2159, -140 },
-				{ 2183, -70 },
-				{ 2211, 0 },
-				{ 2239, 70 },
-				{ 2267, 140 },
-				{ 2297, 210 },
-				{ 2325, 280 },
-				{ 2350, 350 },
-				{ 2381, 420 },
+				{ 2283, -280 },
+				{ 2298, -210 },
+				{ 2299, -140 },
+				{ 2302, -70 },
+				{ 2330, 0 },
+				{ 2336, 70 },
+				{ 2349, 140 },
+				{ 2361, 210 },
+				{ 2377, 280 },
 			},
 		},
 	} :: { Divider },
-	-- each side's spawn 420 behind its HQ, straight back along x (MAP_RULES)
+	-- each side's spawn 300 behind its HQ, straight back along x (MAP_RULES; 420 until the 2026-11-11 stretch)
 	spawnZones = {
-		West = rect(-35, 35, 100, 220),
-		East = rect(2805, 2875, -220, -100),
+		West = rect(-105, -35, 13, 133),
+		East = rect(2875, 2945, -133, -13),
 	},
 
 	-- the valley floor: gentle rolling ground (kept calmer still along the chain: legs.calm)
@@ -276,7 +264,7 @@ local Map1 = {
 	-- The river: from the north edge south through the open ground between S3 and Ashby, with the road's stone bridge,
 	-- a footbridge to the north, the rock ford by the old lock and the mill to the south, and a narrow ford upstream.
 	river = {
-		x = 1690, -- its middle line, meandering `meanderAmp` either side every `meanderLen` (MapTerrain.riverCenterX)
+		x = 1732, -- its middle line, meandering `meanderAmp` either side every `meanderLen` (MapTerrain.riverCenterX)
 		meanderAmp = 12,
 		meanderLen = 300,
 		width = 26,
@@ -284,34 +272,34 @@ local Map1 = {
 		bedY = -7,
 		waterY = -2.5,
 		fords = {
-			{ x = 1690, z = 300, width = 9, bedY = -3.8 }, -- a narrow ford upstream, on the north flank
+			{ x = 1720, z = 237, width = 9, bedY = -3.8 }, -- a narrow ford upstream, on the north flank
 			-- the rock ford by the old lock on the south lane: shallow water you can see, flat rocks across
-			{ x = 1682, z = -115, width = 32, bedY = -4.4, rocks = true, sink = 2 },
+			{ x = 1724, z = -113, width = 32, bedY = -4.4, rocks = true, sink = 2 },
 		},
 		-- the road's stone bridge and the footbridge on the north lane (src/dev/Greybox/Bridges)
 		bridges = {
-			{ id = "Bridge", x = 1694, z = 15, length = 70, width = 16, deck = true, hump = 3 },
-			{ id = "Footbridge", x = 1691, z = 145, length = 64, width = 12, deck = true, hump = 2 },
+			{ id = "Bridge", x = 1736, z = 18, length = 70, width = 16, deck = true, hump = 3 },
+			{ id = "Footbridge", x = 1733, z = 148, length = 64, width = 12, deck = true, hump = 2 },
 		},
 	},
 	-- tree-free ground: the farms, the inn, the crossings' banks, the town and the church close
 	reserved = {
-		{ id = "BeaconFarm", minX = 340, maxX = 450, minZ = 280, maxZ = 340 },
-		{ id = "OastFarm", minX = 830, maxX = 970, minZ = -100, maxZ = 50 },
-		{ id = "Inn", minX = 1346, maxX = 1504, minZ = 120, maxZ = 210 },
-		{ id = "Bridge", minX = 1620, maxX = 1740, minZ = -15, maxZ = 45 },
-		{ id = "Footbridge", minX = 1622, maxX = 1732, minZ = 120, maxZ = 170 },
-		{ id = "RockFord", minX = 1630, maxX = 1750, minZ = -175, maxZ = -85 },
-		{ id = "Town", minX = 1770, maxX = 2110, minZ = -150, maxZ = 210 },
-		{ id = "Church", minX = 2370, maxX = 2525, minZ = -210, maxZ = -90 },
-		{ id = "Halt", minX = 2870, maxX = 2930, minZ = -45, maxZ = 25 },
+		{ id = "BeaconFarm", minX = 150, maxX = 260, minZ = 178, maxZ = 238 },
+		{ id = "OastFarm", minX = 751, maxX = 891, minZ = -105, maxZ = 45 },
+		{ id = "Inn", minX = 1346, maxX = 1504, minZ = 120, maxZ = 204 },
+		{ id = "Bridge", minX = 1662, maxX = 1782, minZ = -15, maxZ = 49 },
+		{ id = "Footbridge", minX = 1664, maxX = 1774, minZ = 120, maxZ = 174 },
+		{ id = "RockFord", minX = 1672, maxX = 1792, minZ = -174, maxZ = -80 },
+		{ id = "Town", minX = 1849, maxX = 2189, minZ = -145, maxZ = 205 },
+		{ id = "Church", minX = 2560, maxX = 2715, minZ = -123, maxZ = -3 },
+		{ id = "Halt", minX = 2940, maxX = 3000, minZ = 42, maxZ = 112 },
 	},
 
 	-- The road along the step and over the bridge, the crossroads lane, Ashby round S4, and the landmarks
 	-- (Rules/Village). Map 1's English cottages (Config/Buildings.RoadTemplates).
 	village = {
 		-- (houses only in Ashby round S4, inside its two approaches' lines ~157 out from its point)
-		area = rect(1800, 2095, -165, 205),
+		area = rect(1879, 2174, -160, 204),
 		roads = {
 			{
 				id = "Main",
@@ -319,33 +307,33 @@ local Map1 = {
 				maxLots = 22,
 				rows = true, -- the High Street's houses in order, a terrace
 				points = {
-					{ -90, 160 },
-					{ 420, 160 },
-					{ 743, 32 }, -- (then through the oast farm's two cart gates)
-					{ 800, -26 },
-					{ 978, -26 },
-					{ 1160, -15 },
+					{ -160, 73 },
+					{ 230, 73 },
+					{ 664, 27 }, -- (then through the oast farm's two cart gates)
+					{ 721, -31 },
+					{ 899, -31 },
+					{ 1123, -17 },
 					{ 1420, 0 },
-					{ 1680, 15 },
-					{ 1951, 26 },
-					{ 2185, -67 },
-					{ 2274, -102 },
-					{ 2340, -140 },
-					{ 2378, -150 }, -- (to the church close's lychgate)
+					{ 1717, 17 },
+					{ 2030, 31 },
+					{ 2319, -21 },
+					{ 2464, -15 },
+					{ 2530, -53 },
+					{ 2568, -63 }, -- (to the church close's lychgate)
 				},
 			},
 			-- on from the church close's east gate past the East spawn
-			{ id = "Spawn", width = 10, maxLots = 0, points = { { 2486, -150 }, { 2700, -158 }, { 2930, -160 } } },
+			{ id = "Spawn", width = 10, maxLots = 0, points = { { 2676, -63 }, { 2843, -71 }, { 3000, -73 } } },
 			-- the crossroads lane through S3, north to the inn's yard
-			{ id = "Crossroads", width = 8, maxLots = 0, points = { { 1420, -420 }, { 1420, 140 } } },
+			{ id = "Crossroads", width = 8, maxLots = 0, points = { { 1420, -280 }, { 1420, 140 } } },
 			-- Ashby's two back lanes, ~70 either side of the High Street, two outer ones past them, and the two cross
 			-- lanes ~90 either side of the green
-			{ id = "BackNorth", width = 8, maxLots = 18, points = { { 1815, 115 }, { 1940, 100 }, { 2085, 46 } } },
-			{ id = "BackSouth", width = 8, maxLots = 16, points = { { 1815, -25 }, { 1940, -40 }, { 1995, -60 } } },
-			{ id = "Upper", width = 7, maxLots = 14, points = { { 1820, 172 }, { 1940, 160 }, { 2060, 112 } } },
-			{ id = "Mill", width = 7, maxLots = 8, points = { { 1830, -88 }, { 1940, -104 }, { 2000, -128 } } },
-			{ id = "WestLane", width = 7, maxLots = 6, points = { { 1857, -62 }, { 1843, 128 } } },
-			{ id = "EastLane", width = 7, maxLots = 6, points = { { 2000, -78 }, { 2050, 70 } } },
+			{ id = "BackNorth", width = 8, maxLots = 18, points = { { 1894, 120 }, { 2019, 105 }, { 2164, 51 } } },
+			{ id = "BackSouth", width = 8, maxLots = 16, points = { { 1894, -20 }, { 2019, -35 }, { 2074, -55 } } },
+			{ id = "Upper", width = 7, maxLots = 14, points = { { 1899, 177 }, { 2019, 165 }, { 2139, 117 } } },
+			{ id = "Mill", width = 7, maxLots = 8, points = { { 1872, -83 }, { 1982, -99 }, { 2042, -123 } } },
+			{ id = "WestLane", width = 7, maxLots = 6, points = { { 1936, -57 }, { 1922, 133 } } },
+			{ id = "EastLane", width = 7, maxLots = 6, points = { { 2079, -73 }, { 2129, 75 } } },
 		},
 		lotSpacing = 22,
 		setback = 3,
@@ -355,14 +343,14 @@ local Map1 = {
 			{ x = PTS[3][1], z = PTS[3][2], r = 50 },
 			{ x = PTS[4][1], z = PTS[4][2], r = 38 }, -- Ashby's green
 			-- the two little squares where each side's wave stands while S4 is its front sector (MapTerrain.rally)
-			{ x = 2007, z = 4, r = 30 },
-			{ x = 1891, z = 23, r = 30 },
+			{ x = 2086, z = 9, r = 30 },
+			{ x = 1970, z = 28, r = 30 },
 			{ x = PTS[5][1], z = PTS[5][2], r = 20 },
-			{ x = 2840, z = -160, r = 80 }, -- the East spawn
+			{ x = 2910, z = -73, r = 80 }, -- the East spawn
 		},
 		specials = {
 			-- the beacon farm on S1's rear north flank, out of S2's sight
-			{ id = "BeaconFarm", style = "BeaconFarm", x = 393, z = 310, front = { 0, -1 } },
+			{ id = "BeaconFarm", style = "BeaconFarm", x = 203, z = 208, front = { 0, -1 } },
 			-- the oast farm on S2's point, the flag in its yard
 			{ id = "OastFarm", style = "OastFarm", x = PTS[2][1], z = PTS[2][2], front = { 0, -1 } },
 			-- the coaching inn on S3's north flank, its yard open to the crossroads lane
@@ -371,37 +359,37 @@ local Map1 = {
 			{ id = "Brewery", style = "Brewery", x = PTS[3][1] + 70, z = 182, front = { -1, 0 } },
 			{ id = "Smithy", style = "Smithy", x = PTS[3][1] - 62, z = 180, front = { 1, 0 } },
 			-- the watermill on the S3 bank by the rock ford, its door to the west, its wheel in the river
-			{ id = "Mill", style = "Watermill", x = 1666, z = -158, front = { -1, 0 } },
+			{ id = "Mill", style = "Watermill", x = 1708, z = -156, front = { -1, 0 } },
 			-- Ashby's market hall and pub on the green, north and south of the flag
-			{ id = "MarketHall", style = "MarketHall", x = 1955, z = 73, front = { 0, -1 } },
-			{ id = "Plough", style = "Plough", x = 1945, z = -24, front = { 0, 1 } },
+			{ id = "MarketHall", style = "MarketHall", x = 2034, z = 78, front = { 0, -1 } },
+			{ id = "Plough", style = "Plough", x = 2024, z = -19, front = { 0, 1 } },
 			-- Ashby's allotments on the town's north edges (user approved 2026-11-11)
-			{ id = "AllotmentsWest", style = "Allotments", x = 1828, z = 214, front = { 0, -1 } },
-			{ id = "AllotmentsEast", style = "Allotments", x = 2080, z = 168, front = { 0, -1 } },
+			{ id = "AllotmentsWest", style = "Allotments", x = 1907, z = 207, front = { 0, -1 } },
+			{ id = "AllotmentsEast", style = "Allotments", x = 2159, z = 173, front = { 0, -1 } },
 			-- the church close on S5's point (the flag in its churchyard at local -12, -10, clear of East's wave line
 			-- while S5 is its front sector) and the vicarage outside its east wall, on the spawn side
 			{ id = "ChurchClose", style = "ChurchClose", x = PTS[5][1] + 12, z = PTS[5][2] + 10, front = { 0, -1 } },
-			{ id = "Vicarage", style = "TwoStoryHouse", x = 2508, z = -118, front = { 1, 0 } },
+			{ id = "Vicarage", style = "TwoStoryHouse", x = 2698, z = -31, front = { 1, 0 } },
 			-- round St Aldhelm's close (user approved 2026-11-11): the school and the almshouses north of the churchyard,
 			-- facing it, the tithe barn south-east
-			{ id = "School", style = "VillageSchool", x = 2442, z = -78, front = { 0, -1 } },
-			{ id = "Almshouses", style = "Almshouses", x = 2392, z = -78, front = { 0, -1 } },
-			{ id = "TitheBarn", style = "TitheBarn", x = 2526, z = -214, front = { 0, 1 } },
+			{ id = "School", style = "VillageSchool", x = 2632, z = 9, front = { 0, -1 } },
+			{ id = "Almshouses", style = "Almshouses", x = 2582, z = 9, front = { 0, -1 } },
+			{ id = "TitheBarn", style = "TitheBarn", x = 2716, z = -127, front = { 0, 1 } },
 			-- the railway halt behind the East spawn, on the line along the east edge (railX)
-			{ id = "Halt", style = "RailwayHalt", x = 2902, z = -10, front = { 1, 0 } },
+			{ id = "Halt", style = "RailwayHalt", x = 2972, z = 77, front = { 1, 0 } },
 		},
-		railX = 2915,
+		railX = 2985,
 		-- garden trees only in the town (the village area)
 		trees = { cell = 18, density = 0.05, roadClear = 5, buildingClear = 6 },
 		cars = 0,
 		features = {
 			-- haystacks outside the oast farm's north corners, a trough and a fingerpost at the crossroads, the well on
 			-- Ashby's green
-			{ kind = "Haystack", x = 825, z = 38, yaw = 15 },
-			{ kind = "Haystack", x = 953, z = 38, yaw = -15 },
+			{ kind = "Haystack", x = 746, z = 33, yaw = 15 },
+			{ kind = "Haystack", x = 874, z = 33, yaw = -15 },
 			{ kind = "Trough", x = 1434, z = 14, yaw = 0 },
 			{ kind = "Signpost", x = 1408, z = 14, yaw = 45 },
-			{ kind = "Well", x = 1973, z = 46 },
+			{ kind = "Well", x = 2052, z = 51 },
 		},
 	},
 
@@ -412,7 +400,7 @@ local Map1 = {
 		groveThreshold = 0.42,
 		groveDensity = 0.35,
 		scatterDensity = 0.01,
-		edgeBand = 120,
+		edgeBand = 80,
 		edgeDensity = 0.45,
 		outerDensity = 0.1,
 		maxSlope = 34,
@@ -423,7 +411,7 @@ local Map1 = {
 		maxCount = 5000,
 		-- clumps instead of lone trees (user 2026-11-10: "the minimum tree cluster has too little trees, some are just
 		-- alone"; Rules/MapTerrain.clumpAt): most of 4-7 trees, a few of 15-20, drawn `pull` in toward the middle
-		clumps = { cell = 90, chance = 0.16, radius = { 24, 48 }, tail = 2.2, density = 0.85, pull = 0.25 },
+		clumps = { cell = 90, chance = 0.16, radius = { -59, -39 }, tail = 2.2, density = 0.85, pull = 0.25 },
 	},
 }
 
