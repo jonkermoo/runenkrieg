@@ -35,12 +35,57 @@ local S3 = PTS[3]
 
 -- The leg pattern (Rules/MapTerrain: legPieces, rally, tactics; the numbers explained there and in MAP_RULES.md)
 local LEGS = {
-	crest = { u = 100, half = 110, height = 8, width = 40, taper = 30 },
+	crest = {
+		u = 100,
+		half = 110,
+		height = 8,
+		width = 40,
+		taper = 30,
+		-- lumpy, not one long bank (user 2026-11-10, as Map 1: Rules/MapTerrain.hillocks)
+		lumps = {
+			count = 5,
+			base = 0.65,
+			core = 70,
+			fade = 40,
+			radius = { 24, 40 },
+			height = { 0.55, 1.0 },
+			shift = 12,
+			forward = true,
+			across = 0.65,
+			stretch = 1.4,
+		},
+	},
+	-- a broad lumpy swell across each leg's middle (user 2026-11-10: "the meadow map is so flat you can see
+	-- everything"): dead ground both ways, the point beyond the next out of sight; none by the river
+	swell = {
+		-- (the middle legs' swells a third of the way from their HQ end: the S3|S4 leg's middle is the Aurel's, and
+		-- this one stands before Borgo Aurel, hiding it from the West's crests)
+		at = { 0.5, 0.35 },
+		half = 200,
+		taper = 80,
+		width = 110,
+		height = 6,
+		riverClear = 30,
+		riverFade = 40,
+		base = 0.85,
+		reach = 50,
+		lumps = {
+			count = 7,
+			core = 60,
+			radius = { 40, 75 },
+			height = { 0.6, 1.2 },
+			shift = 30,
+			across = 0.6,
+			stretch = 1.3,
+		},
+	},
 	fold = { u = 170, half = 120, depth = 4.5, floor = 4, wall = 6, ends = 20 },
 	knoll = { u = 90, n = 175, height = 7, top = 6, radius = 30 },
 	guns = { u = 140, n = 110, howitzer = 210, pad = 9, fade = 12 },
 	rally = 60,
 	calm = { width = 230, fade = 80, keep = 0.3 },
+	-- the rolling ground calm round each rally, so it never lifts a waiting wave over its own crest
+	rallyCalm = { radius = 40, fade = 40 },
 	-- (no hill at the HQs: one lifted the HQ's own rally into the next sector's view; the HQ spawn zones sit 420
 	-- back, past the fog from the enemy's crest)
 	flagClear = 25, -- no marked spot this close to a flag (the point gets shelled)
@@ -125,18 +170,61 @@ local LanternMeadows = {
 		}, -- {x, z, radius, peak height}
 	},
 	fogEnd = 600,
+	-- the clear sky's haze, thicker than the place's (0.38), a touch warmer (src/client/Environment)
+	haze = { density = 0.5, haze = 1.7, color = { 214, 216, 212 }, decay = { 140, 146, 150 } },
 	legs = LEGS,
+	-- fair cover mirrored across S3's x, as its points (Rules/MapTerrain.twinOf)
+	symmetry = "x",
+	-- uneven ground all over, the way between the points lower (as Map 1, user 2026-11-10): a deeper valley under the
+	-- Katzmark hills; each landmark's plot on settled ground
+	ground = {
+		warp = { amp = 45, scale = 220 },
+		valley = { lift = 22, near = 200, far = 420, edge = 40, edgeScale = 160, rough = 2.8 },
+		settle = { radius = 60, fade = 50, floor = 0.15 },
+	},
+	-- the farmland up the flanks (Rules/MapTerrain.fieldAt; the grid square to the map: it's mirrored across an x)
+	fields = {
+		angle = 0,
+		size = { 120, 85 },
+		near = 170,
+		beyond = 60,
+		pointClear = 60,
+		kinds = { Plough = 0.25, Meadow = 0.4, Pasture = 0.35 },
+		edges = { Hedge = 0.3, RailFence = 0.2, StoneWall = 0.25 },
+		gate = 14,
+		stacks = { max = 3, inset = 15 },
+		stripe = 4,
+	},
 
 	-- Capture points 520 apart, each fair to its two neighbours (tests/sectors.spec.luau). The strongpoint and the town
 	-- have bigger zones (user 2026-11-06: "the building should take up a good portion of the sector").
 	sectors = {
 		{ id = "S1", name = "S1", x = PTS[1][1], z = CZ + PTS[1][2], radius = 45, startOwner = "West", isHQ = true },
 		-- (S2's spawns stand a little further out, clear of the farm's sties and sheds)
-		{ id = "S2", name = "S2", x = PTS[2][1], z = CZ + PTS[2][2], radius = 55, startOwner = "West", rally = 72 },
+		-- (S2 and S4 in a shallow hollow, the swell before each hiding it from the crests beyond: Rules/MapTerrain.legsAt)
+		{
+			id = "S2",
+			name = "S2",
+			x = PTS[2][1],
+			z = CZ + PTS[2][2],
+			radius = 55,
+			startOwner = "West",
+			rally = 72,
+			hollow = { depth = 4, radius = 60, fade = 50 },
+		},
 		{ id = "S3", name = "S3", x = PTS[3][1], z = CZ + PTS[3][2], radius = 45, startOwner = "Neutral" },
 		-- (S4 is Borgo Aurel: no earth crests, its outer houses are the line; Studio's audit checks its spawns' cover
 		-- with the buildings)
-		{ id = "S4", name = "S4", x = PTS[4][1], z = CZ + PTS[4][2], radius = 60, startOwner = "East", crest = false },
+		{
+			id = "S4",
+			name = "S4",
+			x = PTS[4][1],
+			z = CZ + PTS[4][2],
+			radius = 60,
+			startOwner = "East",
+			crest = false,
+			hollow = { depth = 4, radius = 60, fade = 50 },
+		},
 		{ id = "S5", name = "S5", x = PTS[5][1], z = CZ + PTS[5][2], radius = 55, startOwner = "East", isHQ = true },
 	},
 	-- Where the sprint times to the two points are equal (solved over the real ground by tests/solvedividers.luau, on
@@ -224,7 +312,7 @@ local LanternMeadows = {
 	-- open meadows: gentle rolling ground (kept calmer still along the chain: legs.calm)
 	terrain = {
 		minY = -28,
-		maxY = 96,
+		maxY = 230,
 		baseAmp = 6,
 		baseScale = 300,
 		midAmp = 4,
@@ -239,8 +327,21 @@ local LanternMeadows = {
 		patchThreshold = 0.5,
 		surfaceDepth = 1.5,
 	},
-	-- rougher hills outside the bounds (the Katzmark hills behind the West, the valley side behind the river)
-	wild = { start = 30, ramp = 150, fall = 80, amp = 46, scale = 170, roughAmp = 6, roughScale = 40 },
+	-- mountains outside the bounds (user 2026-11-10: "make mountainous terrains mountanous"): the Katzmark mountains
+	-- behind the West tower, the north rises high, the valley side behind the river stays low; peaks and spurs
+	-- (`octave`), snow over `snowY`, rock on the cliffs (Rules/MapTerrain.wildHeight, materialAt)
+	wild = {
+		start = 30,
+		ramp = 170,
+		fall = 70,
+		amp = 120,
+		scale = 230,
+		octave = 0.9,
+		roughAmp = 9,
+		roughScale = 40,
+		sides = { west = 1.3, north = 0.9, east = 0.6, south = 0.3 },
+		snowY = 120,
+	},
 	-- The Aurel: from the north edge south through the open ground between S3 and S4, then bending east along the
 	-- south edge past the cascina. Fords are points on it.
 	river = {
@@ -362,22 +463,24 @@ local LanternMeadows = {
 		features = features,
 	},
 
-	-- few trees: lone trees in the meadows, rare small groves, the forest past the bounds
+	-- woods that are woods (user 2026-11-10: "make foresty areas foresty"): dense groves and a thick forest round
+	-- the bounds; clumps instead of lone trees in the meadows
 	trees = {
 		cell = 14,
 		forestScale = 220,
 		groveThreshold = 0.42,
-		groveDensity = 0.35,
+		groveDensity = 0.7,
 		scatterDensity = 0.01,
 		edgeBand = 120,
-		edgeDensity = 0.45,
-		outerDensity = 0.1,
+		edgeDensity = 0.75,
+		outerDensity = 0.3,
 		maxSlope = 34,
 		footprint = 2,
 		sink = 0.8,
 		sectorClearFrac = 0.4,
 		riverClear = 6,
 		maxCount = 5000,
+		clumps = { cell = 90, chance = 0.16, radius = { 24, 48 }, tail = 2.2, density = 0.85, pull = 0.25 },
 	},
 }
 

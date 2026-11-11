@@ -162,8 +162,14 @@ return {
 					local top = h(at(i, side, C.crest.u, 0))
 					local base = h({ s.x, s.z })
 					assert(top - base > 4 or s.isHQ, `{s.id}'s {side} crest stands {top - base} over its point`)
-					local mid = at(i, side, dist(s, o) / 2, 0)
-					assert(top - h(mid) > 4, `{s.id}'s {side} crest stands {top - h(mid)} over the open ground`)
+					-- over the open ground at its foot; the swells further out (user 2026-11-10: "the meadow map is so
+					-- flat you can see everything") lower than it, so its defenders still see over them
+					local foot = at(i, side, C.crest.u + C.crest.width, 0)
+					assert(top - h(foot) > 4, `{s.id}'s {side} crest stands {top - h(foot)} over the open ground`)
+					for _, k in { 0.35, 0.5, 0.65 } do
+						local q = at(i, side, dist(s, o) * k, 0)
+						assert(top > h(q), `{s.id}'s {side} crest stands {top - h(q)} under a swell`)
+					end
 					local floor = h(at(i, side, C.fold.u, 0))
 					local lip = math.max(h(at(i, side, C.fold.u - 14, 0)), h(at(i, side, C.fold.u + 14, 0)))
 					assert(lip - floor > 3.5, `{s.id}'s {side} lane is {lip - floor} deep`)

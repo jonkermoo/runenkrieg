@@ -495,9 +495,15 @@ local function swells(map: any): { Swell }
 		local a, b = S[k], S[k + 1]
 		local dx, dz = unitTo(a.x, a.z, b.x, b.z)
 		local twin = #S - k
+		-- (`at`: the share of the way along, one for every leg or one per twin pair, by its key; a twin counts from
+		-- the other end)
+		local at = if type(W.at) == "table" then W.at[math.min(k, twin)] or 0.5 else W.at
+		if k > twin then
+			at = 1 - at
+		end
 		table.insert(out, {
-			cx = a.x + (b.x - a.x) * W.at,
-			cz = a.z + (b.z - a.z) * W.at,
+			cx = a.x + (b.x - a.x) * at,
+			cz = a.z + (b.z - a.z) * at,
 			dx = dx,
 			dz = dz,
 			key = math.min(k, twin),
@@ -524,7 +530,12 @@ local function legsAt(map: any, x: number, z: number): (number, number)
 				a, b = -a, if map.symmetry == "x" then b else -b
 			end
 			if math.abs(a) < W.width and math.abs(b) < W.half + W.taper then
-				local v = hillocks(W.lumps, a, b, W.half, W.height, 100 + sw.key, map.seed) * ends(b, W.half, W.taper)
+				local v = hillocks(W.lumps, a, b, W.half, W.height, 100 + sw.key, map.seed)
+				-- (an unbroken rise under the hillocks, `base` of their height, `reach` along the leg either way)
+				if W.base and math.abs(a) < W.reach then
+					v = math.max(v, W.height * W.base * (0.5 + 0.5 * math.cos(math.pi * a / W.reach)))
+				end
+				v *= ends(b, W.half, W.taper)
 				-- (down to nothing by a river: its banks and bridges stay as they are)
 				if v > 0 and map.river then
 					v *= smooth((MapTerrain.riverDistance(map, x, z) - W.riverClear) / W.riverFade)
@@ -567,6 +578,17 @@ local function legsAt(map: any, x: number, z: number): (number, number)
 		if math.abs(a) < cr.width / 2 and math.abs(b) < half + cr.taper then
 			local bell = 0.5 + 0.5 * math.cos(math.pi * a / (cr.width / 2))
 			up = math.max(up, cr.height * lift * baseK * bell * ends(b, half, cr.taper))
+		end
+	end
+	-- a point in a hollow (`sectors[i].hollow`: depth, radius, fade; user 2026-11-10: "not every sector visible"): a
+	-- town on its river terrace, a farm in its dip, out of sight of the crests beyond the swell before it
+	for _, s in map.sectors do
+		local H = s.hollow
+		if H then
+			local d = math.sqrt((x - s.x) ^ 2 + (z - s.z) ^ 2)
+			if d < H.radius + H.fade then
+				down = math.min(down, -H.depth * (1 - smooth((d - H.radius) / H.fade)))
+			end
 		end
 	end
 	for _, k in L.knolls do
@@ -651,8 +673,28 @@ local function wildHeight(map: any, s: number, x: number, z: number): number
 		return 0
 	end
 	local ridged = 1 - math.abs(math.noise(x / w.scale, z / w.scale, s + 60.7))
+	local h = ridged * ridged
+	-- mountains (`octave`, user 2026-11-10: "make mountainous terrains mountanous"): a finer ridged layer weighted by
+	-- the first (Musgrave's ridged multifractal), so the high ground breaks into peaks and spurs
+	if w.octave then
+		local r2 = 1 - math.abs(math.noise(x / (w.scale * 0.43), z / (w.scale * 0.43), s + 64.1))
+		h += w.octave * r2 * r2 * h
+	end
+	-- how high each side of the map rises (`sides`: west, east, north (+z), south), by how far out it is on each
+	local side = 1
+	if w.sides then
+		local b = map.bounds
+		local acc, tot = 0, 0
+		for name, d in { west = b.minX - x, east = x - b.maxX, north = z - b.maxZ, south = b.minZ - z } do
+			if d > 0 then
+				acc += d * (w.sides[name] or 1)
+				tot += d
+			end
+		end
+		side = if tot > 0 then acc / tot else 1
+	end
 	local rough = math.noise(x / w.roughScale, z / w.roughScale, s + 71.3)
-	return k * (w.amp * ridged * ridged + w.roughAmp * rough)
+	return k * side * (w.amp * h + w.roughAmp * rough)
 end
 
 -- A map with `mirror` (its centre) is point-symmetric: a value is the average of its own and its mirror point's, so the
@@ -1040,6 +1082,14 @@ function MapTerrain.materialAt(map: any, x: number, z: number): string
 		end
 	end
 	local slope = MapTerrain.slopeAt(map, x, z)
+	-- snow on the mountains' tops (`wild.snowY`, its line wandering by noise), rock where too steep to hold it
+	local W = map.wild
+	if W and W.snowY and outside(map.bounds, x, z) > W.start then
+		local line = W.snowY + 10 * math.noise(x / 60, z / 60, map.seed * 0.001 + 77.7)
+		if MapTerrain.heightAt(map, x, z) > line then
+			return if slope > 50 then "Rock" else "Snow"
+		end
+	end
 	if slope > 34 then
 		return "Rock"
 	elseif slope > (map.terrain.dirtSlope or 24) then
