@@ -490,4 +490,50 @@ return {
 		assert(2 * T.Zigzag.angle.max <= T.Shape.maxBend, "a zig-zag joint is a bend a bot may lay")
 		assert(T.Zigzag.leg >= T.Shape.minRun, "legs of two blocks")
 	end,
+	["laneLine: a fire trench across the lane, less the gap, and a way back from its middle"] = function()
+		local L = T.Lanes
+		local cfg = { gap = L.gap, bay = L.bay, bays = L.bays, back = L.back, traverse = T.Fire.traverse, short = 1 }
+		local runs = R.laneLine(500, 0, 1, 0, 140, cfg) -- (West: the enemy to the east; lanes 140 wide)
+		local fire, rear = of(runs, "Fire"), of(runs, "Rear")
+		assert(#fire == 6 and #rear == 1, "6 bays of 16 in 140 less the gap")
+		assert(near(math.abs(fire[#fire].bz - fire[1].az), 96), "96 across")
+		assert(near((fire[1].az + fire[#fire].bz) / 2, 0), "about its middle")
+		for k, r in fire do
+			assert(len(r) <= Build.Trench.maxPlan and len(r) >= T.Shape.minRun, "one plan a bay, no stubs")
+			if k > 1 then
+				assert(near(r.ax, fire[k - 1].bx) and near(r.az, fire[k - 1].bz), "joined end to end")
+			end
+		end
+		assert(rear[1].bx < rear[1].ax and near(len(rear[1]), L.back), "the way back runs west, home")
+		assert(runs[#runs].kind == "Rear", "after the fire trench")
+		-- (narrow lanes keep the least bays; wide ones the most)
+		assert(#of(R.laneLine(0, 0, 1, 0, 40, cfg), "Fire") == L.bays[1])
+		assert(#of(R.laneLine(0, 0, 1, 0, 1000, cfg), "Fire") == L.bays[2])
+	end,
+	["join: the nearest ends of two lines, in runs of at most joinMost"] = function()
+		local a = { { x = 0, z = -48 }, { x = 0, z = 48 } }
+		local b = { { x = 0, z = 92 }, { x = 6, z = 188 } }
+		local runs = R.join(a, b, 48, 6, 160)
+		assert(#runs == 1 and near(runs[1].az, 48) and near(runs[1].bz, 92), "48 to 92 in one run")
+		local far = R.join(a, { { x = 0, z = 148 } }, 48, 6, 160)
+		assert(#far == 3, "100 studs in three runs")
+		for k, r in far do
+			assert(len(r) <= 48 + 1e-6, "none longer than joinMost")
+			if k > 1 then
+				assert(near(r.ax, far[k - 1].bx) and near(r.az, far[k - 1].bz), "end to end")
+			end
+		end
+		assert(near(far[3].bz, 148), "onto the other line's end")
+		assert(#R.join(a, { { x = 0, z = 52 } }, 48, 6, 160) == 0, "already touching: none")
+		assert(#R.join(a, { { x = 0, z = 300 } }, 48, 6, 160) == 0, "too far: none")
+		assert(T.Lanes.joinMost <= Build.Trench.maxPlan, "one plan a run")
+	end,
+	["laneOrder: lanes held first, nearest the middle first, never the middle"] = function()
+		local o = R.laneOrder(5, 3, {})
+		assert(table.concat(o, ",") == "2,4,1,5", table.concat(o, ","))
+		o = R.laneOrder(5, 3, { [5] = true })
+		assert(table.concat(o, ",") == "5,2,4,1", table.concat(o, ","))
+		o = R.laneOrder(5, 1, { [1] = true })
+		assert(table.concat(o, ",") == "2,3,4,5", table.concat(o, ","))
+	end,
 }
