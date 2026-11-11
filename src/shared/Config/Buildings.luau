@@ -54,6 +54,12 @@ export type Template = {
 	-- top), { kind = "RingKiln", x, z, yaw?, length, depth, height, bays } (a brick ring kiln, its length along local X),
 	-- { kind = "DryingShed", x, z, yaw?, length, span, height } (open, its ridge along local X), { kind = "ClayPit", x,
 	-- z, length, width, depth } (a flooded pit dug into the ground, an oval `length` along local X).
+	-- { kind = "BellTower", x, z, width, from, height } (a campanile's shaft from `from` up, its belfry and pyramid cap
+	-- to `height`), { kind = "Facade", x, z, width, height, pitch } (a church's front screen before a front wall, its
+	-- door's opening kept), { kind = "Fountain", x, z, radius } (on the real ground), { kind = "GateTower", x, z,
+	-- width, depth, height, way } (a gate tower, its way { width, height } through it along local Z), { kind =
+	-- "TownWall", x, z, thick, pieces = { { from, to, height } } along local X, tower = { x, radius, height }? } (each
+	-- piece and the tower on the real ground).
 	features: { any }?,
 	description: string,
 }
@@ -225,6 +231,74 @@ local Buildings = {
 	-- rim, its banks of mud `bank` over the water at the rim falling to its flat bottom over the outer `shelf` of the
 	-- oval (a share of e = (u/a)^2 + (v/b)^2), its spoil heaps `spoil` high; colours
 	ClayPit = { drop = 1.2, bank = 0.6, shelf = 0.45, spoil = 2.6, clay = "Sienna" },
+	-- Borgo Aurel (S4's hero, user approved 2026-11-11). A campanile's upper tower: the shaft in stages `stage` high,
+	-- a string course `course` high and corner pilasters `pilaster` wide `out` proud on each, a slit `slit` (w, h) in
+	-- each face; an open belfry `belfry` high (corner piers `pier` square, a mullion `mullion` wide in each face, the
+	-- dark core `inset` in from the faces, a bell `bell` across in each opening), a cornice `cornice` high and
+	-- `eave` out, a pyramid cap to the top; colours (Walls / Roofs keys)
+	BellTower = {
+		stage = 7,
+		course = 0.7,
+		pilaster = 1.4,
+		out = 0.3,
+		slit = { 0.9, 3 },
+		belfry = 12,
+		pier = 1.8,
+		mullion = 1,
+		inset = 1.6,
+		bell = 1.8,
+		bronze = "Ochre",
+		cornice = 1.4,
+		eave = 0.8,
+		cap = 12,
+		wall = "Sienna",
+		trim = "Brick",
+		dark = "TarBoard",
+		roof = "Terracotta",
+	},
+	-- a church's front screen: `thick` thick, pilasters `pilaster` wide `out` proud, a cornice `cornice` high over its
+	-- wall, a pediment rising `rise` over its roof's gable, a rose window `rose` across with a ring `ring` round it, a
+	-- cross `cross` high on the top; colours
+	Facade = {
+		thick = 1,
+		pilaster = 1.4,
+		out = 0.4,
+		cornice = 1,
+		rise = 1.6,
+		rose = 5,
+		ring = 0.7,
+		cross = 3.4,
+		wall = "Cream",
+		trim = "Stone",
+	},
+	-- a piazza fountain on the real ground: an eight-sided basin rim `rim` high (under a hop) and `thick` thick, the
+	-- water `water` up, a pillar `pillar` across carrying a bowl `bowl` across at `bowlY`, a finial to `top`
+	Fountain = { rim = 1.6, thick = 0.9, water = 1.1, pillar = 1.4, bowl = 5, bowlY = 3.6, top = 5.6, stone = "Stone" },
+	-- a town wall's pieces (Borgo Aurel's old wall): a battlemented top on pieces at least `crenel` high (merlons
+	-- `merlon` long and high), lower pieces broken off in steps `step` high; a round tower
+	-- stump of `sides` sides with a string course
+	TownWall = {
+		crenel = 6,
+		merlon = { 2, 1.6 },
+		step = 1.2,
+		sides = 10,
+		course = 0.8,
+		stone = "Stone",
+		trim = "Ochre",
+	},
+	-- a town gate tower: the arch's head in two corbel steps `corbel` high (each a share of the way), a string course,
+	-- quoins `quoin` wide, arrow slits `slit`, merlons `merlon` (long, high); colours
+	GateTower = {
+		corbel = 0.8,
+		steps = { 0.12, 0.28 },
+		course = 0.8,
+		quoin = 1.4,
+		slit = { 0.8, 3.2 },
+		merlon = { 2.2, 1.8 },
+		wall = "Ochre",
+		trim = "Stone",
+		dark = "TarBoard",
+	},
 
 	-- One at a time (user, 2026-10-09): start with a basic small house; add others once it's right.
 	Templates = {
@@ -386,6 +460,40 @@ local Buildings = {
 				{ kind = "Arcade", x = -6, z = -6.2, length = 18, depth = 5.4, height = 9, bays = 3 },
 			},
 			description = "Selvaran long house: two storeys of stucco under terracotta, a three-arch portico along half its front.",
+		},
+		-- Borgo Aurel's town house (S4's compound, user approved 2026-11-11): three storeys of stucco under a low
+		-- terracotta roof over an arcade the width of its front, lining the streets
+		SelvaArcadeHouse = {
+			folder = "Houses",
+			width = 24,
+			depth = 21,
+			stories = 3,
+			storyHeight = 10,
+			roofPitch = 22,
+			class = "Plaster",
+			wallThickness = 1.4,
+			walls = { "Rose", "Ochre", "Sienna" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					name = "House",
+					x = 0,
+					z = 3,
+					width = 22,
+					depth = 14,
+					stories = 3,
+					storyHeight = 10,
+					roofPitch = 22,
+					roofStyle = "Tile",
+					gableChimney = 1,
+					doors = { { center = -5 }, { center = 5 } },
+					backDoor = { { center = 0 } },
+				},
+			},
+			features = {
+				{ kind = "Arcade", x = 0, z = -6.7, length = 22, depth = 5.4, height = 9, bays = 4 },
+			},
+			description = "Borgo Aurel's town house: three storeys of stucco under terracotta over a four-arch arcade.",
 		},
 
 		-- Map 1's landmarks (user 2026-11-01, the six designs: church, coaching inn, oast house, Dutch barn, watermill,
@@ -1049,9 +1157,11 @@ local Buildings = {
 			},
 			description = "The brickworks' workers' row: four brick houses in a two-storey terrace under terracotta.",
 		},
-		-- Borgo Aurel's bell tower on S4's piazza, north side, on the flag's line (map rework, user approved 2026-11-06):
-		-- ochre stucco, four stages, a stair inside up to a battlemented belfry walk that looks down both legs. Fair
-		-- because it stands on the point: whoever holds the point holds the tower.
+		-- Borgo Aurel's campanile on S4's piazza, north side, on the flag's line (map rework, user approved 2026-11-06),
+		-- raised to S4's hero (Lantern Meadows' landmarks, user approved 2026-11-11): Sienna brick, four stages with a
+		-- stair inside up to the top floor's windows (its old height, the lookout down both legs; fair because it stands
+		-- on the point), then a solid shaft to an open belfry of arches with its bells, a pyramid terracotta cap 84 up:
+		-- with Fornace Aurelia's chimney it frames the valley. A fountain on the piazza before it, on the flag's line.
 		Campanile = {
 			folder = "Landmarks",
 			width = 12,
@@ -1060,7 +1170,7 @@ local Buildings = {
 			roofPitch = 0,
 			class = "Stone",
 			wallThickness = 1.4,
-			walls = { "Ochre", "Cream" },
+			walls = { "Sienna" },
 			roofs = { "Terracotta" },
 			blocks = {
 				{
@@ -1075,10 +1185,92 @@ local Buildings = {
 					roofPitch = 0,
 					roofStyle = "Battlement",
 					quoins = true,
-					climb = true,
+					wall = "Sienna",
 				},
 			},
-			description = "Borgo Aurel's campanile: an ochre bell tower on the piazza with a climbable belfry walk.",
+			features = {
+				{ kind = "BellTower", x = 0, z = 0, width = 12.4, from = 30.6, height = 84 },
+				{ kind = "Fountain", x = 0, z = -25, radius = 5.5 },
+			},
+			description = "Borgo Aurel's campanile: a Sienna brick bell tower 84 high on the piazza, a belfry of arches under a pyramid cap, a fountain before it.",
+		},
+		-- Borgo Aurel's church beside the campanile, its front on the piazza (S4's hero's compound, user approved
+		-- 2026-11-11): a cream nave under terracotta, a front screen taller than its roof (pilasters, a rose window over
+		-- the door, a pediment with a cross)
+		BorgoChurch = {
+			folder = "Landmarks",
+			width = 24,
+			depth = 26,
+			stories = 1,
+			storyHeight = 20,
+			roofPitch = 24,
+			class = "Stone",
+			wallThickness = 1.6,
+			walls = { "Cream" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					-- turned a quarter so a gable faces the piazza: its right wall is the front, its left the back
+					name = "Nave",
+					x = 0,
+					z = 0,
+					yaw = 90,
+					width = 24,
+					depth = 22,
+					stories = 1,
+					storyHeight = 20,
+					roofPitch = 24,
+					roofStyle = "Tile",
+					quoins = true,
+					windows = 3,
+					doors = {},
+					leftDoor = true,
+					rightDoor = true,
+				},
+			},
+			features = { { kind = "Facade", x = 0, z = -12.5, width = 24, height = 20.6, pitch = 24 } },
+			description = "Borgo Aurel's church: a cream nave under terracotta, its front on the piazza with a rose window and pediment.",
+		},
+		-- Borgo Aurel's town gate over the Main road where it enters from the festival ford (S4's compound): an ochre
+		-- tower with an arched way through it along local Z, battlements, arrow slits. Solid; the road runs under it.
+		PortaAurel = {
+			folder = "Landmarks",
+			width = 22,
+			depth = 12,
+			stories = 1,
+			roofPitch = 0,
+			class = "Stone",
+			wallThickness = 1.6,
+			walls = { "Ochre" },
+			roofs = { "Terracotta" },
+			blocks = {},
+			features = { { kind = "GateTower", x = 0, z = 0, width = 22, depth = 12, height = 34, way = { 10, 12 } } },
+			description = "Borgo Aurel's town gate: an ochre tower over the road with an arched way through it.",
+		},
+		-- a stretch of Borgo Aurel's old wall on the Aurel's east bank (S4's compound): stone, broken, its pieces of
+		-- different heights with gaps through it, along local X
+		BorgoWall = {
+			folder = "Landmarks",
+			width = 46,
+			depth = 9,
+			stories = 1,
+			roofPitch = 0,
+			class = "Stone",
+			wallThickness = 1.6,
+			walls = { "Stone" },
+			roofs = { "Slate" },
+			blocks = {},
+			features = {
+				{
+					kind = "TownWall",
+					x = 0,
+					z = 0,
+					thick = 3,
+					pieces = { { -23, -12, 7.5 }, { -12, -7, 3.5 }, { -2, 9, 8 }, { 9, 13, 4.5 } },
+					tower = { x = 18, radius = 4.5, height = 13 },
+				},
+			},
+			description = "A broken stretch of Borgo Aurel's old stone wall on the Aurel's bank.",
 		},
 		-- Borgo Aurel's market loggia on S4's piazza, south side: one storey open on both long sides through five arched
 		-- bays (wide doors), under terracotta. Cover on the piazza, the same from both legs.
@@ -1439,6 +1631,14 @@ local Buildings = {
 			Main = { "SelvaCasetta", "SelvaStairHouse", "SelvaLongHouse", "SelvaCasetta" },
 			Lane = { "SelvaCasetta", "SelvaStairHouse", "SelvaCasetta" },
 			Row = { "SelvaStairHouse" },
+			boundaries = { "StoneWall", "StoneWall", "Hedge", "RailFence" },
+		},
+		-- Borgo Aurel (Lantern Meadows' town, user approved 2026-11-11): the Selvaran kit with three-storey arcaded
+		-- houses lining its streets
+		Borgo = {
+			Main = { "SelvaArcadeHouse", "SelvaStairHouse", "SelvaArcadeHouse", "SelvaLongHouse" },
+			Lane = { "SelvaArcadeHouse", "SelvaCasetta", "SelvaStairHouse", "SelvaArcadeHouse" },
+			Row = { "SelvaArcadeHouse" },
 			boundaries = { "StoneWall", "StoneWall", "Hedge", "RailFence" },
 		},
 	},

@@ -1286,6 +1286,13 @@ local Assets = {
 			generator = "src/dev/Buildings/init.luau",
 			description = "Selvaran long house with a portico (the Selvaran house kit)",
 		},
+		SelvaArcadeHouse = {
+			category = "Buildings",
+			folder = "Houses",
+			template = "SelvaArcadeHouse",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Borgo Aurel's three-storey arcaded town house (the Borgo house kit)",
+		},
 		Church = {
 			category = "Buildings",
 			folder = "Landmarks",
@@ -1397,6 +1404,27 @@ local Assets = {
 			template = "WorkersRow",
 			generator = "src/dev/Buildings/init.luau",
 			description = "Lantern Meadows' brickworks workers' row behind S2 (a landmark)",
+		},
+		BorgoChurch = {
+			category = "Buildings",
+			folder = "Landmarks",
+			template = "BorgoChurch",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Lantern Meadows' church on Borgo Aurel's piazza at S4 (a landmark)",
+		},
+		PortaAurel = {
+			category = "Buildings",
+			folder = "Landmarks",
+			template = "PortaAurel",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Lantern Meadows' town gate over Borgo Aurel's Main road (a landmark)",
+		},
+		BorgoWall = {
+			category = "Buildings",
+			folder = "Landmarks",
+			template = "BorgoWall",
+			generator = "src/dev/Buildings/init.luau",
+			description = "A broken stretch of Borgo Aurel's old wall on the Aurel's bank (a landmark)",
 		},
 		OastFarm = {
 			category = "Buildings",

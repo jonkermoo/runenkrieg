@@ -273,6 +273,16 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.dryingShed(model, ctx, at, f.length, f.span, f.height)
 			elseif f.kind == "ClayPit" then
 				Geometry.clayPit(model, ctx, at, f.length, f.width, f.depth)
+			elseif f.kind == "BellTower" then
+				Geometry.bellTower(model, ctx, at, f.width, f.from, f.height)
+			elseif f.kind == "Facade" then
+				Geometry.facade(model, ctx, at, f.width, f.height, f.pitch)
+			elseif f.kind == "Fountain" then
+				Geometry.fountain(model, ctx, at, f.radius)
+			elseif f.kind == "GateTower" then
+				Geometry.gateTower(model, ctx, at, f.width, f.depth, f.height, f.way)
+			elseif f.kind == "TownWall" then
+				Geometry.townWall(model, ctx, at, f.thick, f.pieces, f.tower)
 			else
 				error(`unknown landmark feature {f.kind}`)
 			end

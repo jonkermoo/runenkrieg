@@ -28,7 +28,7 @@ local function points(list: { { number } }): { { number } }
 	return out
 end
 
--- The points (local): an arch, each leg turning 8-23° (user 2026-11-06: "variety in direction (not too much that the
+-- The points (local): an arch, each leg turning 8-23Â° (user 2026-11-06: "variety in direction (not too much that the
 -- map gets complicated)"), mirrored about S3's x so each side's legs are alike.
 local PTS = { { 420, -170 }, { 900, 30 }, { 1420, 100 }, { 1940, 30 }, { 2420, -170 } }
 local S3 = PTS[3]
@@ -383,12 +383,12 @@ local LanternMeadows = {
 	},
 
 	-- The festival road along the arch and over the ford, the landmarks, and the lanes' hedge banks (Rules/Village).
-	-- The brickfield farm (S2) and the river town (S4) wait for their design sheet (MAP_RULES §3: design first).
+	-- The brickfield farm (S2) and the river town (S4) wait for their design sheet (MAP_RULES Â§3: design first).
 	village = {
 		-- (houses only in the town round S4: Borgo Aurel, user approved 2026-11-06)
 		-- (inside the two sunken lanes' hedges, which stand ~157 out from the point)
 		area = rect(1800, 2095, -165, 205),
-		kit = "Selvara",
+		kit = "Borgo", -- (the Selvaran kit with Borgo Aurel's three-storey arcaded houses)
 		roads = {
 			{
 				id = "Main",
@@ -455,6 +455,12 @@ local LanternMeadows = {
 			-- Borgo Aurel's campanile and loggia on the piazza, north and south of the flag
 			{ id = "Campanile", style = "Campanile", x = 1944, z = CZ + 78, front = { 0, -1 } },
 			{ id = "Loggia", style = "Loggia", x = 1934, z = CZ - 20, front = { 0, 1 } },
+			-- S4's hero's compound (user approved 2026-11-11): the church beside the campanile, its front on the piazza;
+			-- the town gate over the Main road where it comes in from the festival ford; a broken stretch of the old wall
+			-- on the Aurel's east bank above the ferry
+			{ id = "Church", style = "BorgoChurch", x = 1918, z = CZ + 82, front = { 0, -1 } },
+			{ id = "Porta", style = "PortaAurel", x = 1790, z = CZ + 44.4, front = { -1, 0 } },
+			{ id = "OldWall", style = "BorgoWall", x = 1718, z = CZ + 144, front = { -1, 0 } },
 			-- the ferry house on the east bank above the festival ford, facing the river
 			{ id = "Ferry", style = "FerryHouse", x = 1716, z = CZ + 100, front = { -1, 0 } },
 		},
