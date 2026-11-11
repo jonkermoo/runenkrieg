@@ -451,8 +451,8 @@ function Village.layout(map: any, B: any, M: any, MT: any, P: any): Layout
 	if map.fields then
 		-- (`lotPad` from a house: the ground outside its doors stays walkable, Buildings.Audit.walkOut)
 		local lotPad = B.Audit.walkOut + 2
-		local function clear(x: number, z: number, pad: number): boolean
-			if roadDistance(x, z) < pad or MT.isRiver(map, x, z) then
+		local function clear(x: number, z: number, roadPad: number): boolean
+			if roadDistance(x, z) < roadPad or MT.isRiver(map, x, z) then
 				return false
 			end
 			for _, l in lots do
