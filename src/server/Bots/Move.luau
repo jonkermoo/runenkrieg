@@ -1027,7 +1027,7 @@ houseRay.FilterType = Enum.RaycastFilterType.Include
 local housesAt = -math.huge
 local function roundHouse(from: Vector3, to: Vector3, now: number): Vector3?
 	local way = flat(to - from)
-	if way.Magnitude < 1 then
+	if way.Magnitude < 1 or RD.look <= 0 then
 		return nil
 	end
 	if now - housesAt > 5 then
