@@ -848,17 +848,20 @@ local function formSquads(side: string, counts: { { West: number, East: number }
 			local f = BotLanes.frame(s.x, s.z, ltx, ltz, if defend then LN.ahead else -LN.back, laneBounds, LN)
 			lf = f
 			local own = {}
-			local seenFoe: { [Model]: boolean } = {}
+			-- (each known enemy once: by its model, else the entry itself; a known spot may have no model, and a nil key
+			-- stopped the commander every tick in the first trenches-stage match)
+			local seenFoe: { [any]: boolean } = {}
 			for _, o in squads do
 				if o.side == side then
 					for _, kn in o.known do
 						local at = kn.pos
+						local id: any = kn.model or kn
 						if
 							now - kn.at <= SQ.knownFor
-							and not seenFoe[kn.model]
+							and not seenFoe[id]
 							and (at.X - s.x) ^ 2 + (at.Z - s.z) ^ 2 <= LN.depth ^ 2
 						then
-							seenFoe[kn.model] = true
+							seenFoe[id] = true
 							local k = BotLanes.laneOf(f, BotLanes.offset(f, at.X, at.Z))
 							foes[k] = (foes[k] or 0) + 1
 						end
