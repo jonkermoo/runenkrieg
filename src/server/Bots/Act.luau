@@ -249,6 +249,24 @@ local function pickJob(b: Bot): (BuildJob?, string?)
 		return r, if r then nil else `no work within {BD.Duty.take} studs`
 	end
 	local r = pickFrom(b, sb.open, false)
+	-- (a digger with none near: the nearest trench job on its front's lines, the lane lines across the field too,
+	-- within Trenches.Lanes.reach; a measured Lantern Meadows match had diggers idle "none within 150 studs" while
+	-- the lane lines' squares waited)
+	local LR = Cfg.Trenches.Lanes.reach
+	if not r and b.digger and LR > BD.take then
+		local trench: { BuildJob } = {}
+		for _, o in sb.open do
+			if o.job.key == "Trench" then
+				table.insert(trench, o)
+			end
+		end
+		r = pickFrom(b, trench, false, false, LR, true)
+		if r then
+			stats.farDigs += 1
+			local k = `{b.side} farDigs`
+			State.ByTrench.runs[k] = (State.ByTrench.runs[k] or 0) + 1
+		end
+	end
 	local reach = if Loadouts.classOf(b.m :: Model) ~= "Engineer"
 		then BD.take
 		elseif b.order == "Attack" then BD.attackTake

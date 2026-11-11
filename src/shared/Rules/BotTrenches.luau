@@ -116,15 +116,71 @@ function BotTrenches.laneLine(
 	local bays = math.clamp(math.floor((width - cfg.gap) / cfg.bay), cfg.bays[1], cfg.bays[2])
 	local fire = { edge = 0, width = bays * cfg.bay, bays = bays, traverse = cfg.traverse }
 	local runs = BotTrenches.layout({ x = x, z = z, radius = 0 }, tx, tz, { Fire = fire }, true)
-	local m = BotTrenches.fireMid(runs)
-	table.insert(runs, {
-		kind = "Rear",
-		ax = m.x - tx * cfg.short,
-		az = m.z - tz * cfg.short,
-		bx = m.x - tx * (cfg.short + cfg.back),
-		bz = m.z - tz * (cfg.short + cfg.back),
-	})
+	table.insert(runs, BotTrenches.rearFrom(runs[math.ceil(#runs / 2)], tx, tz, cfg.short, cfg.back))
 	return runs
+end
+
+-- The way back from fire bay `bay`, `back` studs toward its own side (-tx, -tz), starting `short` behind a quarter of
+-- the way along it: the middle of its first square, not the joint in its middle (a measured match: a way back teed in
+-- at the joint met the next square, "Stop at the trench").
+function BotTrenches.rearFrom(bay: Run, tx: number, tz: number, short: number, back: number): Run
+	local mx, mz = bay.ax + (bay.bx - bay.ax) * 0.25, bay.az + (bay.bz - bay.az) * 0.25
+	return {
+		kind = "Rear",
+		ax = mx - tx * short,
+		az = mz - tz * short,
+		bx = mx - tx * (short + back),
+		bz = mz - tz * (short + back),
+	}
+end
+
+-- A lane line (laneLine's runs) less its fire bays `blocked` (by index into `runs`: something solid across them,
+-- Config/Bots.Trenches.Lanes.dropBlocked): the bays left in pieces (`route` 1, 2, ... for each piece: each chained on
+-- its own, none across the gap), its way back from the kept bay nearest the line's middle (none if none is kept or
+-- the way back itself is blocked). Second: how many bays were left out.
+function BotTrenches.dropBlocked(
+	runs: { Run },
+	blocked: { [number]: boolean },
+	tx: number,
+	tz: number,
+	short: number,
+	back: number
+): ({ Run }, number)
+	local out: { Run } = {}
+	local kept: { { run: Run, i: number } } = {}
+	local piece, gap, dropped, bays = 0, true, 0, 0
+	local rearBlocked = false
+	for i, r in runs do
+		if r.kind == "Fire" then
+			bays += 1
+			if blocked[i] then
+				dropped += 1
+				gap = true
+			else
+				if gap then
+					piece += 1
+					gap = false
+				end
+				local c = table.clone(r)
+				c.route = piece
+				table.insert(out, c)
+				table.insert(kept, { run = c, i = bays })
+			end
+		elseif r.kind == "Rear" then
+			rearBlocked = blocked[i] == true
+		end
+	end
+	if #kept > 0 and not rearBlocked then
+		local mid = (bays + 1) / 2
+		local best = kept[1]
+		for _, k in kept do
+			if math.abs(k.i - mid) < math.abs(best.i - mid) then
+				best = k
+			end
+		end
+		table.insert(out, BotTrenches.rearFrom(best.run, tx, tz, short, back))
+	end
+	return out, dropped
 end
 
 -- The ends of a fire trench (its runs' "Fire" ones, bay by bay): the first bay's start and the last bay's end
@@ -469,6 +525,37 @@ function BotTrenches.clearOf(x: number, z: number, half: number, lines: { Run },
 		end
 	end
 	return true
+end
+
+-- How near (flat studs) any run of `runs` comes to any of `others` (0 where two cross); math.huge when either is empty.
+-- A system sited nearer than Config/Build.Trench.spacing to a line it doesn't join is refused "Too close to another
+-- trench" (a measured Lantern Meadows match: lane lines shifted across into their neighbours).
+function BotTrenches.apart(runs: { Run }, others: { Run }): number
+	local function cross(p: Run, q: Run): boolean
+		local function side(ax: number, az: number, bx: number, bz: number, px: number, pz: number): number
+			return (bx - ax) * (pz - az) - (bz - az) * (px - ax)
+		end
+		local d1, d2 = side(p.ax, p.az, p.bx, p.bz, q.ax, q.az), side(p.ax, p.az, p.bx, p.bz, q.bx, q.bz)
+		local d3, d4 = side(q.ax, q.az, q.bx, q.bz, p.ax, p.az), side(q.ax, q.az, q.bx, q.bz, p.bx, p.bz)
+		return d1 * d2 < 0 and d3 * d4 < 0
+	end
+	local best = math.huge
+	for _, p in runs do
+		for _, q in others do
+			if cross(p, q) then
+				return 0
+			end
+			-- (each in brackets: offRun's second value, where along, is no distance)
+			best = math.min(
+				best,
+				(BotTrenches.offRun(p.ax, p.az, q.ax, q.az, q.bx, q.bz)),
+				(BotTrenches.offRun(p.bx, p.bz, q.ax, q.az, q.bx, q.bz)),
+				(BotTrenches.offRun(q.ax, q.az, p.ax, p.az, p.bx, p.bz)),
+				(BotTrenches.offRun(q.bx, q.bz, p.ax, p.az, p.bx, p.bz))
+			)
+		end
+	end
+	return best
 end
 
 -- What a digger does with a piece in a trench run's way (user 2026-11-02: "plan around structures, destroy them if

@@ -536,4 +536,40 @@ return {
 		o = R.laneOrder(5, 1, { [1] = true })
 		assert(table.concat(o, ",") == "2,3,4,5", table.concat(o, ","))
 	end,
+	["dropBlocked: blocked bays left out, the rest in pieces, the way back from the kept bay nearest the middle"] = function()
+		local cfg = { gap = 40, bay = 16, bays = { 3, 6 }, back = 32, traverse = 6, short = 1 }
+		local runs = R.laneLine(0, 0, 1, 0, 120, cfg) -- (5 bays across z, the way back toward -x)
+		assert(#runs == 6 and runs[6].kind == "Rear", tostring(#runs))
+		-- (the way back starts a quarter along its bay, the middle of its first square, not the joint)
+		local bay = runs[3]
+		local qz = bay.az + (bay.bz - bay.az) * 0.25
+		assert(math.abs(runs[6].az - qz) < 1e-6 and runs[6].ax < bay.ax + (bay.bx - bay.ax) * 0.25, "rear start")
+		local out, dropped = R.dropBlocked(runs, { [3] = true }, 1, 0, 1, 32)
+		assert(dropped == 1, tostring(dropped))
+		local routes, rear = {}, nil
+		for _, r in out do
+			if r.kind == "Fire" then
+				table.insert(routes, tostring(r.route))
+			else
+				rear = r
+			end
+		end
+		assert(table.concat(routes, ",") == "1,1,2,2", table.concat(routes, ","))
+		-- (the middle bay gone: the way back from bay 2, the nearest kept, lower first)
+		local b2 = runs[2]
+		assert(rear and math.abs(rear.az - (b2.az + (b2.bz - b2.az) * 0.25)) < 1e-6, "rear moved")
+		out, dropped = R.dropBlocked(runs, { [6] = true }, 1, 0, 1, 32)
+		assert(dropped == 0 and #out == 5, "a blocked way back is left out")
+		out = R.dropBlocked(runs, { true, true, true, true, true }, 1, 0, 1, 32)
+		assert(#out == 0, "nothing kept: no way back")
+	end,
+	["apart: how near two sets of runs come, 0 where they cross"] = function()
+		local a = { { kind = "Fire", ax = 0, az = 0, bx = 40, bz = 0 } }
+		local near = (R.apart(a, { { kind = "Fire", ax = 50, az = 0, bx = 90, bz = 0 } }))
+		assert(math.abs(near - 10) < 1e-6, tostring(near))
+		near = R.apart(a, { { kind = "Fire", ax = 20, az = 30, bx = 20, bz = 5 } })
+		assert(math.abs(near - 5) < 1e-6, tostring(near))
+		assert(R.apart(a, { { kind = "Fire", ax = 20, az = -10, bx = 20, bz = 10 } }) == 0)
+		assert(R.apart(a, {}) == math.huge)
+	end,
 }

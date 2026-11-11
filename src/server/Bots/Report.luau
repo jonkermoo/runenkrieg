@@ -1267,7 +1267,9 @@ local function trenchStats()
 				"redug"
 			)} buried squares planned again; in the open field {fieldDug} dug, {fieldPlanned} planned; {n(
 				"laneLines"
-			)} lane lines, {n("laneJoins")} joins`
+			)} lane lines, {n("laneJoins")} joins, {n("laneDropped")} lane bays left out (something across them); {n(
+				"farDigs"
+			)} trench jobs taken past Build.take`
 		)
 		-- (looking after them, Config/Bots.Trenches.Care: each dug square's decision now, new squares held off shelled
 		-- ground, ways up dug whole, its base standing, the squares lost and how long they stood, joins, the gates)

@@ -731,6 +731,15 @@ local Bots = {
 			joinLeast = 6,
 			joinFar = 160,
 			field = 20, -- (the trench stats' "in the open field": squares further than this past every sector's zone)
+			-- (no spot for a line nearer than this to a line already planned, where any other is: past
+			-- Config/Build.Trench.spacing, which refuses it "Too close to another trench"; a measured match had 16 such)
+			keep = 30,
+			-- (a digger with no job within Build.take walks this far for a trench job on its front's lines: "every
+			-- calm holder" digs, user 2026-11-10; a measured match had them idle while the lane lines waited)
+			reach = 320,
+			-- (a lane's fire bay with anything solid across it is left out, the rest of the line dug in pieces: a
+			-- measured match retried bays through the village's houses and walls a dozen times each, "In the way")
+			dropBlocked = true,
 		},
 		-- the enemy's dug squares within `takeOver` studs of its front zone's edge give it fire steps as its own (the
 		-- parapet turned: user 2026-11-04, "bots just destroy incoming trenches")

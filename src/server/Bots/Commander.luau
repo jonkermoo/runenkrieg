@@ -2024,29 +2024,34 @@ solidParams.FilterDescendantsInstances = { workspace.Terrain }
 -- `clear` of their lines), what its diggers would wait on; `wet` for each spot along any run (every Trench.block
 -- studs) in water, where no square is planned; and `solid` for each thing standing across a run (walls, poles,
 -- buildings: Trenches.plan's "In the way", which no digger clears)
+-- the things standing across run `r` (within `half` of its line, Site.clear if none; not its trees nor soldiers; the
+-- pieces laid too: a measured match siting past them had their footprints refuse its runs, "A structure is in the way")
+local function solidOn(r: BotTrenches.Run, half: number?): number
+	local len = math.sqrt((r.bx - r.ax) ^ 2 + (r.bz - r.az) ^ 2)
+	if len <= 1e-3 then
+		return 0
+	end
+	local mid = Routes.ground((r.ax + r.bx) / 2, (r.az + r.bz) / 2)
+	local box = CFrame.lookAt(mid, mid + Vector3.new(r.bx - r.ax, 0, r.bz - r.az))
+	local seen: { [Instance]: boolean } = {}
+	local size = Vector3.new(2 * (half or TR.Site.clear), 2 * BuildCfg.Trench.wayHeight, len)
+	local n = 0
+	for _, p in workspace:GetPartBoundsInBox(box, size, solidParams) do
+		local top: Instance = p:FindFirstAncestorWhichIsA("Model") or p
+		local tree = top:IsA("Model") and Trees.standing(top :: Model)
+		if p.CanCollide and not tree and not seen[top] and not (top :: any):FindFirstChildOfClass("Humanoid") then
+			seen[top] = true
+			n += 1
+		end
+	end
+	return n
+end
+
 local function treesOn(runs: { BotTrenches.Run }): number
 	local n = 0
 	for _, r in runs do
 		local len = math.sqrt((r.bx - r.ax) ^ 2 + (r.bz - r.az) ^ 2)
-		if len > 1e-3 then
-			local mid = Routes.ground((r.ax + r.bx) / 2, (r.az + r.bz) / 2)
-			local box = CFrame.lookAt(mid, mid + Vector3.new(r.bx - r.ax, 0, r.bz - r.az))
-			local seen: { [Instance]: boolean } = {}
-			local size = Vector3.new(2 * TR.Site.clear, 2 * BuildCfg.Trench.wayHeight, len)
-			for _, p in workspace:GetPartBoundsInBox(box, size, solidParams) do
-				local top: Instance = p:FindFirstAncestorWhichIsA("Model") or p
-				local tree = top:IsA("Model") and Trees.standing(top :: Model)
-				if
-					p.CanCollide
-					and not tree
-					and not seen[top]
-					and not (top :: any):FindFirstChildOfClass("Humanoid")
-				then
-					seen[top] = true
-					n += TR.Site.solid
-				end
-			end
-		end
+		n += solidOn(r) * TR.Site.solid
 		for i = 0, math.ceil(len / BuildCfg.Trench.block) do
 			local t = math.min(i * BuildCfg.Trench.block / math.max(len, 1e-3), 1)
 			local x, z = r.ax + (r.bx - r.ax) * t, r.az + (r.bz - r.az) * t
@@ -2101,7 +2106,9 @@ local function sited(
 	make: (number, number) -> { BotTrenches.Run },
 	side: string,
 	eye: Vector3?,
-	flag: { x: number, z: number }?
+	flag: { x: number, z: number }?,
+	others: { BotTrenches.Run }?,
+	keep: number?
 ): { BotTrenches.Run }
 	-- (the clearest ground first, what the planner refuses; of the layouts within Care.Site.slack of the clearest,
 	-- the least shelled and seen: a measured match sited for cover first ran its fire bays into walls; none of its
@@ -2115,6 +2122,10 @@ local function sited(
 				if flag and BotTrenches.offRun(flag.x, flag.z, r.ax, r.az, r.bx, r.bz) < CA.Site.flag then
 					n += math.huge
 				end
+			end
+			-- (not nearer than `keep` to the lines `others`, where any spot is: the planner refuses it "Too close")
+			if others and keep and BotTrenches.apart(runs, others) < keep then
+				n += 1e6
 			end
 			table.insert(all, { runs = runs, n = n })
 			fewest = math.min(fewest, n)
@@ -2386,6 +2397,13 @@ local function laneLines(sbs: SideBuild, side: string, front: number, squares: {
 				traverse = TR.Fire.traverse,
 				short = TR.Comm.short,
 			}
+			-- (every line its side has planned: none sited too close to one)
+			local others: { BotTrenches.Run } = {}
+			for _, r in sbs.lay do
+				if r.run then
+					table.insert(others, r.run :: BotTrenches.Run)
+				end
+			end
 			local runs = sited(function(edge: number, shift: number)
 				-- (nearer or further along the way, across it: Trenches.Site)
 				local along = (edge - TR.Fire.edge) * s.radius
@@ -2397,7 +2415,20 @@ local function laneLines(sbs: SideBuild, side: string, front: number, squares: {
 					2 * f.half,
 					cfg
 				)
-			end, side, eye)
+			end, side, eye, nil, others, L.keep)
+			-- (its bays with something solid across them left out, the rest in pieces: Lanes.dropBlocked)
+			if L.dropBlocked then
+				-- (as wide as the planner's box: the wall tops and heaps, Trenches.plan's "In the way")
+				local half = BuildRules.trenchTop(BuildCfg.Trench) + BuildCfg.Trench.joins.heapReach
+				local blocked: { [number]: boolean } = {}
+				for i, r in runs do
+					blocked[i] = solidOn(r, half) > 0
+				end
+				local dropped
+				runs, dropped = BotTrenches.dropBlocked(runs, blocked, tx, tz, cfg.short, cfg.back)
+				stats.laneDropped += dropped
+				ByTrench.runs[`{side} laneDropped`] = (ByTrench.runs[`{side} laneDropped`] or 0) + dropped
+			end
 			local made = systemJobs(sbs, runs, threatsOf(side, front, now), tx, tz, key)
 			sbs.systems[key] =
 				{ sector = front, runs = made, mid = BotTrenches.fireMid(runs), ends = BotTrenches.routeEnds(runs) }
