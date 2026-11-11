@@ -80,6 +80,56 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 		return run
 	end
 
+	-- A flooded clay pit (src/dev/Buildings Geometry.clayPit, Config/Buildings.ClayPit): its marker's oval dug into the
+	-- terrain as a bowl `Pit` deep at the middle, its banks mud, the water `drop` under the lowest ground round its rim
+	local function digPit(m: Model)
+		local K = B.ClayPit
+		local marker = m:FindFirstChild("Pit") :: BasePart
+		local at = marker.CFrame
+		local a, b = marker.Size.X / 2, marker.Size.Z / 2
+		local depth = m:GetAttribute("Pit") :: number
+		local rim = math.huge
+		for k = 0, 23 do
+			local t = k * math.pi / 12
+			local q = at * CFrame.new(math.cos(t) * (a + 2), 0, math.sin(t) * (b + 2))
+			rim = math.min(rim, ground(q.X, q.Z))
+		end
+		local water = rim - K.drop
+		local cell = 2
+		-- (the ground read before any of it is dug: a dug column lowers its neighbours' voxels)
+		local cells = {}
+		for u = -a, a, cell do
+			for v = -b, b, cell do
+				local e = (u / a) ^ 2 + (v / b) ^ 2
+				if e <= 1 then
+					local q = at * CFrame.new(u, 0, v)
+					table.insert(cells, { x = q.X, z = q.Z, e = e, g = ground(q.X, q.Z) })
+				end
+			end
+		end
+		local T = workspace.Terrain
+		for _, c in cells do
+			-- (a flat bottom over the middle, the banks in its outer `shelf` share: terrain voxels are 4 studs, a
+			-- shallow bowl's water too thin to show)
+			local k = math.clamp((1 - c.e) / K.shelf, 0, 1)
+			local bed = water + K.bank - (depth + K.bank) * k
+			local top = math.max(c.g, water) + 4
+			T:FillBlock(
+				CFrame.new(c.x, (bed + top) / 2, c.z),
+				Vector3.new(cell + 0.4, top - bed, cell + 0.4),
+				Enum.Material.Air
+			)
+			T:FillBlock(CFrame.new(c.x, bed - 1, c.z), Vector3.new(cell + 0.4, 2, cell + 0.4), Enum.Material.Mud)
+			if bed < water then
+				T:FillBlock(
+					CFrame.new(c.x, (bed + water) / 2, c.z),
+					Vector3.new(cell + 0.4, water - bed, cell + 0.4),
+					Enum.Material.Water
+				)
+			end
+		end
+	end
+
 	-- buildings
 	local bf = folder(root, "Buildings")
 	for _, lot in layout.lots do
@@ -144,6 +194,9 @@ function VillageBuild.build(root: Instance, map: any, layout: any, deps: any): {
 			elseif d:IsA("Model") and d:GetAttribute("OnWater") and map.river then
 				-- (a ferry's boat floats on the river)
 				d:PivotTo(d:GetPivot() + Vector3.new(0, map.river.waterY - hi, 0))
+			elseif d:IsA("Model") and d:GetAttribute("Pit") then
+				-- (a flooded clay pit: dug into the ground)
+				digPit(d)
 			end
 		end
 		-- stone steps down from any door left up a bank (Rules/Village.steps), each step solid down into the ground

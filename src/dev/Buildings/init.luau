@@ -265,6 +265,14 @@ function Buildings.build(name: string, deps: Deps): Model
 				Geometry.stage(model, ctx, at, f.width, f.depth, f.height, f.posts)
 			elseif f.kind == "Waterwheel" then
 				Geometry.waterwheel(model, ctx, at * CFrame.new(0, f.y, 0), f.radius, f.width)
+			elseif f.kind == "Smokestack" then
+				Geometry.smokestack(model, ctx, at, f.base, f.top, f.height)
+			elseif f.kind == "RingKiln" then
+				Geometry.ringKiln(model, ctx, at, f.length, f.depth, f.height, f.bays)
+			elseif f.kind == "DryingShed" then
+				Geometry.dryingShed(model, ctx, at, f.length, f.span, f.height)
+			elseif f.kind == "ClayPit" then
+				Geometry.clayPit(model, ctx, at, f.length, f.width, f.depth)
 			else
 				error(`unknown landmark feature {f.kind}`)
 			end

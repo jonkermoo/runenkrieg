@@ -50,6 +50,10 @@ export type Template = {
 	-- length, width, height } (a ridge tent, its door -Z), { kind = "Crates", x, z, yaw?, count }, { kind = "Lattice", x,
 	-- z, y, yaw?, width, height } (a brick vent on a wall, the wall behind it +Z). An Arcade may stand `y` up, `raised`
 	-- (a loggia on the one below) or with `roof = false`; a Tent's `canvas` is a Palette.Buildings.Festival key.
+	-- { kind = "Smokestack", x, z, base, top, height } (a square brick chimney, `base` across at its foot, `top` at its
+	-- top), { kind = "RingKiln", x, z, yaw?, length, depth, height, bays } (a brick ring kiln, its length along local X),
+	-- { kind = "DryingShed", x, z, yaw?, length, span, height } (open, its ridge along local X), { kind = "ClayPit", x,
+	-- z, length, width, depth } (a flooded pit dug into the ground, an oval `length` along local X).
 	features: { any }?,
 	description: string,
 }
@@ -169,6 +173,58 @@ local Buildings = {
 	Crate = 2.4, -- a supply crate's side (the Katzmark camp)
 	Lattice = { cell = 0.9 }, -- a brick lattice vent's squares (the field barn)
 	Stage = { board = 3.2, rise = 2.2, stripes = 8, lanterns = 5, step = { rise = 0.8, run = 1.4, width = 8 } },
+	-- Lantern Meadows' brickworks (Fornace Aurelia, S2; user approved 2026-11-11). A square brick chimney: a stone
+	-- plinth `plinth` high and `plinthOut` wider a side, the shaft in `segments` courses narrowing from its foot to its
+	-- top, bands `bandOut` proud and `band` high at the shares `bands` of its height (the last one its cap), a dark
+	-- flue on top, an iron rod `rod` over it; colours (Palette.Buildings.Walls keys)
+	Smokestack = {
+		plinth = 4,
+		plinthOut = 1.2,
+		segments = 12,
+		bands = { 0.8, 0.88, 1 },
+		band = 1.4,
+		bandOut = 0.7,
+		rod = 4,
+		wall = "RedBrick",
+		trim = "Brick",
+		base = "Stone",
+		dark = "TarBoard",
+	},
+	-- a Hoffmann ring kiln: a long brick mass in bays `bay` long, a pilaster `pier` wide and `pierOut` proud between
+	-- them, a wicket (a dark arched opening, `wicket` wide x high, its head stepped in) in each bay front and back and
+	-- one in each end, a cornice `cornice` high, a pitched roof `pitch` degrees over it `overhang` past the walls;
+	-- colours (Walls / Roofs keys). Solid: cover, not a building to walk in.
+	RingKiln = {
+		bay = 8,
+		pier = 1.4,
+		pierOut = 0.5,
+		wicket = { 3.6, 5.4 },
+		cornice = 1.2,
+		pitch = 24,
+		overhang = 1.2,
+		wall = "Brick",
+		pierWall = "RedBrick",
+		dark = "TarBoard",
+		roof = "Terracotta",
+	},
+	-- an open drying shed: posts every `bay`, a low pitched roof `pitch` degrees `overhang` past the posts, rows of
+	-- green bricks drying in hacks `hack` (height, thick; hoppable), each `gap` apart along the row; a canvas screen
+	-- `screen` high on its back side; colours
+	DryingShed = {
+		bay = 6,
+		pitch = 18,
+		overhang = 1,
+		hack = { 1.8, 1.6 },
+		gap = 1.2,
+		screen = 3.2,
+		roof = "Terracotta",
+		green = "Sienna",
+		canvas = "Canvas",
+	},
+	-- a flooded clay pit (VillageBuild digs it into the terrain): the water `drop` under the lowest ground round its
+	-- rim, its banks of mud `bank` over the water at the rim falling to its flat bottom over the outer `shelf` of the
+	-- oval (a share of e = (u/a)^2 + (v/b)^2), its spoil heaps `spoil` high; colours
+	ClayPit = { drop = 1.2, bank = 0.6, shelf = 0.45, spoil = 2.6, clay = "Sienna" },
 
 	-- One at a time (user, 2026-10-09): start with a basic small house; add others once it's right.
 	Templates = {
@@ -926,12 +982,72 @@ local Buildings = {
 				{ kind = "Wall", a = { -36, 6 }, b = { -36, 40 }, height = 3, thick = 1.4, swatch = "Brick" },
 				{ kind = "Wall", a = { 36, -40 }, b = { 36, -6 }, height = 3, thick = 1.4, swatch = "Brick" },
 				{ kind = "Wall", a = { 36, 6 }, b = { 36, 40 }, height = 3, thick = 1.4, swatch = "Brick" },
-				-- the bottle kiln behind the barn on the flag's line, and brick stacks on the flanks (thick low walls)
-				{ kind = "BottleKiln", x = 0, z = 60, radius = 6.5, height = 32 },
+				-- brick stacks on the flanks (thick low walls); the bottle kilns stand with the brickworks behind (Fornace)
 				{ kind = "Wall", a = { -66, 52 }, b = { -54, 52 }, height = 2.4, thick = 5, swatch = "RedBrick" },
 				{ kind = "Wall", a = { 54, 52 }, b = { 66, 52 }, height = 2.4, thick = 5, swatch = "RedBrick" },
 			},
-			description = "The brickfield farm: a walled brick yard with a barn, farmhouse, cart sheds, sties and a bottle kiln.",
+			description = "The brickfield farm: a walled brick yard with a barn, farmhouse, cart sheds and sties.",
+		},
+		-- Fornace Aurelia, S2's hero (Lantern Meadows' landmarks, user approved 2026-11-11): the brickworks behind the
+		-- brickfield farm, north of the point on its x, clear of both approaches. A Hoffmann ring kiln under terracotta
+		-- with a square brick chimney 78 high rising from its middle (seen across the valley, with Borgo Aurel's
+		-- campanile), the two bottle kilns in front of it, open drying sheds at its ends, the flooded clay pit behind.
+		-- Its footprint is the kiln and the sheds (the copy stands on that ground); the rest stands on its own ground.
+		-- The west half mirrors the east half.
+		Fornace = {
+			folder = "Landmarks",
+			width = 112,
+			depth = 20,
+			stories = 1,
+			roofPitch = 24,
+			class = "Brick",
+			wallThickness = 1.4,
+			walls = { "Brick" },
+			roofs = { "Terracotta" },
+			blocks = {},
+			features = {
+				{ kind = "RingKiln", x = 0, z = 0, length = 64, depth = 16, height = 12, bays = 8 },
+				{ kind = "Smokestack", x = 0, z = 0, base = 10, top = 6, height = 78 },
+				{ kind = "BottleKiln", x = -26, z = -24, radius = 6.5, height = 30 },
+				{ kind = "BottleKiln", x = 26, z = -24, radius = 6.5, height = 30 },
+				{ kind = "DryingShed", x = -50, z = 0, yaw = 90, length = 24, span = 10, height = 6 },
+				{ kind = "DryingShed", x = 50, z = 0, yaw = 90, length = 24, span = 10, height = 6 },
+				{ kind = "ClayPit", x = 0, z = 34, length = 46, width = 20, depth = 5 },
+			},
+			description = "Fornace Aurelia: a ring kiln with a 78-stud brick chimney, two bottle kilns, drying sheds and a flooded clay pit.",
+		},
+		-- the brickworks' workers' row (Fornace Aurelia): a two-storey brick terrace of four houses under terracotta,
+		-- a door and a chimney each, facing the works across the lane
+		WorkersRow = {
+			folder = "Landmarks",
+			width = 50,
+			depth = 15,
+			stories = 2,
+			storyHeight = 10,
+			roofPitch = 28,
+			class = "Brick",
+			wallThickness = 1.4,
+			walls = { "Brick", "RedBrick" },
+			roofs = { "Terracotta" },
+			blocks = {
+				{
+					name = "Row",
+					x = 0,
+					z = 0,
+					width = 48,
+					depth = 14,
+					stories = 2,
+					storyHeight = 10,
+					roofPitch = 28,
+					roofStyle = "Tile",
+					quoins = true,
+					windows = 4,
+					chimneys = { -0.75, -0.25, 0.25, 0.75 },
+					doors = { { center = -18 }, { center = -6 }, { center = 6 }, { center = 18 } },
+					backDoor = { { center = -12 }, { center = 12 } },
+				},
+			},
+			description = "The brickworks' workers' row: four brick houses in a two-storey terrace under terracotta.",
 		},
 		-- Borgo Aurel's bell tower on S4's piazza, north side, on the flag's line (map rework, user approved 2026-11-06):
 		-- ochre stucco, four stages, a stair inside up to a battlemented belfry walk that looks down both legs. Fair

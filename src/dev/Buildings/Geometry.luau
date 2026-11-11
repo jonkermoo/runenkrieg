@@ -1532,4 +1532,290 @@ function Geometry.plinth(parent: Instance, ctx: Ctx, W: number, Dp: number, yTop
 	Geometry.part(parent, ctx, "Plinth", CFrame.new(W / 2 + o / 2, y, 0), Vector3.new(o, h, Dp), "Foundation")
 end
 
+-- A part in its own colour (a Palette.Buildings.Walls / Roofs key for `paint` Wall / Roof), whatever the copy's scheme.
+local function swatched(
+	sec: Instance,
+	ctx: Ctx,
+	name: string,
+	cf: CFrame,
+	size: Vector3,
+	paint: string,
+	key: string
+): BasePart
+	local p = Geometry.part(sec, ctx, name, cf, size, paint)
+	p:SetAttribute("Swatch", key)
+	return p
+end
+
+-- Two roof slabs `pitch` degrees either side of a ridge along local X over `at` (its eaves at y 0), `half` out to each
+-- eave and `L` long, and a ridge cap: a drying shed's or a ring kiln's roof. Returns the rise to the ridge.
+local function pitchedRoof(
+	sec: Instance,
+	ctx: Ctx,
+	at: CFrame,
+	L: number,
+	half: number,
+	pitch: number,
+	key: string
+): number
+	local a = math.rad(pitch)
+	local rise = half * math.tan(a)
+	for _, s in { -1, 1 } do
+		swatched(
+			sec,
+			ctx,
+			"Roof",
+			at * CFrame.new(0, rise / 2 + 0.25, s * half / 2) * CFrame.Angles(s * a, 0, 0),
+			Vector3.new(L, 0.5, half / math.cos(a) + 0.3),
+			"Roof",
+			key
+		)
+	end
+	swatched(sec, ctx, "Ridge", at * CFrame.new(0, rise + 0.35, 0), Vector3.new(L + 0.2, 0.6, 0.9), "Roof", key)
+	return rise
+end
+
+-- Fornace Aurelia's chimney (Config/Buildings.Smokestack): a square brick shaft `H` high on a stone plinth, `base`
+-- across at its foot narrowing course by course to `top`, banded near the top, a dark flue and an iron rod on it.
+-- Each course a section of its own, so shells bring it down where they hit; solid, nobody climbs it.
+function Geometry.smokestack(parent: Instance, ctx: Ctx, at: CFrame, base: number, top: number, H: number)
+	local S = ctx.B.Smokestack
+	local depth = ctx.B.FoundationDepth
+	local plinth = Geometry.section(parent, ctx, "Chimney", "Stone", 0)
+	local pw = base + 2 * S.plinthOut
+	swatched(
+		plinth,
+		ctx,
+		"Plinth",
+		at * CFrame.new(0, (S.plinth - depth) / 2, 0),
+		Vector3.new(pw, S.plinth + depth, pw),
+		"Wall",
+		S.base
+	)
+	swatched(
+		plinth,
+		ctx,
+		"Coping",
+		at * CFrame.new(0, S.plinth + 0.3, 0),
+		Vector3.new(pw - 0.8, 0.6, pw - 0.8),
+		"Wall",
+		S.base
+	)
+	local y0 = S.plinth + 0.6
+	local per = (H - y0) / S.segments
+	local function width(y: number): number
+		return base + (top - base) * (y - y0) / (H - y0)
+	end
+	for i = 0, S.segments - 1 do
+		local a, b = y0 + i * per, y0 + (i + 1) * per
+		local w = width((a + b) / 2)
+		local sec = Geometry.section(parent, ctx, "Chimney", "Brick", 0)
+		swatched(sec, ctx, "Shaft", at * CFrame.new(0, (a + b) / 2, 0), Vector3.new(w, per + 0.05, w), "Wall", S.wall)
+	end
+	local bands = Geometry.section(parent, ctx, "Chimney", "Brick", 0)
+	for _, share in S.bands do
+		local y = math.min(H * share, H - S.band / 2)
+		local w = width(y) + 2 * S.bandOut
+		swatched(bands, ctx, "Band", at * CFrame.new(0, y, 0), Vector3.new(w, S.band, w), "Wall", S.trim)
+	end
+	swatched(
+		bands,
+		ctx,
+		"Flue",
+		at * CFrame.new(0, H + 0.05, 0),
+		Vector3.new(top - 1.4, 0.2, top - 1.4),
+		"Wall",
+		S.dark
+	)
+	Geometry.part(
+		bands,
+		ctx,
+		"Rod",
+		at * CFrame.new(top / 2 - 0.3, H + S.rod / 2, top / 2 - 0.3),
+		Vector3.new(0.25, S.rod, 0.25),
+		"Metal"
+	)
+end
+
+-- A Hoffmann ring kiln (Config/Buildings.RingKiln) `L` along local X, `D` deep and `H` to its cornice: a solid brick
+-- mass on a foundation in `bays` bays, a pilaster between each two (through to the back) and at the ends, a dark
+-- arched wicket in every bay front and back and one in each end, a cornice, a terracotta roof over it with brick
+-- gables. Each bay a section of its own.
+function Geometry.ringKiln(parent: Instance, ctx: Ctx, at: CFrame, L: number, D: number, H: number, bays: number)
+	local K = ctx.B.RingKiln
+	local depth = ctx.B.FoundationDepth
+	local base = ctx.B.Foundation
+	Geometry.part(
+		parent,
+		ctx,
+		"Foundation",
+		at * CFrame.new(0, (base - 1 - depth) / 2, 0),
+		Vector3.new(L + K.pier + 2 * K.pierOut + 0.6, base - 1 + depth, D + 2 * K.pierOut + 0.6),
+		"Foundation"
+	)
+	local bay = L / bays
+	local w, h = K.wicket[1], K.wicket[2]
+	-- a wicket on a face (`face`: the wall's outside frame, -Z out, at its foot), `cx` along it: the opening and its
+	-- head stepping in, standing just proud of the brick
+	local function wicket(sec: Instance, face: CFrame, cx: number)
+		swatched(sec, ctx, "Wicket", face * CFrame.new(cx, h / 2, -0.06), Vector3.new(w, h, 0.2), "Wall", K.dark)
+		swatched(
+			sec,
+			ctx,
+			"Head",
+			face * CFrame.new(cx, h + 0.3, -0.06),
+			Vector3.new(w * 0.72, 0.6, 0.2),
+			"Wall",
+			K.dark
+		)
+		swatched(
+			sec,
+			ctx,
+			"Head",
+			face * CFrame.new(cx, h + 0.8, -0.06),
+			Vector3.new(w * 0.4, 0.4, 0.2),
+			"Wall",
+			K.dark
+		)
+	end
+	local front = at * CFrame.new(0, 0, -D / 2)
+	local back = at * CFrame.Angles(0, math.pi, 0) * CFrame.new(0, 0, -D / 2)
+	for i = 1, bays do
+		local cx = -L / 2 + (i - 0.5) * bay
+		local sec = Geometry.section(parent, ctx, "Kiln", "Brick", 0)
+		swatched(sec, ctx, "Body", at * CFrame.new(cx, H / 2, 0), Vector3.new(bay + 0.05, H, D), "Wall", K.wall)
+		wicket(sec, front, cx)
+		wicket(sec, back, -cx)
+	end
+	for i = 0, bays do
+		local sec = Geometry.section(parent, ctx, "Pier", "Brick", 0)
+		swatched(
+			sec,
+			ctx,
+			"Pier",
+			at * CFrame.new(-L / 2 + i * bay, (H - K.cornice) / 2, 0),
+			Vector3.new(K.pier, H - K.cornice, D + 2 * K.pierOut),
+			"Wall",
+			K.pierWall
+		)
+	end
+	for _, s in { -1, 1 } do
+		local sec = Geometry.section(parent, ctx, "Kiln", "Brick", 0)
+		wicket(sec, at * CFrame.Angles(0, -s * math.pi / 2, 0) * CFrame.new(0, 0, -L / 2 - K.pier / 2), 0)
+	end
+	local top = Geometry.section(parent, ctx, "Kiln", "Brick", 0)
+	swatched(
+		top,
+		ctx,
+		"Cornice",
+		at * CFrame.new(0, H - K.cornice / 2, 0),
+		Vector3.new(L + K.pier + 2 * K.pierOut, K.cornice, D + 2 * K.pierOut + 0.4),
+		"Wall",
+		K.pierWall
+	)
+	local roof = Geometry.section(parent, ctx, "Roof", "Tile", 99)
+	local half = D / 2 + K.pierOut + K.overhang
+	local rise = pitchedRoof(roof, ctx, at * CFrame.new(0, H, 0), L + K.pier + 2 * K.overhang, half, K.pitch, K.roof)
+	for _, s in { -1, 1 } do
+		local frame = at * CFrame.new(s * (L / 2 + K.pier / 2 - 0.4), H, 0) * CFrame.Angles(0, math.pi / 2, 0)
+		for _, p in triangle(top, ctx, frame, D + 2 * K.pierOut, rise * (D / 2 + K.pierOut) / half, 0.8, "Wall") do
+			p:SetAttribute("Swatch", K.pierWall)
+		end
+	end
+end
+
+-- An open drying shed (Config/Buildings.DryingShed) `L` along local X, `span` across, its eaves `height` up: posts on a
+-- brick floor, a low terracotta roof, two rows of green bricks drying in hacks (hoppable cover) and a canvas screen
+-- hung along its back (+Z) eave.
+function Geometry.dryingShed(parent: Instance, ctx: Ctx, at: CFrame, L: number, span: number, height: number)
+	local S = ctx.B.DryingShed
+	local depth = ctx.B.FoundationDepth
+	local floor = Geometry.section(parent, ctx, "Platform", "Stone", -1)
+	Geometry.part(
+		floor,
+		ctx,
+		"Bed",
+		at * CFrame.new(0, (0.4 - depth) / 2, 0),
+		Vector3.new(L + 0.6, 0.4 + depth, span + 0.6),
+		"Foundation"
+	)
+	local bays = math.max(1, math.round(L / S.bay))
+	for i = 0, bays do
+		local x = -L / 2 + i * L / bays
+		local sec = Geometry.section(parent, ctx, "Post", "Wood", 0)
+		for _, sz in { -1, 1 } do
+			Geometry.part(
+				sec,
+				ctx,
+				"Post",
+				at * CFrame.new(x, height / 2, sz * (span / 2 - 0.5)),
+				Vector3.new(1, height, 1),
+				"Trim"
+			)
+		end
+		Geometry.part(sec, ctx, "Beam", at * CFrame.new(x, height - 0.35, 0), Vector3.new(0.7, 0.7, span), "Trim")
+	end
+	for _, sz in { -1, 1 } do
+		local sec = Geometry.section(parent, ctx, "Beam", "Wood", 0)
+		Geometry.part(
+			sec,
+			ctx,
+			"Plate",
+			at * CFrame.new(0, height - 0.35, sz * (span / 2 - 0.5)),
+			Vector3.new(L, 0.7, 0.8),
+			"Trim"
+		)
+	end
+	local roof = Geometry.section(parent, ctx, "Roof", "Tile", 99)
+	pitchedRoof(roof, ctx, at * CFrame.new(0, height, 0), L + 2 * S.overhang, span / 2 + S.overhang, S.pitch, S.roof)
+	-- the hacks: a row of brick stacks either side of the middle, a gap between each two
+	local piece = L / bays - S.gap
+	for _, sz in { -1, 1 } do
+		for i = 1, bays do
+			local sec = Geometry.section(parent, ctx, "Hack", "Brick", 0)
+			swatched(
+				sec,
+				ctx,
+				"Hack",
+				at * CFrame.new(-L / 2 + (i - 0.5) * L / bays, 0.4 + S.hack[1] / 2, sz * span / 4),
+				Vector3.new(piece, S.hack[1], S.hack[2]),
+				"Wall",
+				S.green
+			)
+		end
+	end
+	local screen = Geometry.section(parent, ctx, "Screen", "Wood", 0)
+	festival(
+		screen,
+		ctx,
+		"Canvas",
+		at * CFrame.new(0, height - 0.7 - S.screen / 2, span / 2 - 0.2),
+		Vector3.new(L - 1, S.screen, 0.15),
+		S.canvas
+	)
+end
+
+-- A flooded clay pit (Config/Buildings.ClayPit), an oval `L` along local X and `W` across, `depth` deep at its middle:
+-- an invisible marker ("Pit", the oval's box) that VillageBuild digs into the terrain and floods, and spoil heaps of
+-- clay on the real ground at its two ends.
+function Geometry.clayPit(parent: Instance, ctx: Ctx, at: CFrame, L: number, W: number, depth: number)
+	local K = ctx.B.ClayPit
+	local sec = Geometry.section(parent, ctx, "ClayPit", "Stone", 0)
+	sec:SetAttribute("Pit", depth)
+	local marker = Geometry.part(sec, ctx, "Pit", at, Vector3.new(L, 1, W), "Foundation")
+	marker.Transparency = 1
+	marker.CanCollide = false
+	marker.CanQuery = false
+	marker.CanTouch = false
+	marker.CastShadow = false
+	for _, s in { -1, 1 } do
+		local heap = Geometry.section(parent, ctx, "Spoil", "Stone", 0)
+		heap:SetAttribute("OnGround", true)
+		local frame = at * CFrame.new(s * (L / 2 + 5), -0.4, 0) * CFrame.Angles(0, math.pi / 2, 0)
+		for _, p in triangle(heap, ctx, frame, W * 0.6, K.spoil + 0.4, 4, "Wall") do
+			p:SetAttribute("Swatch", K.clay)
+		end
+	end
+end
+
 return Geometry

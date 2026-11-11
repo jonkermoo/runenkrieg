@@ -1382,7 +1382,21 @@ local Assets = {
 			folder = "Landmarks",
 			template = "BrickfieldFarm",
 			generator = "src/dev/Buildings/init.luau",
-			description = "Lantern Meadows' walled brickfield farm on S2's point, its bottle kiln behind (a landmark)",
+			description = "Lantern Meadows' walled brickfield farm on S2's point (a landmark)",
+		},
+		Fornace = {
+			category = "Buildings",
+			folder = "Landmarks",
+			template = "Fornace",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Lantern Meadows' brickworks behind S2: ring kiln, 78-stud chimney, bottle kilns, sheds, clay pit (S2's hero)",
+		},
+		WorkersRow = {
+			category = "Buildings",
+			folder = "Landmarks",
+			template = "WorkersRow",
+			generator = "src/dev/Buildings/init.luau",
+			description = "Lantern Meadows' brickworks workers' row behind S2 (a landmark)",
 		},
 		OastFarm = {
 			category = "Buildings",

@@ -143,10 +143,6 @@ end
 for _, q in { { 1400, 174 }, { 1440, 174 } } do
 	table.insert(features, { kind = "LanternPole", x = q[1], z = CZ + q[2] })
 end
--- haystacks on the brickfield farm's north side, one either side of its kiln
-for _, x in { 868, 932 } do
-	table.insert(features, { kind = "Haystack", x = x, z = CZ + 132, yaw = 15 })
-end
 
 local LanternMeadows = {
 	name = "Lantern Meadows",
@@ -382,7 +378,7 @@ local LanternMeadows = {
 		{ id = "Festival", minX = 1360, maxX = 1480, minZ = CZ + 165, maxZ = CZ + 300 },
 		{ id = "Footbridge", minX = 1632, maxX = 1742, minZ = CZ + 160, maxZ = CZ + 220 },
 		{ id = "RockFord", minX = 1636, maxX = 1742, minZ = CZ - 95, maxZ = CZ - 35 },
-		{ id = "Farm", minX = 830, maxX = 970, minZ = CZ - 40, maxZ = CZ + 140 },
+		{ id = "Farm", minX = 820, maxX = 980, minZ = CZ - 40, maxZ = CZ + 215 }, -- (and the brickworks)
 		{ id = "Town", minX = 1770, maxX = 2110, minZ = CZ - 150, maxZ = CZ + 210 },
 	},
 
@@ -450,6 +446,10 @@ local LanternMeadows = {
 			{ id = "Watchtower", style = "Watchtower", x = 340, z = CZ - 84, front = { 1, 0 } },
 			-- the brickfield farm on S2's point, the flag in its yard (user approved 2026-11-06)
 			{ id = "BrickfieldFarm", style = "BrickfieldFarm", x = PTS[2][1], z = CZ + PTS[2][2], front = { 0, -1 } },
+			-- Fornace Aurelia behind it, north of the point on its x (S2's hero, user approved 2026-11-11): the ring kiln and
+			-- its 78-stud chimney, seen across the valley; the workers' row behind the clay pit
+			{ id = "Fornace", style = "Fornace", x = PTS[2][1], z = CZ + PTS[2][2] + 84, front = { 0, -1 } },
+			{ id = "WorkersRow", style = "WorkersRow", x = PTS[2][1], z = CZ + PTS[2][2] + 166, front = { 0, -1 } },
 			-- the cascina on S5's point, its south side, facing the flag; Selvara's camp
 			{ id = "Cascina", style = "Cascina", x = PTS[5][1], z = CZ - 228, front = { 0, 1 } },
 			-- Borgo Aurel's campanile and loggia on the piazza, north and south of the flag
