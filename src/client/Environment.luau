@@ -182,6 +182,20 @@ function Environment.start()
 		atmosphere.Haze = l.haze
 		atmosphere.Color = rgb(l.color)
 		atmosphere.Decay = rgb(l.decay)
+		-- a look with distance fog (`fog`: Lighting's own fog from `start` to `finish` studs, in the haze's colour, so
+		-- it greys at dusk and darkens at night; closer in fog and rain, as the haze thickens). The Atmosphere is set
+		-- aside meanwhile: Roblox ignores Lighting's fog while one is there, and its haze didn't fog the ground in
+		-- Studio at any density (2026-11-11), where the distance fog did.
+		if md and md.fog then
+			atmosphere.Parent = nil
+			local k = md.haze.density / math.max(l.density, 0.01)
+			Lighting.FogStart = md.fog.start * k
+			Lighting.FogEnd = md.fog.finish * k
+			Lighting.FogColor = rgb(l.color)
+		else
+			atmosphere.Parent = Lighting
+			Lighting.FogStart, Lighting.FogEnd = 0, 100000
+		end
 		cloud.Cover = math.max(l.cloudCover, if md then md.cloudCover else 0)
 		cloud.Color = rgb(if md and md.cloudColor and l.rain == 0 then md.cloudColor else l.cloudColor)
 		if math.abs(l.wet - wetNow) > 0.005 then
