@@ -974,6 +974,8 @@ local function build(player: Player): DevPanel.Panel
 	for _, n in A.Points do
 		row(`Points{n}`, `Give me {n} match points`, "Points", n)
 	end
+	-- (the loadout's "N short" prices, to see; Rules/Classes.earn stops at 0)
+	row("PointsZero", "Zero my match points", "Points", -A.ZeroPoints)
 	local classes: { [string]: TextButton } = {}
 	for _, key in ClassCfg.List do
 		classes[key] = row("Class_" .. key, `Be {ClassCfg.Defs[key].name} every life`, "Class", key)

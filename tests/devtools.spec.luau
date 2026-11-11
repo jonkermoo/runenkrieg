@@ -167,6 +167,7 @@ return {
 		assert(A.valid(Cfg, "Class", "Engineer", defs), "a locked class can be pinned")
 		assert(A.valid(Cfg, "Class", Cfg.Admin.Normal, defs) and not A.valid(Cfg, "Class", "Nope", defs))
 		assert(A.valid(Cfg, "Points", Cfg.Admin.Points[1]) and not A.valid(Cfg, "Points", 1e9))
+		assert(A.valid(Cfg, "Points", -Cfg.Admin.ZeroPoints) and not A.valid(Cfg, "Points", -50), "only zeroing")
 		assert(A.valid(Cfg, "ZoneScore", Cfg.Admin.ZoneScore[1]) and not A.valid(Cfg, "ZoneScore", -5))
 		assert(A.valid(Cfg, "MatchTime", Cfg.Admin.MatchSeconds[1]) and not A.valid(Cfg, "MatchTime", 7))
 		assert(

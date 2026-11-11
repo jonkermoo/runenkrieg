@@ -26,8 +26,8 @@ export type Def = {
 local SMALL = { "Trench", "Foxhole", "Sandbags", "Wire", "Hesco", "Bridge" }
 
 local Classes = {
-	-- the loadout's kit cards (UI overhaul, user 2026-10-30): each class's rune (Config/Runes), the picked card raised
-	-- this many reference pixels with a red pencil edge this thick, a card you can't take this see-through
+	-- the loadout's orders sheet (user 2026-11-11, option A; was paper kit cards): each class's rune (Config/Runes), a
+	-- row you can't afford this see-through, a row under the mouse filled with ink this see-through
 	Cards = {
 		runes = {
 			Rifleman = "raidho",
@@ -37,9 +37,8 @@ local Classes = {
 			Engineer = "othala",
 			Mage = "ansuz",
 		},
-		raise = 14,
-		edge = 3,
-		faded = 0.4,
+		faded = 0.45,
+		hover = 0.88,
 	},
 	Currency = "Marks", -- the currency's name, shown in the loadout menu
 	-- the menus (src/client/Menus): seconds after a death before the loadout menu opens (the death is seen first)
@@ -74,7 +73,7 @@ local Classes = {
 	Start = 85, -- (user 2026-11-06: "Start at 85": a first life as Grenadier or Engineer, unlock and fee)
 	Default = "Rifleman", -- free: anyone can always play it
 	-- the classes in the menu's order
-	List = { "Rifleman", "Grenadier", "AutoRifler", "Shotgunner", "Engineer", "Mage" },
+	List = { "Rifleman", "Grenadier", "Engineer", "AutoRifler", "Shotgunner", "Mage" }, -- (user 2026-11-11)
 	Defs = {
 		-- the kit's own helmet (user 2026-10-27: "the plated helmets should only be on soldiers with semi auto rifles")
 		Rifleman = {
@@ -98,7 +97,7 @@ local Classes = {
 		-- the team's semi-automatic rifle and its alternate helmet (user: "these will use the alternate helmet")
 		AutoRifler = {
 			name = "Auto rifler",
-			blurb = "Semi-automatic rifle, plate helmet",
+			blurb = "Semi-automatic rifle",
 			unlock = 150,
 			fee = 20,
 			primary = "semi",
@@ -122,7 +121,7 @@ local Classes = {
 		-- 2026-11-01), not yet to bots (Config/Bots.Classes)
 		Engineer = {
 			name = "Engineer",
-			blurb = "Builds artillery",
+			blurb = "Builds field guns, rune howitzers, MG nests and dugouts", -- (its own builds; user 2026-11-11)
 			unlock = 75,
 			fee = 10,
 			-- the kit's pistol (user 2026-10-28: the Engineer's own sidearm; the C96, the Nagant, the Webley)

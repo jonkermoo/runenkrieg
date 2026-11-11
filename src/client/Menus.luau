@@ -7,8 +7,9 @@
 -- Normal, user 2026-11-04): a gradient placeholder for the team's art (Palette UI.Hud.Teams) with its name and its
 -- soldiers in the middle ("players + bots" in Normal: "2 + 4"; else "count / room"), the text white where you can join,
 -- red where you can't (Rules/Teams.blocked) and grey on your own. A card you can join asks for a second click (the
--- change resets your Marks), then goes to the server (Net "Loadout" "Team"), which checks the balance again. The menu lists the classes (Config/Classes.List: name, blurb, cost; picked, locked or
--- not affordable), the match currency (shown only here, user: "they only see their match currency in the loadout menu
+-- change resets your Marks), then goes to the server (Net "Loadout" "Team"), which checks the balance again. The menu's orders sheet (user 2026-11-11) lists the classes as rows
+-- (Config/Classes.List: rune, name, blurb, price and its note; picked filled with ink, locked or not affordable faded with
+-- the Marks you're short), the match currency (shown only here, user: "they only see their match currency in the loadout menu
 -- when they are respawning"), and the soldier you'll spawn as, turning slowly: the server's "LoadoutPreview" rig in a
 -- ViewportFrame, playing its primary's ready hold. Deploy lights up once the respawn delay is over (Net "Loadout").
 -- Layout, sizes and the one basic font come from src/shared/ui/TitleScreen.json and LoadoutMenu.json (the local
@@ -365,26 +366,39 @@ function Menus.start()
 		end
 	end
 	template.Parent = nil
-	type Row = { button: TextButton, name: TextLabel, blurb: TextLabel, cost: TextLabel, rune: Ink.Canvas? }
+	-- one row of the orders sheet per class (user 2026-11-11): rune, name, blurb, price and the note under the price
+	type Row = {
+		button: TextButton,
+		name: TextLabel,
+		blurb: TextLabel,
+		cost: TextLabel,
+		note: TextLabel,
+		rune: Ink.Canvas?,
+		hover: boolean,
+	}
 	local rows: { [string]: Row } = {}
 	local order: { string } = {}
+	local PARTS = { name = "Name", blurb = "Blurb", cost = "Cost", note = "Note" }
 	for i, key in Classes.List do
 		local b = template:Clone() :: TextButton
 		b.Name = "Row" .. key
 		b.LayoutOrder = i
-		local name = b:FindFirstChild("RiflemanName") :: TextLabel
-		local blurb = b:FindFirstChild("RiflemanBlurb") :: TextLabel
-		local cost = b:FindFirstChild("RiflemanCost") :: TextLabel
-		name.Text = Classes.Defs[key].name
-		blurb.Text = Classes.Defs[key].blurb
+		b.BackgroundColor3 = gcol("ink")
+		local r: any = { button = b, hover = false }
+		for part, suffix in PARTS do
+			r[part] = b:FindFirstChild("Rifleman" .. suffix) :: TextLabel
+		end
+		r.name.Text = Classes.Defs[key].name
+		r.blurb.Text = Classes.Defs[key].blurb
+		r.blurb.TextYAlignment = Enum.TextYAlignment.Top
 		b.Parent = list
 		local glyph = b:FindFirstChild("RiflemanRune") :: Frame?
-		rows[key] = { button = b, name = name, blurb = blurb, cost = cost, rune = glyph and Ink.canvas(glyph) }
+		r.rune = glyph and Ink.canvas(glyph)
+		rows[key] = r
 		table.insert(order, key)
 	end
 	-- the copies follow the template's place, one step apart (scaled with the rest)
 	local baseRelayout = loadout.relayout
-	local raised: string? = nil -- the picked kit card, raised
 	function loadout.relayout()
 		baseRelayout()
 		local base = template.Position
@@ -394,21 +408,19 @@ function Menus.start()
 			local k = s.Y.Offset / loadout.spec.RowRifleman.size[4]
 			b.Size = s
 			local step = (i - 1) * rowStep * k
-			local lift = if key == raised then -Cards.raise * k else 0
 			b.Position = UDim2.new(base.X.Scale, base.X.Offset, base.Y.Scale, base.Y.Offset)
-				+ (if across then UDim2.fromOffset(step, lift) else UDim2.fromOffset(0, step))
-			local edge = b:FindFirstChild("Pick") :: UIStroke?
-			if edge then
-				edge.Thickness = Cards.edge * k
+				+ (if across then UDim2.fromOffset(step, 0) else UDim2.fromOffset(0, step))
+			for _, suffix in { "Rune", "Rule" } do
+				local own, tg =
+					b:FindFirstChild("Rifleman" .. suffix) :: GuiObject?,
+					template:FindFirstChild("Rifleman" .. suffix) :: GuiObject?
+				if own and tg then
+					own.Position, own.Size = tg.Position, tg.Size
+				end
 			end
-			local glyph, tg =
-				b:FindFirstChild("RiflemanRune") :: Frame?, template:FindFirstChild("RiflemanRune") :: Frame?
-			if glyph and tg then
-				glyph.Position, glyph.Size = tg.Position, tg.Size
-			end
-			for _, part in { "name", "blurb", "cost" } do
+			for part, suffix in PARTS do
 				local cell = (rows[key] :: any)[part] :: TextLabel
-				local t = template:FindFirstChild("Rifleman" .. part:sub(1, 1):upper() .. part:sub(2)) :: TextLabel
+				local t = template:FindFirstChild("Rifleman" .. suffix) :: TextLabel
 				cell.Position, cell.Size, cell.TextSize = t.Position, t.Size, t.TextSize
 			end
 		end
@@ -479,42 +491,43 @@ function Menus.start()
 		local marks = L.Marks :: TextLabel
 		marks.Text = `{Classes.Currency}  {math.floor(state.points)}`
 		local picked = state.picked
+		local magic = GR.Magic[state.kit]
 		for _, card in state.classes do
 			local r = rows[card.key]
 			if r then
 				local can = not card.locked and card.affordable
 				local on = card.key == picked
-				-- a paper card: picked, raised with a red pencil edge; one you can't take, faded
+				-- the picked row filled with ink (paper words, the rune in the team's magic colour); one you can't take,
+				-- faded, its price in red pencil with how many Marks you're short; the row under the mouse a faint ink
 				local fade = if can or on then 0 else Cards.faded
-				local paper = r.button:FindFirstChild("Paper") :: ImageLabel?
-				if paper then
-					paper.ImageTransparency = fade
-				end
-				local edge = r.button:FindFirstChild("Pick") :: UIStroke?
-				if edge then
-					edge.Enabled = on
-				end
-				r.name.TextColor3, r.blurb.TextColor3 = gcol("ink"), gcol("inkDim")
-				r.cost.TextColor3 = gcol(if card.cost == 0 and not card.locked then "blue" else "pencil")
-				for _, l in { r.name, r.blurb, r.cost } do
-					l.TextTransparency = fade
-				end
+				r.button.BackgroundTransparency = if on then 0 elseif r.hover and can then Cards.hover else 1
+				r.name.TextColor3 = gcol(if on then "text" else "ink")
+				r.blurb.TextColor3 = gcol(if on then "dim" else "inkDim")
+				-- (picked but too dear: the server spawns you as the Rifleman, so the shortfall shows, amber on the ink)
+				r.note.TextColor3 =
+					gcol(if can then (if on then "dim" else "inkDim") elseif on then "amber" else "pencil")
+				r.cost.TextColor3 = gcol(if on then "text" elseif can then "blue" else "pencil")
+				r.name.TextTransparency, r.blurb.TextTransparency = fade, fade
+				r.cost.TextTransparency, r.note.TextTransparency = 0, 0
 				-- (the marks rebalance, user 2026-11-05: its unlock + fee until unlocked this match, then the fee alone)
 				r.cost.Text = if card.locked
 					then "Soon"
 					elseif card.cost == 0 then "Free"
 					elseif card.unlocked then tostring(card.fee)
-					else `{card.unlock}+{card.fee}`
+					else `{card.unlock} + {card.fee}`
+				local short = math.ceil(card.cost - state.points)
+				r.note.Text = if card.locked or card.cost == 0
+					then ""
+					elseif not card.affordable and short > 0 then `{short} short`
+					elseif card.unlocked then "a life"
+					else "unlock + a life"
 				local runeName = Cards.runes[card.key]
 				local canvas = r.rune
 				if canvas and runeName then
-					local colour = gcol(if on then "blue" else "ink")
+					local colour = if on and magic then Color3.fromRGB(magic[1], magic[2], magic[3]) else gcol("blue")
 					canvas.set(function(holder, w, h)
 						Ink.rune(holder, runeName, 0, 0, w, h, math.max(1.5, h * 0.09), colour, fade)
 					end)
-				end
-				if on then
-					raised = card.key
 				end
 			end
 		end
@@ -757,6 +770,14 @@ function Menus.start()
 			if card and not card.locked and card.affordable then
 				Net.event("Loadout"):FireServer("Pick", key)
 			end
+		end)
+		r.button.MouseEnter:Connect(function()
+			r.hover = true
+			render()
+		end)
+		r.button.MouseLeave:Connect(function()
+			r.hover = false
+			render()
 		end)
 	end
 	local back = L.Back :: TextButton
