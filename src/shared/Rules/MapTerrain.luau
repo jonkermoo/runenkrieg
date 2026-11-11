@@ -1149,14 +1149,14 @@ function MapTerrain.materialAt(map: any, x: number, z: number): string
 	end
 	local slope = MapTerrain.slopeAt(map, x, z)
 	-- snow on the mountains' tops (`wild.snowY`, its line wandering by noise), rock where too steep to hold it
-	-- on the mountains (`wild.snowY`) grey rock on the cliffs, grass up the gentler slopes, not bare earth
+	-- on the mountains (`wild.snowY`) grey rock (Slate) on the cliffs, grass up the gentler slopes, not bare earth
 	local W = map.wild
 	if W and W.snowY and outside(map.bounds, x, z) > W.start then
 		local line = W.snowY + 10 * math.noise(x / 60, z / 60, map.seed * 0.001 + 77.7)
 		if MapTerrain.heightAt(map, x, z) > line then
-			return if slope > 50 then "Rock" else "Snow"
+			return if slope > 50 then "Slate" else "Snow"
 		end
-		return if slope > (W.rockSlope or 30) then "Rock" else "Grass"
+		return if slope > (W.rockSlope or 30) then "Slate" else "Grass"
 	end
 	if slope > 34 then
 		return "Rock"

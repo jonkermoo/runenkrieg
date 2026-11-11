@@ -15,6 +15,7 @@ local Palette = {
 		-- darker than any other ground
 		Salt = { 62, 46, 34 },
 		Rock = { 98, 94, 90 },
+		Slate = { 112, 114, 118 }, -- the mountains' cliffs (Rules/MapTerrain.materialAt)
 	},
 	Water = { color = { 72, 124, 134 }, transparency = 0.35, reflectance = 0, waveSize = 0.05 },
 	Trees = {
