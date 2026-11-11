@@ -2323,14 +2323,16 @@ local function fireEndsOf(sys: TrenchSystem, ends: { { x: number, z: number } })
 end
 
 -- a line in each lane across the open field (Config/Bots.Trenches.Lanes; user 2026-11-10 via the map session: "for how
--- much open field there is, i dont see any trenches", chose a line in each lane): once its front's own fire trench is
--- planned, each lane of the front (Config/Bots.Lanes) gets a fire trench level with it and a way back, the lanes its
--- holders stand in first, one at a time (each once the last one's fire trench is planned); neighbouring lines (its
--- front's own in the middle lane) are joined end to end once both are planned, into one line across the field.
+-- much open field there is, i dont see any trenches", chose a line in each lane): once its front has its own system,
+-- each other lane of the front (Config/Bots.Lanes) gets a fire trench level with it and a way back, the lanes its
+-- holders stand in first, one a tick; neighbouring lines (its front's own in the middle lane, as it stands) are joined
+-- end to end once both are planned, into one line across the field.
 local function laneLines(sbs: SideBuild, side: string, front: number, squares: { TrenchSquare }, now: number)
 	local L = TR.Lanes
 	local main = sbs.systems[`S{front}`]
-	if not L.on or not LN.on or not main or not fireLaid(main, squares) then
+	-- (not waiting on its own fire trench: a measured Lantern Meadows match had every point's refused for the village's
+	-- walls and houses, "In the way", and nothing past it ever planned)
+	if not L.on or not LN.on or not main then
 		return
 	end
 	local s = Map.sectors[front]
@@ -2350,8 +2352,16 @@ local function laneLines(sbs: SideBuild, side: string, front: number, squares: {
 	for k = 1, #f.centres - 1 do
 		local key = `S{front}J{k}`
 		local a, b = line(k), line(k + 1)
-		if not sbs.systems[key] and a and b and fireLaid(a, squares) and fireLaid(b, squares) then
-			local runs = BotTrenches.join(fireEndsOf(a, ends), fireEndsOf(b, ends), L.joinMost, L.joinLeast, L.joinFar)
+		-- (the front's own line joined as it stands: its ends as laid, else as planned)
+		local ready = a and b and (a == main or fireLaid(a, squares)) and (b == main or fireLaid(b, squares))
+		if not sbs.systems[key] and ready then
+			local runs = BotTrenches.join(
+				fireEndsOf(a :: TrenchSystem, ends),
+				fireEndsOf(b :: TrenchSystem, ends),
+				L.joinMost,
+				L.joinLeast,
+				L.joinFar
+			)
 			local made = systemJobs(sbs, runs, {}, tx, tz, key)
 			sbs.systems[key] = { sector = front, runs = made, mid = { x = 0, z = 0 }, ends = {} }
 			for _, r in made do
@@ -2366,8 +2376,7 @@ local function laneLines(sbs: SideBuild, side: string, front: number, squares: {
 	local eye = if Map.sectors[ahead] then eyeAt(ahead) else nil
 	for _, k in BotTrenches.laneOrder(#f.centres, mid, held) do
 		local key = `S{front}L{k}`
-		local sys = sbs.systems[key]
-		if not sys then
+		if not sbs.systems[key] then
 			local px, pz = BotLanes.point(f, k, tx, tz, 0)
 			local cfg = {
 				gap = L.gap,
@@ -2397,8 +2406,6 @@ local function laneLines(sbs: SideBuild, side: string, front: number, squares: {
 			end
 			stats.laneLines += 1
 			ByTrench.runs[`{side} laneLines`] = (ByTrench.runs[`{side} laneLines`] or 0) + 1
-			return
-		elseif not fireLaid(sys, squares) then
 			return
 		end
 	end

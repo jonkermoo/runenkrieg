@@ -713,10 +713,10 @@ local Bots = {
 		Forward = { lines = 2, step = 1 / 3, keep = 60 },
 		-- a line in each lane across the open field (Rules/BotTrenches.laneLine, join; user 2026-11-10 via the map
 		-- session: "for how much open field there is, i dont see any trenches"; chose a line in each lane): once the
-		-- front's own fire trench is planned, each other lane of the front (Config/Bots.Lanes) gets a fire trench level
+		-- front has its own system, each other lane of the front (Config/Bots.Lanes) gets a fire trench level
 		-- with it, the lane's width less `gap` in bays of `bay` studs (`bays` min / max), sited as a system is
 		-- (Trenches.Site, its shifts across times `shift`), with a way back `back` studs from its middle bay; the lanes
-		-- its holders stand in first, one at a time. Neighbouring lines are joined end to end (each line's ends: the real
+		-- its holders stand in first, one a tick. Neighbouring lines are joined end to end (each line's ends: the real
 		-- free end within `endNear` of where planned) in runs of at most `joinMost`, none when their ends lie within
 		-- `joinLeast` or further apart than `joinFar`.
 		Lanes = {
