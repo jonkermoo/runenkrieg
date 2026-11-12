@@ -27,24 +27,21 @@ local Hud = {
 	HitNote = { textSize = 16, stroke = 0.5, y = -40, size = { 300, 20 } },
 
 	Gun = {
-		-- the cut-away seen three-quarters on (user 2026-10-26: "make it 3d and off angle", from a cut-away of a Mauser
-		-- action): toward the camera in gun space (+X the gun's right, +Y up, +Z its rear), the lens, the share of the
-		-- framed box added round it
-		from = { 1, 0.35, 0.4 },
-		fov = 24,
-		margin = 0.08,
-		-- the framed box round the action (round lengths `ahead` of the chamber; round widths for the rest): above the
-		-- bore, below the magazine well, to each side of the bore, behind the bolt's rear fully back
-		frame = { ahead = 1.4, above = 1.6, below = 0.3, side = 2, behind = 1 },
-		-- everything but the bolt, the rounds and the magazine well is one flat shadow (user 2026-10-26: "make
-		-- everything else just a simple shadow sillouette"): the gun's own parts in Palette.UI.Hud.shadow under the
-		-- clear layer, `see` see-through, fading out over `fade` of the view's width at each end; not the `clear` parts
-		-- (nor a pump gun's feed parts)
-		-- (UI overhaul, user 2026-10-30: "rework how the gun HUD looks and just make it look more clean": the shadow
-		-- nearly gone, a hint of the receiver round the clear parts)
-		shadow = { see = 0.86, fade = 0.2 },
-		clear = { "Gun", "Bolt", "Rounds", "Bullets", "Casing", "HeldRounds", "Origin", "Bore" },
-		-- the bolt, a simple 3D piece (round widths): a round body from its face to `body` of the way to the gun's
+		-- a flat side view of the action, drawn in 2D (user 2026-11-12: "can we make it 2d instead ... still show the bolt
+		-- and the animations and the ammo"): gun space seen from its right (+X), the muzzle to the right of the screen;
+		-- `margin` the share of the framed box added round it
+		margin = 0.06,
+		-- the gun's body drawn plain (round widths unless said): the barrel `ahead` round lengths ahead of the chamber,
+		-- the receiver `behind` past the bolt's rear fully back and `breech` ahead of a chambered round's nose,
+		-- `receiver` across, the barrel `barrel` across fading out over its last `fade`; all `see` see-through, in
+		-- Palette.UI.Hud.shadow
+		body = { ahead = 1.9, behind = 0.4, breech = 0.35, receiver = 1.9, barrel = 1.05, fade = 0.45, see = 0.35 },
+		-- the drawn pieces (2D): a round's case `case` of its length (when its model doesn't say), its rim `rim` round
+		-- widths long, the case body `body` of a round's width and the bullet `nose`; a pump gun's shell its brass head
+		-- `shellHead` of its length; the far column of a double stack darkened by `far`; each piece outlined in
+		-- Palette.UI.Hud.gunInk, `outline` px
+		flat = { case = 0.68, rim = 0.14, body = 0.9, nose = 0.74, shellHead = 0.3, far = 0.28, outline = 1 },
+		-- the bolt, a simple piece (round widths): a round body from its face to `body` of the way to the gun's
 		-- bolt's rear, `radius` round; a ring of lugs at the face; the cocking piece behind, `cock` of the body's
 		-- width; its handle a rod (`stem` wide) out to the gun's own knob (Config/Weapons reload.knob, drawn when it
 		-- sits more than `side` modelled studs off the bore: not the Winchester's plunger) with a ball `knob` wide on it,
@@ -63,12 +60,13 @@ local Hud = {
 		-- round sits `under` below the bolt's body, its head `behind` ahead of the open bolt's face (so the bolt clears
 		-- it before it rises)
 		gap = { under = 0.55, behind = 0.4 },
-		-- the magazine well, an open box with its near side cut away (round widths): `wall` thick, `inside` each side of
+		-- the magazine well, an open box seen side on (round widths): `wall` thick, `inside` each side of
 		-- the stack's middle, `front`/`rear` past the rounds' tips and heads, the walls' top `above` the top round,
 		-- `room` under the last round, `lip` the near side's low rim (no follower or spring, user 2026-10-26: "remove
 		-- the spring and platform in the magazine ... just make the bullet come up on its own")
 		well = {
-			wall = 0.12,
+			wall = 0.2,
+			see = 0.45, -- (its inside, a dark see-through fill)
 			inside = 1,
 			front = 0.25,
 			rear = 0.25,
@@ -137,9 +135,9 @@ local Hud = {
 			Shells = "{key}: load shells",
 			Rounds = "{key}: load rounds", -- a revolver's gate
 		},
-		-- a revolver's cylinder (src/client/AmmoHud): the camera this many cylinder sizes off, from behind, right and up
-		-- (gun space), its field of view
-		drum = { distance = 1.6, from = { 0.45, 0.35, 1 }, fov = 40 },
+		-- a revolver's cylinder (src/client/AmmoHud) seen from behind, flat: `fill` of the view's height across, each
+		-- chamber `hole` of a round's width, a live round's primer `primer` of its head
+		drum = { fill = 0.86, hole = 1.05, primer = 0.36 },
 	},
 
 	-- a crystal in a cut-away (src/client/HudKit.shine: the staff's gem, the howitzer's): its own colour full, darkened
@@ -239,8 +237,6 @@ local Hud = {
 		-- holds it till the wave goes; src/client/KitList)
 		drawOnSpawn = 40,
 	},
-	-- the health bar (src/client/KillFeed, CombatHud.json Vitals): red at or under this share of full health
-	Vitals = { low = 0.35 },
 	-- the kill feed (src/client/KillFeed, CombatHud.json Feed): each line's seconds; your own death's line's seconds
 	Feed = { seconds = 4, deathSeconds = 6 },
 }
