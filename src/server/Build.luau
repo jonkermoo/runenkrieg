@@ -1905,7 +1905,10 @@ local function work(b: Builder, target: any, mode: any)
 		end
 		return
 	end
-	if mode == "Build" and (not own or r.work >= r.need) then
+	-- (a gun being built takes any team's Build swings, as a standing one takes any team's repairs; it stays its own
+	-- team's gun: user 2026-11-11, "anyone can finish it")
+	local anyTeam = r.piece.kind == "Gun"
+	if mode == "Build" and ((not own and not anyTeam) or r.work >= r.need) then
 		return
 	end
 	if mode == "Build" and not Loadouts.mayBuild(character, r.piece.kind) and not allBuild(b) then
