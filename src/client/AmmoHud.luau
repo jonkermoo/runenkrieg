@@ -31,6 +31,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HudCfg = require(Shared.Config.Hud)
+local GunArt = require(Shared.Config.GunArt)
 local W = require(Shared.Config.Weapons)
 local F = require(Shared.Rules.Firing)
 local HudKit = require(script.Parent.HudKit)
@@ -276,6 +277,7 @@ type View = {
 	gun: BasePart,
 	pr: Proj,
 	layer: Frame, -- the clear pieces
+	art: ImageLabel?, -- the gun's body drawn (Config/GunArt)
 	look: Look,
 	dia: number, -- a round's width (studs)
 	-- the bolt
@@ -546,26 +548,55 @@ local function build(tool: Tool, weapon: string, gun: BasePart, canvas: Frame): 
 			knobSize = d * B.knob,
 		}
 	end
-	-- the gun's body: the receiver from the chamber's front back past the bolt fully back, the barrel ahead of it
+	-- the gun's body: its own drawing (Config/GunArt: the gun's meshes side on, flat) with the action cut away along the
+	-- bolt's run, else a plain receiver and barrel
 	local Bd = G.body
 	local front = ch.Z - L * Bd.ahead
 	local back = rear + v.travel + d * Bd.behind
 	local hr = d * Bd.receiver / 2
-	local breech = -L - d * Bd.breech
-	local body = newPiece(pr, layer, front - ch.Z, back - ch.Z, 2 * hr, Z.body)
-	local dark = HudKit.rgb("shadow")
-	shape(body, breech, back - ch.Z, -hr, hr, dark, { see = Bd.see })
-	local barrel = shape(body, front - ch.Z, breech, -d * Bd.barrel / 2, d * Bd.barrel / 2, dark, { see = Bd.see })
-	local toMuzzle = Instance.new("UIGradient")
-	toMuzzle.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0),
-		NumberSequenceKeypoint.new(1 - Bd.fade, 0),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	toMuzzle.Parent = barrel
-	local still: { { piece: Piece, at: CFrame } } = { { piece = body, at = CFrame.new(ch) } } -- (placed once framed)
-	-- (framed tight round the body, the handle's knob as far as the bolt turns either way, and the well)
-	local box: Box = { lo = Vector3.new(0, ch.Y - hr, front), hi = Vector3.new(0, ch.Y + hr, back) }
+	local art = GunArt[weapon]
+	local still: { { piece: Piece, at: CFrame } } = {} -- (placed once framed)
+	local box: Box
+	if art then
+		local img = Instance.new("ImageLabel")
+		img.Name = "Body"
+		img.AnchorPoint = Vector2.new(0.5, 0.5)
+		img.BackgroundTransparency = 1
+		img.Image = `rbxassetid://{art.image}`
+		img.ZIndex = Z.body
+		img.Parent = layer
+		v.art = img
+		box = { lo = Vector3.new(0, art.y[1], art.z[1]), hi = Vector3.new(0, art.y[2], art.z[2]) }
+		local A = G.art
+		local za, zb = -L - d * A.ahead, rear + v.travel + d * A.behind - ch.Z
+		local hw = radius * A.window
+		local win = newPiece(pr, layer, za, zb, 2 * hw, Z.well)
+		local pane = shape(win, za, zb, -hw, hw, HudKit.rgb("well"), { see = A.see, line = false })
+		roundCorners(pane)
+		local rim = Instance.new("UIStroke")
+		rim.Color = HudKit.rgb("brass")
+		rim.Transparency = A.rim
+		rim.Thickness = 1
+		rim.Parent = pane
+		table.insert(still, { piece = win, at = CFrame.new(ch) })
+	else
+		local body = newPiece(pr, layer, front - ch.Z, back - ch.Z, 2 * hr, Z.body)
+		local dark = HudKit.rgb("shadow")
+		local breech = -L - d * Bd.breech
+		shape(body, breech, back - ch.Z, -hr, hr, dark, { see = Bd.see })
+		local barrel = shape(body, front - ch.Z, breech, -d * Bd.barrel / 2, d * Bd.barrel / 2, dark, { see = Bd.see })
+		local toMuzzle = Instance.new("UIGradient")
+		toMuzzle.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0),
+			NumberSequenceKeypoint.new(1 - Bd.fade, 0),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		toMuzzle.Parent = barrel
+		table.insert(still, { piece = body, at = CFrame.new(ch) })
+		-- (framed tight round the body)
+		box = { lo = Vector3.new(0, ch.Y - hr, front), hi = Vector3.new(0, ch.Y + hr, back) }
+	end
+	-- (and the handle's knob as far as the bolt turns either way)
 	local hd = v.handle
 	if hd then
 		local turn = math.rad(math.abs(w.action.turn or 0))
@@ -685,6 +716,10 @@ local function build(tool: Tool, weapon: string, gun: BasePart, canvas: Frame): 
 	)
 	for _, q in still do
 		place(q.piece, q.at)
+	end
+	if art and v.art then
+		local x, y = at(pr, Vector3.new(0, (art.y[1] + art.y[2]) / 2, (art.z[1] + art.z[2]) / 2))
+		put(pr, v.art, x, y, (art.z[2] - art.z[1]) * pr.k, (art.y[2] - art.y[1]) * pr.k, 0)
 	end
 	return v :: View
 end
@@ -1041,6 +1076,7 @@ type Drum = {
 	k: number,
 	w: number,
 	h: number,
+	cx: number, -- the cylinder's centre across the canvas (share)
 }
 local drum: Drum? = nil
 
@@ -1087,11 +1123,30 @@ local function buildDrum(tool: Tool, weapon: string, gun: BasePart, canvas: Fram
 	reach = if #sources > 0 then reach / #sources else dia * 2
 	local radius = reach + dia * 0.8
 	local k = chh * D.fill / (2 * radius)
+	-- the cylinder from behind at the right; the gun's own drawing (Config/GunArt) fitted in the room left of it
+	local cx = 1 - (radius * k + chh * (1 - D.fill) / 2) / cw
+	local art = GunArt[weapon]
+	if art then
+		local room = cw * cx - radius * k - D.gap * chh
+		local aw, ah = art.z[2] - art.z[1], art.y[2] - art.y[1]
+		local s = math.min(room / aw, chh / ah)
+		local img = Instance.new("ImageLabel")
+		img.Name = "Body"
+		img.BackgroundTransparency = 1
+		img.Image = `rbxassetid://{art.image}`
+		img.AnchorPoint = Vector2.new(0.5, 0.5)
+		img.Position = UDim2.fromScale(room / 2 / cw, 0.5)
+		img.Size = UDim2.fromScale(aw * s / cw, ah * s / chh)
+		img.ZIndex = 1
+		img.Parent = group
+	else
+		cx = 0.5
+	end
 	local disc = circle(group, HudKit.rgb("bolt"), 1, true)
-	disc.Position = UDim2.fromScale(0.5, 0.5)
+	disc.Position = UDim2.fromScale(cx, 0.5)
 	disc.Size = UDim2.fromScale(2 * radius * k / cw, 2 * radius * k / chh)
 	local hub = circle(group, HudKit.rgb("steel"), 2, true)
-	hub.Position = UDim2.fromScale(0.5, 0.5)
+	hub.Position = UDim2.fromScale(cx, 0.5)
 	hub.Size = UDim2.fromScale(dia * 0.7 * k / cw, dia * 0.7 * k / chh)
 	local parts = w.parts :: any
 	local brass = rgb(parts.Rounds or { 196, 160, 84 })
@@ -1107,7 +1162,7 @@ local function buildDrum(tool: Tool, weapon: string, gun: BasePart, canvas: Fram
 		primer.Size = UDim2.fromScale(D.primer, D.primer)
 		table.insert(chambers, { source = src, hole = hole, head = head })
 	end
-	return { tool = tool, gun = gun, cyl = cyl, group = group, chambers = chambers, k = k, w = cw, h = chh }
+	return { tool = tool, gun = gun, cyl = cyl, group = group, chambers = chambers, k = k, w = cw, h = chh, cx = cx }
 end
 
 local function updateDrum(dr: Drum)
@@ -1115,8 +1170,109 @@ local function updateDrum(dr: Drum)
 	for _, c in dr.chambers do
 		-- (from behind: the gun's +X to the right, +Y up)
 		local rel = dr.gun.CFrame:ToObjectSpace(c.source.CFrame).Position - centre
-		c.hole.Position = UDim2.fromScale(0.5 + rel.X * dr.k / dr.w, 0.5 - rel.Y * dr.k / dr.h)
+		c.hole.Position = UDim2.fromScale(dr.cx + rel.X * dr.k / dr.w, 0.5 - rel.Y * dr.k / dr.h)
 		c.head.Visible = c.source.Transparency < 1
+	end
+end
+
+-- The round count's row (user 2026-11-12, the gun card): a cartridge per round the gun holds (its magazine and its
+-- chamber), the ones fired hollow at the right; a pump gun's are shells.
+type Pip = { parts: { Frame }, edge: UIStroke }
+local pips: { Pip } = {}
+local pipsFor: Tool? = nil
+
+local function buildPips(holder: Frame, weapon: string, full: number, look: Look?)
+	holder:ClearAllChildren()
+	table.clear(pips)
+	local w = W[weapon]
+	local parts = w.parts :: any
+	local P = G.pips
+	local shell = if look then look.shell else w.ammo.clip == "Loose"
+	local caseColor = if look then look.caseColor else rgb(parts.Rounds or { 196, 160, 84 })
+	local tip = if look then look.bullet else rgb(parts.Bullets or { 184, 115, 72 })
+	local list = Instance.new("UIListLayout")
+	list.FillDirection = Enum.FillDirection.Horizontal
+	list.VerticalAlignment = Enum.VerticalAlignment.Bottom
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Padding = UDim.new(0, P.gap)
+	list.Parent = holder
+	local function piece(
+		cell: Frame,
+		color: Color3,
+		x: number,
+		y: number,
+		pw: number,
+		ph: number,
+		round: boolean
+	): Frame
+		local f = Instance.new("Frame")
+		f.BorderSizePixel = 0
+		f.BackgroundColor3 = color
+		f.Position = UDim2.fromScale(x, y)
+		f.Size = UDim2.fromScale(pw, ph)
+		local c = Instance.new("UICorner")
+		c.CornerRadius = if round then UDim.new(0.5, 0) else UDim.new(0, P.corner)
+		c.Parent = f
+		f.Parent = cell
+		return f
+	end
+	-- (shells: the coloured hull over a brass head; cartridges: a copper nose over the case)
+	-- (each pip's own outline: a hollow case once it's fired)
+	-- (a pump gun's shells are wider)
+	for i = 1, full do
+		local cell = Instance.new("Frame")
+		cell.Name = `Pip{i}`
+		cell.BackgroundTransparency = 1
+		cell.LayoutOrder = i
+		cell.Size = UDim2.new(0, if shell then P.shellWidth else P.width, 1, 0)
+		cell.Parent = holder
+		local bits: { Frame }
+		if shell then
+			bits = {
+				piece(cell, tip, 0, 0, 1, 1 - P.head, false),
+				piece(cell, caseColor, 0, 1 - P.head, 1, P.head, false),
+			}
+		else
+			bits = {
+				piece(cell, tip, 0.12, 0, 0.76, P.nose + 0.08, true),
+				piece(cell, caseColor, 0, P.nose, 1, 1 - P.nose, false),
+			}
+		end
+		local outline = Instance.new("Frame")
+		outline.Name = "Spent"
+		outline.BackgroundTransparency = 1
+		outline.Position = UDim2.fromScale(0, if shell then 0 else P.nose)
+		outline.Size = UDim2.fromScale(1, if shell then 1 else 1 - P.nose)
+		local oc = Instance.new("UICorner")
+		oc.CornerRadius = UDim.new(0, P.corner)
+		oc.Parent = outline
+		local edge = Instance.new("UIStroke")
+		edge.Color = HudKit.rgb("readout")
+		edge.Transparency = P.spent
+		edge.Thickness = 1
+		edge.Parent = outline
+		outline.Parent = cell
+		table.insert(pips, { parts = bits, edge = edge })
+	end
+end
+
+-- the count and the row: `left` rounds of `full`
+local function showCount(p: HudKit.Panel, tool: Tool, weapon: string, left: number, full: number, look: Look?)
+	if pipsFor ~= tool or #pips ~= full then
+		buildPips(p.node.Pips :: Frame, weapon, full, look)
+		pipsFor = tool
+		p.set("gunName", string.upper(W[weapon].display or weapon))
+		p.set("ammoOf", `/{full}`)
+	end
+	p.set("ammo", tostring(left))
+	local count = p.node.AmmoCount :: TextLabel
+	count.TextColor3 = HudKit.rgb(if left > 0 then "readout" else "countLow")
+	for i, pip in pips do
+		local live = i <= left
+		for _, b in pip.parts do
+			b.Visible = live
+		end
+		pip.edge.Enabled = not live
 	end
 end
 
@@ -1124,6 +1280,29 @@ function AmmoHud.start()
 	panel = HudKit.panel("Gun", "AmmoHud", true) -- (the HUD size setting scales it)
 	local words = panel.node.HintText :: TextLabel
 	words.RichText = true
+	-- the card's plate: dark, fading out to the left (the screen's edge is on its right), a brass hairline along its
+	-- top, the rule between the gun and its count faint
+	local C = G.card
+	local function fadeLeft(g: GuiObject, solid: number)
+		local grad = Instance.new("UIGradient")
+		grad.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(C.fade, solid),
+			NumberSequenceKeypoint.new(1, solid),
+		})
+		grad.Parent = g
+	end
+	fadeLeft(panel.node.GunPlate, C.see)
+	local hair = Instance.new("Frame")
+	hair.Name = "Hairline"
+	hair.BorderSizePixel = 0
+	hair.BackgroundColor3 = HudKit.rgb("brass")
+	hair.Size = UDim2.new(1, 0, 0, 1)
+	fadeLeft(hair, C.hairline)
+	hair.Parent = panel.node.GunPlate
+	fadeLeft(panel.node.GunRule, C.rule)
+	local canvas = panel.node.GunCanvas
+	canvas.ClipsDescendants = true
 end
 
 -- a hint as shown: its key ("Click", "R") as a red chip, then what it does (UI overhaul, user 2026-10-30)
@@ -1156,11 +1335,9 @@ function AmmoHud.show(tool: Tool?, weapon: string?, state: F.State?, gun: F.Gun?
 		return
 	end
 	p.gui.Enabled = true
-	-- the rounds as a number under the display (review 2026-11-12), RELOAD in red once none is left
+	-- the rounds as a number and a row under the gun (review 2026-11-12; the card, user 2026-11-12), red at none
 	local left = F.magazineAt(state, now) + (if state.chambered then 1 else 0)
-	p.set("ammo", if left > 0 then tostring(left) else "RELOAD")
-	local count = p.node.AmmoCount :: TextLabel
-	count.TextColor3 = HudKit.rgb(if left > 0 then "readout" else "countLow")
+	local full = gun.capacity + (if F.revolver(gun) then 0 else 1)
 	local canvas = p.node.GunCanvas :: Frame
 	if drum and (drum.tool ~= tool or not F.revolver(gun)) then
 		drum.group:Destroy()
@@ -1175,6 +1352,7 @@ function AmmoHud.show(tool: Tool?, weapon: string?, state: F.State?, gun: F.Gun?
 			drum = buildDrum(tool, weapon, body, canvas)
 		end
 		updateDrum(drum :: Drum)
+		showCount(p, tool, weapon, left, full, nil)
 		local next = F.next(state, now)
 		local hint = if next == "Load"
 			then G.hints.Load
@@ -1194,6 +1372,7 @@ function AmmoHud.show(tool: Tool?, weapon: string?, state: F.State?, gun: F.Gun?
 		current.magWas, current.openWas = state.magazine, state.open
 	end
 	update(current :: View, state, gun, now, os.clock())
+	showCount(p, tool, weapon, left, full, (current :: View).look)
 
 	-- the hint
 	local next = F.next(state, now)

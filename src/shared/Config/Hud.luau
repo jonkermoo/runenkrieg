@@ -41,6 +41,17 @@ local Hud = {
 		-- `shellHead` of its length; the far column of a double stack darkened by `far`; each piece outlined in
 		-- Palette.UI.Hud.gunInk, `outline` px
 		flat = { case = 0.68, rim = 0.14, body = 0.9, nose = 0.74, shellHead = 0.3, far = 0.28, outline = 1 },
+		-- the gun card (user 2026-11-12: "layout 1", "make sure it looks like the guns in game too, just 2d"): the gun's
+		-- own drawing (Config/GunArt) framed whole, the action seen through a window cut along the bolt's run from
+		-- `ahead` round widths before a chambered round's nose to `behind` past the bolt fully back, `window` times the
+		-- bolt's radius each way, `see` see-through, its brass rim `rim` see-through
+		art = { ahead = 0.4, behind = 0.3, window = 1.4, see = 0.2, rim = 0.55 },
+		-- the card's plate fading out over its left `fade` (then `see` see-through), its top hairline and the rule under
+		-- the gun
+		card = { fade = 0.35, see = 0.28, hairline = 0.3, rule = 0.75 },
+		-- the round row: a cartridge `width` px wide (a shell `shellWidth`), `gap` px apart, the nose the top `nose` of
+		-- it (a shell's brass head the bottom `head`), corners `corner` px; a fired one's outline `spent` see-through
+		pips = { width = 9, shellWidth = 12, gap = 4, nose = 0.3, head = 0.28, corner = 2, spent = 0.6 },
 		-- the bolt, a simple piece (round widths): a round body from its face to `body` of the way to the gun's
 		-- bolt's rear, `radius` round; a ring of lugs at the face; the cocking piece behind, `cock` of the body's
 		-- width; its handle a rod (`stem` wide) out to the gun's own knob (Config/Weapons reload.knob, drawn when it
@@ -137,7 +148,7 @@ local Hud = {
 		},
 		-- a revolver's cylinder (src/client/AmmoHud) seen from behind, flat: `fill` of the view's height across, each
 		-- chamber `hole` of a round's width, a live round's primer `primer` of its head
-		drum = { fill = 0.86, hole = 1.05, primer = 0.36 },
+		drum = { fill = 0.86, hole = 1.05, primer = 0.36, gap = 0.12 },
 	},
 
 	-- a crystal in a cut-away (src/client/HudKit.shine: the staff's gem, the howitzer's): its own colour full, darkened

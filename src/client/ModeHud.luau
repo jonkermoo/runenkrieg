@@ -3,8 +3,8 @@
 -- the mode HUD drafts, the front bar). Built once from the spec; each Refresh it reads the live mode's replicated state:
 --   Territory Push: Workspace's Frontline folder (src/server/Frontline: West / East teams, Phase, Winner; a child
 --     folder per sector with Index, Owner, Control and the West / East soldiers in its zone). The viewer's side is on
---     the left; one diamond per sector joined by a line, filled as far as its control goes in the colour of the side it
---     leans to. Shown on the loadout screen; in play only while M is held, fading fast, with a dot over each teammate
+--     the left; one seal per sector (user 2026-11-12, "seal chain 2": the point's rune, ringed as far as its control
+--     goes in the colour of the side it leans to, ATTACK / DEFEND over the points in play). Shown on the loadout screen; in play only while M is held, fading fast, with a dot over each teammate
 --     seen through walls (user 2026-10-29: "make the bar appear and a dot above all teammates that you can see through
 --     walls appear (with a fast fade) when players hold v"), and a diamond over each point that can be taken now, its
 --     fill the bar's (user 2026-10-30: "show where the point is when you hold v", "only show the ones that arent
@@ -54,9 +54,6 @@ local C = Palette.UI.Hud :: any
 local T = Spec.theme
 local FONT = Font.new(`rbxasset://fonts/families/{T.fonts.body.family}.json`, Enum.FontWeight.Bold)
 local ALIGN = { left = Enum.TextXAlignment.Left, right = Enum.TextXAlignment.Right }
-local DIAG = math.sqrt(0.5) -- a diamond's side in its box (the square turned 45 degrees fits the box)
--- a diamond's fill runs up the screen: the gradient turned against the square's own 45 degrees
-local FILL_ROTATION = 225
 
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
@@ -92,15 +89,27 @@ local function sectorOf(id: string): any
 	return nil
 end
 
-type Diamond = { box: Frame, face: Frame, grad: UIGradient, edge: UIStroke }
+-- one point on the front strip (user 2026-11-12, "seal chain 2"): its seal (src/client/PointSeal, as on the map and the
+-- beacons) inside a ring that runs round clockwise from the top as far as its capture goes, in the colour of the side
+-- it leans to (two half rings, each a clipped half with a hard-edged gradient turned to the sweep); the pulse while
+-- contested, its tag above (ATTACK / DEFEND) and its line under; `key` the sector and side it was drawn for
+type Seat = {
+	box: Frame,
+	seal: PointSeal.Seal,
+	arcs: { UIStroke },
+	sweeps: { UIGradient },
+	pulse: UIScale,
+	tag: TextLabel,
+	name: TextLabel,
+	title: string,
+	key: string,
+}
 
 local gui: ScreenGui
 local nodes: { [string]: GuiObject } = {}
 local binds: { [string]: TextLabel } = {}
-local frontPins: { Diamond } = {}
-local frontLabels: { TextLabel } = {}
-local plate: ImageLabel? = nil -- the strip's paper in play (Cfg.Strip), sized to the pins
-local onPaper = false -- the strip on its paper (in play): the words in ink, the open points in red pencil
+local seats: { Seat } = {}
+local links: { Frame } = {} -- the track between neighbouring seats, in the colour of the side holding both ends
 
 -- One spec node (and its children) as an instance; templates (Pin, PinHQ, PinLabel) are kept unparented.
 local function make(n: any, parent: Instance?): GuiObject
@@ -131,10 +140,10 @@ local function make(n: any, parent: Instance?): GuiObject
 		local g: GuiObject = if n.fade then Instance.new("CanvasGroup") else Instance.new("Frame")
 		g.BackgroundTransparency = 1
 		obj = g
-	else -- panel (a diamond when shape = "diamond")
+	else -- panel (bare when it has a shape: the code draws it)
 		local f = Instance.new("Frame")
 		f.BorderSizePixel = 0
-		if n.shape == "diamond" then
+		if n.shape then
 			f.BackgroundTransparency = 1
 		else
 			f.BackgroundColor3 = tok(n.color)
@@ -159,53 +168,6 @@ local function make(n: any, parent: Instance?): GuiObject
 	return obj
 end
 
--- A diamond in a spec template's box: the turned square (face) with the theme's one outline, filled by a hard-edged
--- gradient from its bottom tip.
-local function diamond(template: any, parent: Instance, x: number): Diamond
-	local box = make(template, nil) :: Frame
-	box.Position = UDim2.new(x, 0, box.Position.Y.Scale, box.Position.Y.Offset)
-	local face = Instance.new("Frame")
-	face.Name = "Face"
-	face.AnchorPoint = Vector2.new(0.5, 0.5)
-	face.Position = UDim2.fromScale(0.5, 0.5)
-	face.Size = UDim2.fromScale(DIAG, DIAG)
-	face.Rotation = 45
-	face.BorderSizePixel = 0
-	face.BackgroundColor3 = Color3.new(1, 1, 1) -- (the gradient's colours tint it)
-	face.ZIndex = box.ZIndex
-	face.Parent = box
-	local grad = Instance.new("UIGradient")
-	grad.Rotation = FILL_ROTATION
-	grad.Color = ColorSequence.new(tok("pinEmpty"))
-	grad.Parent = face
-	local edge = Instance.new("UIStroke")
-	edge.Thickness = T.outline
-	edge.Color = tok("pinEdge")
-	edge.Parent = face
-	box.Parent = parent
-	return { box = box, face = face, grad = grad, edge = edge }
-end
-
--- The diamond filled to `share` (0..1, from the bottom tip) in `color`, the rest empty.
-local function fillDiamond(d: Diamond, share: number, color: Color3)
-	local empty = tok("pinEmpty")
-	local seq
-	if share <= Cfg.Fill.min then
-		seq = ColorSequence.new(empty)
-	elseif share >= 1 - Cfg.Fill.min then
-		seq = ColorSequence.new(color)
-	else
-		local e = Cfg.Fill.edge
-		seq = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, color),
-			ColorSequenceKeypoint.new(share - e, color),
-			ColorSequenceKeypoint.new(share, empty),
-			ColorSequenceKeypoint.new(1, empty),
-		})
-	end
-	d.grad.Color = seq
-end
-
 local function set(bind: string, text: string)
 	local l = binds[bind]
 	if l and l.Text ~= text then
@@ -216,6 +178,13 @@ end
 local function teamRim(kit: string?): Color3
 	local t = kit and C.Teams[kit]
 	return if t then rgb(t.rim) else tok("pinEmpty")
+end
+
+-- a side's magic colour (the seals' and the map's, Palette UI.Grimoire.Magic), neutral for none
+local function magic(kit: string?): Color3
+	local G = (Palette.UI :: any).Grimoire
+	local m = kit and G.Magic[kit]
+	return rgb(m or G.neutral)
 end
 
 local function nation(kit: string?): string
@@ -251,49 +220,160 @@ local function sectorsOf(folder: Instance): { Instance }
 	return list
 end
 
--- (re)builds the diamonds and labels for `n` sectors, evenly spaced along the bar, the line from the first to the last
-local function layoutPins(list: { Instance })
-	for _, d in frontPins do
-		d.box:Destroy()
+-- the strip's plate and its two brass hairlines: solid in the middle, fading out toward both ends
+local function fadeEnds(g: GuiObject, solid: number)
+	local grad = Instance.new("UIGradient")
+	local P = Cfg.Strip.plate
+	grad.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1),
+		NumberSequenceKeypoint.new(P.fade, solid),
+		NumberSequenceKeypoint.new(1 - P.fade, solid),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	grad.Parent = g
+end
+
+-- (re)builds the seats and the track for the sectors in `list` (west to east) as the viewer's side sees them, evenly
+-- spaced along the bar
+local function layoutPins(list: { Instance }, side: string?)
+	for _, seat in seats do
+		seat.box:Destroy()
+		seat.tag:Destroy()
+		seat.name:Destroy()
 	end
-	for _, l in frontLabels do
+	for _, l in links do
 		l:Destroy()
 	end
-	table.clear(frontPins)
-	table.clear(frontLabels)
+	table.clear(seats)
+	table.clear(links)
 	local bar = nodes.FrontBar
+	local G = (Palette.UI :: any).Grimoire
 	local n = #list
+	local lineY = (find(Spec.root, "Line").pos :: { number })[4]
 	for slot = 1, n do
 		local x = (slot - 0.5) / n
-		table.insert(frontPins, diamond(find(Spec.root, "Pin"), bar, x))
-		local label = make(find(Spec.root, "PinLabel"), nil) :: TextLabel
-		binds.pin = nil -- (each clone is set directly)
-		label.Position = UDim2.new(x, 0, label.Position.Y.Scale, label.Position.Y.Offset)
-		label.Parent = bar
-		table.insert(frontLabels, label)
+		local f = list[Rules.slot(slot, n, side)]
+		local s = sectorOf(f.Name)
+		local hq = s ~= nil and s.isHQ == true
+		local box = make(find(Spec.root, if hq then "PinHQ" else "Pin"), nil) :: Frame
+		box.Position = UDim2.new(x, 0, box.Position.Y.Scale, box.Position.Y.Offset)
+		local pulse = Instance.new("UIScale")
+		pulse.Parent = box
+		local R = Cfg.Strip.ring
+		-- the capture ring: a dark track, then the sweep in two clipped halves (right, then left)
+		local function ringFrame(parent: Instance): (Frame, UIStroke)
+			local rf = Instance.new("Frame")
+			rf.BackgroundTransparency = 1
+			rf.AnchorPoint = Vector2.new(0.5, 0.5)
+			rf.Position = UDim2.fromScale(0.5, 0.5)
+			rf.Size = UDim2.new(1, -R.width, 1, -R.width)
+			local c = Instance.new("UICorner")
+			c.CornerRadius = UDim.new(0.5, 0)
+			c.Parent = rf
+			local st = Instance.new("UIStroke")
+			st.Thickness = R.width
+			st.Parent = rf
+			rf.Parent = parent
+			return rf, st
+		end
+		local _, track = ringFrame(box)
+		track.Color = tok("pinEmpty")
+		track.Transparency = R.track
+		local arcs, sweeps = {}, {}
+		for half = 1, 2 do
+			-- (each half clips the whole box's ring to its side of the centre line)
+			local clip = Instance.new("Frame")
+			clip.Name = if half == 1 then "Right" else "Left"
+			clip.BackgroundTransparency = 1
+			clip.ClipsDescendants = true
+			clip.Size = UDim2.new(0.5, R.width, 1, 2 * R.width)
+			clip.Position = if half == 1 then UDim2.new(0.5, 0, 0, -R.width) else UDim2.fromOffset(-R.width, -R.width)
+			clip.Parent = box
+			local ring, st = ringFrame(clip)
+			ring.AnchorPoint = Vector2.new(0.5, 0.5)
+			ring.Size = UDim2.new(2, -2 * R.width - R.width, 1, -2 * R.width - R.width)
+			ring.Position = if half == 1 then UDim2.fromScale(0, 0.5) else UDim2.fromScale(1, 0.5)
+			local g = Instance.new("UIGradient")
+			g.Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0),
+				NumberSequenceKeypoint.new(0.499, 0),
+				NumberSequenceKeypoint.new(0.501, 1),
+				NumberSequenceKeypoint.new(1, 1),
+			})
+			g.Parent = st
+			table.insert(arcs, st)
+			table.insert(sweeps, g)
+		end
+		local disc = Instance.new("Frame")
+		disc.Name = "Seal"
+		disc.AnchorPoint = Vector2.new(0.5, 0.5)
+		disc.Position = UDim2.fromScale(0.5, 0.5)
+		disc.Size = UDim2.fromScale(R.seal, R.seal)
+		disc.ZIndex = box.ZIndex
+		disc.Parent = box
+		local index = (f:GetAttribute("Index") :: number?) or Rules.slot(slot, n, side)
+		local seal = PointSeal.new(disc, PointSeal.rune(index, n), rgb(G.ink), rgb(G.neutral))
+		seal.ring.Thickness = R.inner
+		box.Parent = bar
+		local tag = make(find(Spec.root, "PinTag"), nil) :: TextLabel
+		tag.Position = UDim2.new(x, 0, tag.Position.Y.Scale, tag.Position.Y.Offset)
+		tag.BackgroundTransparency = 0
+		local tagRound = Instance.new("UICorner")
+		tagRound.CornerRadius = UDim.new(0, Cfg.Strip.tagCorner)
+		tagRound.Parent = tag
+		tag.Visible = false
+		tag.Parent = bar
+		local name = make(find(Spec.root, "PinName"), nil) :: TextLabel
+		name.Position = UDim2.new(x, 0, name.Position.Y.Scale, name.Position.Y.Offset)
+		-- (a point named only by its id, "S2", goes by its rune alone)
+		local title = if hq then Cfg.Strip.hq elseif s and s.name ~= s.id then string.upper(s.name) else ""
+		name.Text = title
+		name.TextTruncate = Enum.TextTruncate.AtEnd
+		name.Parent = bar
+		table.insert(seats, {
+			box = box,
+			seal = seal,
+			arcs = arcs,
+			sweeps = sweeps,
+			pulse = pulse,
+			tag = tag,
+			name = name,
+			title = title,
+			key = f.Name,
+		})
+		if slot < n then
+			local link = Instance.new("Frame")
+			link.Name = "Link"
+			link.BorderSizePixel = 0
+			link.AnchorPoint = Vector2.new(0, 0.5)
+			link.Position = UDim2.new(x, 0, 0, lineY)
+			link.Size = UDim2.new(1 / n, 0, 0, Cfg.Strip.link)
+			link.ZIndex = 3
+			link.Parent = bar
+			table.insert(links, link)
+		end
 	end
 	local line = nodes.Line
 	local ends = if n > 0 then 0.5 / n else 0.5
 	line.Position = UDim2.new(ends, 0, line.Position.Y.Scale, line.Position.Y.Offset)
 	line.Size = UDim2.new(1 - 2 * ends, 0, line.Size.Y.Scale, line.Size.Y.Offset)
-	if plate then
-		local P = Cfg.Strip.paper
-		plate.Size = UDim2.new(1 - 2 * ends, 2 * P.pad[1], 0, P.height)
+	local plate = nodes.Plate
+	plate.Size = UDim2.new(1 - 2 * ends, 2 * Cfg.Strip.plate.pad, plate.Size.Y.Scale, plate.Size.Y.Offset)
+end
+
+-- a seat's capture: the ring swept clockwise from the top to `share` of the way round, in `color`
+local function fillSeat(seat: Seat, share: number, color: Color3)
+	local a = 360 * math.clamp(share, 0, 1)
+	seat.sweeps[1].Rotation = math.min(a, 180)
+	seat.sweeps[2].Rotation = math.max(a, 180)
+	for _, arc in seat.arcs do
+		arc.Color = color
+		arc.Enabled = share > Cfg.Fill.min
 	end
 end
 
 local shownCount = -1
 local shownSide: string? = "?"
-
--- a diamond painted as its sector stands: filled toward the side its control leans to, its edge contested / attacked
-local function paint(d: Diamond, pin: Rules.Pin, west: string?, east: string?, flashOn: boolean)
-	local kit = if pin.fillSide == "West" then west elseif pin.fillSide == "East" then east else nil
-	fillDiamond(d, pin.fill, teamRim(kit))
-	d.edge.Color = if pin.state == "Contested"
-		then (if flashOn then tok("pinContested") else tok("pinEdge"))
-		elseif pin.state == "Attacked" then tok("pinAttacked")
-		else tok("pinEdge")
-end
 
 -- Territory Push: the points that can be taken now, marked in the world over their flagpole (src/server/Flagpoles), seen
 -- through walls: the point's seal as the sketch map draws it (src/client/PointSeal; user 2026-11-02: "make the flag
@@ -389,8 +469,14 @@ local function updateFront(folder: Instance, now: number)
 	local side = mySide(folder)
 	local list = sectorsOf(folder)
 	local n = #list
-	if n ~= shownCount then
-		layoutPins(list)
+	-- (the seats are drawn for the sectors as this side sees them: built again when either changes)
+	local stale = n ~= shownCount or side ~= shownSide
+	for slot, seat in seats do
+		local f = list[Rules.slot(slot, n, side)]
+		stale = stale or f == nil or seat.key ~= f.Name
+	end
+	if stale then
+		layoutPins(list, side)
 		shownCount = n
 		shownSide = "?"
 	end
@@ -403,7 +489,6 @@ local function updateFront(folder: Instance, now: number)
 		local leftFlag = nodes.LeftFlag :: ImageLabel
 		leftFlag.Image = flagImage(leftKit)
 	end
-	local flashOn = (now // Cfg.FlashSeconds) % 2 == 0
 	-- the points that can be taken now (either side's next: Rules/Frontline.target), marked in the world
 	local state = { owner = {}, control = {} }
 	for i, f in list do
@@ -411,11 +496,15 @@ local function updateFront(folder: Instance, now: number)
 		state.control[i] = (f:GetAttribute("Control") :: number?) or 0
 	end
 	local open: { [string]: boolean } = {}
+	local ours: { [string]: boolean } = {} -- (the viewer's side's next point: ATTACK; the enemy's: DEFEND)
 	if folder:GetAttribute("Phase") == "Playing" then
 		for _, s in { "West", "East" } do
 			local t = FrontRules.target(state, s)
 			if t then
 				open[list[t].Name] = true
+				if s == side then
+					ours[list[t].Name] = true
+				end
 			end
 		end
 	end
@@ -429,35 +518,54 @@ local function updateFront(folder: Instance, now: number)
 	lastOpen = open
 	for slot = 1, n do
 		local f = list[Rules.slot(slot, n, side)]
-		local d = frontPins[slot]
+		local seat = seats[slot]
 		local s = sectorOf(f.Name)
-		local hq = s ~= nil and s.isHQ == true
-		local tmpl = find(Spec.root, if hq then "PinHQ" else "Pin")
-		d.box.Size = udim(tmpl.size)
-		local label = if hq then "HQ" else f.Name
-		frontLabels[slot].Text = label
+		local owner = f:GetAttribute("Owner") :: string?
 		local pin = Rules.pin(
-			f:GetAttribute("Owner") :: string?,
+			owner,
 			(f:GetAttribute("Control") :: number?) or 0,
 			(f:GetAttribute("West") :: number?) or 0,
 			(f:GetAttribute("East") :: number?) or 0
 		)
-		paint(d, pin, west, east, flashOn)
-		-- on the paper: the points that can be taken now in red pencil, the rest in ink
+		-- the rune in its holder's colour, the seal's own thin ring brass (amber, beating, while contested: the seal
+		-- swells with it), the capture ring round it in the colour of the side it leans to
+		local holder = if owner == "West" then west elseif owner == "East" then east else nil
+		local contested = pin.state == "Contested"
+		local rune, beat = PointSeal.colours(holder, contested, now)
+		PointSeal.paint(seat.seal, rune, if contested then beat else tok("brass"))
+		local leans = if pin.fillSide == "West" then west elseif pin.fillSide == "East" then east else nil
+		fillSeat(seat, pin.fill, magic(leans))
+		local P = Cfg.Strip.pulse
+		seat.pulse.Scale = if contested
+			then 1 + P.grow * (math.sin(now / P.seconds * 2 * math.pi) + 1) / 2
+			elseif pin.state == "Attacked" then 1 + P.grow
+			else 1
+		-- the points in play: ATTACK (the viewer's side's next) in red, DEFEND (the enemy's) in the viewer's colour
 		local isOpen = open[f.Name] == true
-		if onPaper then
-			local G = (Palette.UI :: any).Grimoire
-			local word = frontLabels[slot]
-			word.TextColor3 = rgb(if isOpen then G.pencil else G.inkDim)
-			word.TextStrokeTransparency = 1
-			if isOpen and pin.state ~= "Contested" then
-				d.edge.Color = rgb(G.pencil)
+		local attack = ours[f.Name] == true
+		seat.tag.Visible = isOpen
+		if isOpen then
+			seat.tag.Text = if attack or side == nil then Cfg.Strip.attack else Cfg.Strip.defend
+			local myKit = if side == "West" then west elseif side == "East" then east else nil
+			seat.tag.BackgroundColor3 = if attack or side == nil
+				then tok("tagAttack")
+				else magic(myKit):Lerp(Color3.new(), Cfg.Strip.defendShade)
+		end
+		-- under it: its name, and how far it's taken while it's being taken (not full, not empty)
+		local moving = pin.fill > Cfg.Fill.min and pin.fill < 1 - Cfg.Fill.min and pin.state ~= "Held"
+		local pct = if moving then `{math.floor(pin.fill * 100 + 0.5)}%` else ""
+		seat.name.Text = if seat.title ~= "" and pct ~= "" then `{seat.title} · {pct}` else seat.title .. pct
+		seat.name.TextTransparency = if isOpen or moving then 0 else Cfg.Strip.nameDim
+		-- the track to the next seat in the side's colour where that side holds both ends
+		local link = links[slot]
+		if link then
+			local nf = list[Rules.slot(slot + 1, n, side)]
+			local nOwner = nf and nf:GetAttribute("Owner") :: string?
+			local both = owner == nOwner and (owner == "West" or owner == "East")
+			link.Visible = both
+			if both then
+				link.BackgroundColor3 = magic(holder):Lerp(Color3.new(), Cfg.Strip.linkShade)
 			end
-			d.edge.Thickness = if isOpen then T.outline * Cfg.Strip.paper.openEdge else T.outline
-		else
-			frontLabels[slot].TextColor3 = tok("readout")
-			frontLabels[slot].TextStrokeTransparency = 0
-			d.edge.Thickness = T.outline
 		end
 		-- a point being taken: the strip shows while it is and a little after
 		local control = (f:GetAttribute("Control") :: number?) or 0
@@ -684,23 +792,23 @@ function ModeHud.start()
 	-- the wave countdown, shown only while the soldier stands in its wave line
 	nodes.WaveBar.Visible = false
 	do
-		-- the strip's paper (the sketch map's torn sheet, user 2026-11-12: "can we rework it to at least look better?")
-		local P = Cfg.Strip.paper
-		local sheet = SketchCfg.Paper
-		local img = Instance.new("ImageLabel")
-		img.Name = "Paper"
-		img.BackgroundTransparency = 1
-		img.Image = `rbxassetid://{sheet.image}`
-		img.ScaleType = Enum.ScaleType.Slice
-		img.SliceCenter = Rect.new(sheet.slice[1], sheet.slice[2], sheet.slice[3], sheet.slice[4])
-		img.SliceScale = P.slice
-		img.AnchorPoint = Vector2.new(0.5, 0)
-		img.Position = UDim2.new(0.5, 0, 0, P.top)
-		img.Size = UDim2.new(0.8, 2 * P.pad[1], 0, P.height)
-		img.ZIndex = 0
-		img.Visible = false
-		img.Parent = nodes.FrontBar
-		plate = img
+		-- the strip's plate: dark, faded out toward both ends, a brass hairline along its top and bottom (user 2026-11-12:
+		-- "seal chain 2")
+		local plate = nodes.Plate
+		plate.ZIndex = 0
+		fadeEnds(plate, Cfg.Strip.plate.see)
+		for _, y in { 0, 1 } do
+			local hair = Instance.new("Frame")
+			hair.Name = "Hairline"
+			hair.BorderSizePixel = 0
+			hair.BackgroundColor3 = tok("brass")
+			hair.AnchorPoint = Vector2.new(0, y)
+			hair.Position = UDim2.fromScale(0, y)
+			hair.Size = UDim2.new(1, 0, 0, 1)
+			hair.ZIndex = 0
+			fadeEnds(hair, Cfg.Strip.plate.hairline)
+			hair.Parent = plate
+		end
 	end
 	set("waveTitle", Cfg.Wave.title)
 	for _, id in { "FrontBar", "ZoneBar", "WaveBar", "SketchMap", "SketchMapFFA" } do
@@ -784,14 +892,9 @@ function ModeHud.start()
 		end
 		wasLive = live
 		local strip = live and (held or os.clock() < alertUntil)
-		if live ~= onPaper then
-			onPaper = live
-			if plate then
-				plate.Visible = live
-			end
-			nodes.LeftFlag.Visible = not live
-			nodes.LeftName.Visible = not live
-		end
+		-- (your side's flag and name only off play, on the loadout screen; not over the result)
+		nodes.LeftFlag.Visible = not live and not results
+		nodes.LeftName.Visible = not live and not results
 		barShown = Rules.fade(
 			barShown,
 			if results and not title then 1 elseif strip then Cfg.Strip.shown else 0,
