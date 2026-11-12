@@ -13,8 +13,20 @@ local ModeHud = {
 	-- "V and map conflicts. make it holding m"), with a dot over each teammate seen through walls (on the loadout
 	-- screen it always shows); both fade in and out in FadeSeconds
 	FadeSeconds = 0.12,
-	-- in play the front bar stays on as a strip (review 2026-11-12): this share of its size, this opaque
-	Strip = { scale = 0.7, shown = 0.85 },
+	-- in play the front bar is a smaller strip (review 2026-11-12): this share of its size, this opaque; it shows while
+	-- M is held, while a point is being taken (a zone contested or attacked, or its control moving) and for `linger`
+	-- seconds after, and for `fresh` seconds when a point opens up or the soldier comes into play (user 2026-11-12: "make it show with m and/or only a
+	-- point is being captured or a new one is available")
+	-- On the sketch map's torn paper (Config/SketchMap.Paper, `slice` its 9-slice scale), `top` px down the bar,
+	-- `height` tall, `pad` px past the end pins each side; your side's flag and name off; the points that can be
+	-- taken now in red pencil, their edge `openEdge` times the theme's outline
+	Strip = {
+		scale = 0.85,
+		shown = 1,
+		linger = 2.5,
+		fresh = 6,
+		paper = { top = 18, height = 64, pad = { 30, 0 }, slice = 0.28, openEdge = 1.8 },
+	},
 	-- the teammate dot: pixels across, studs above the head's centre; full size up to `near` studs from the camera,
 	-- then smaller with distance down to `min` pixels (Rules/ModeHud.dotSize)
 	Dot = { size = 10, above = 3.2, near = 25, min = 4 },

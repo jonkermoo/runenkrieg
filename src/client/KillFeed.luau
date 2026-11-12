@@ -1,7 +1,7 @@
 --!strict
--- The in-match essentials the review asked for (review 2026-11-12), each a panel of src/shared/ui/CombatHud.json built
+-- The in-match essentials the review asked for (review 2026-11-12; health is Roblox's own bar, top right, user
+-- 2026-11-12: "just keep it to the roblox health bar"), each a panel of src/shared/ui/CombatHud.json built
 -- by HudKit, in the combat HUD's look:
--- - Vitals: the soldier's health, a thin bar over the kit list with the number, red once low (Config/Hud.Vitals).
 -- - Feed: the last few deaths top right ("Killer  weapon  Victim", the names in their side's colour; Net "Kill" from
 --   src/server/Loadouts), each for Config/Hud.Feed.seconds.
 -- - Death: your own death in a line in the middle, "Killed by X (weapon)", until the loadout screen comes back.
@@ -32,8 +32,7 @@ end
 
 function KillFeed.start()
 	local player = Players.LocalPlayer
-	local V, F = HudCfg.Vitals, HudCfg.Feed
-	local vitals = HudKit.panel("Vitals", "Vitals", true)
+	local F = HudCfg.Feed
 	local feed = HudKit.panel("Feed", "KillFeed")
 	local death = HudKit.panel("Death", "DeathLine")
 	local lines = { feed.node.Feed1 :: TextLabel, feed.node.Feed2 :: TextLabel, feed.node.Feed3 :: TextLabel }
@@ -81,17 +80,6 @@ function KillFeed.start()
 			or screenOn("LoadoutMenu")
 			or screenOn("MatchCutscene")
 			or screenOn("EndScenes")
-		-- the health bar
-		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		local alive = humanoid ~= nil and humanoid.Health > 0 and humanoid.MaxHealth > 0
-		vitals.gui.Enabled = alive and not menus
-		if alive then
-			local h = humanoid :: Humanoid
-			local share = h.Health / h.MaxHealth
-			vitals.fill("HealthBar", share, HudKit.rgb(if share <= V.low then "countLow" else "readout"))
-			vitals.set("health", `Health {math.ceil(h.Health)}`)
-		end
 		-- the feed (newest at the top, each gone after its time)
 		for i = #entries, 1, -1 do
 			if now - entries[i].at > F.seconds then

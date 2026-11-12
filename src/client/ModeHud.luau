@@ -99,6 +99,8 @@ local nodes: { [string]: GuiObject } = {}
 local binds: { [string]: TextLabel } = {}
 local frontPins: { Diamond } = {}
 local frontLabels: { TextLabel } = {}
+local plate: ImageLabel? = nil -- the strip's paper in play (Cfg.Strip), sized to the pins
+local onPaper = false -- the strip on its paper (in play): the words in ink, the open points in red pencil
 
 -- One spec node (and its children) as an instance; templates (Pin, PinHQ, PinLabel) are kept unparented.
 local function make(n: any, parent: Instance?): GuiObject
@@ -274,6 +276,10 @@ local function layoutPins(list: { Instance })
 	local ends = if n > 0 then 0.5 / n else 0.5
 	line.Position = UDim2.new(ends, 0, line.Position.Y.Scale, line.Position.Y.Offset)
 	line.Size = UDim2.new(1 - 2 * ends, 0, line.Size.Y.Scale, line.Size.Y.Offset)
+	if plate then
+		local P = Cfg.Strip.paper
+		plate.Size = UDim2.new(1 - 2 * ends, 2 * P.pad[1], 0, P.height)
+	end
 end
 
 local shownCount = -1
@@ -374,6 +380,11 @@ local function clearMarkers()
 	end
 end
 
+-- the strip's cue in play (Cfg.Strip): until when it shows by itself, and what the last refresh saw
+local alertUntil = 0
+local lastControl: { [string]: number } = {}
+local lastOpen: { [string]: boolean } = {}
+
 local function updateFront(folder: Instance, now: number)
 	local side = mySide(folder)
 	local list = sectorsOf(folder)
@@ -408,6 +419,14 @@ local function updateFront(folder: Instance, now: number)
 			end
 		end
 	end
+	-- a point newly open (the match's first ones too): the strip shows for a while
+	local clock = os.clock()
+	for name in open do
+		if not lastOpen[name] then
+			alertUntil = math.max(alertUntil, clock + Cfg.Strip.fresh)
+		end
+	end
+	lastOpen = open
 	for slot = 1, n do
 		local f = list[Rules.slot(slot, n, side)]
 		local d = frontPins[slot]
@@ -424,6 +443,29 @@ local function updateFront(folder: Instance, now: number)
 			(f:GetAttribute("East") :: number?) or 0
 		)
 		paint(d, pin, west, east, flashOn)
+		-- on the paper: the points that can be taken now in red pencil, the rest in ink
+		local isOpen = open[f.Name] == true
+		if onPaper then
+			local G = (Palette.UI :: any).Grimoire
+			local word = frontLabels[slot]
+			word.TextColor3 = rgb(if isOpen then G.pencil else G.inkDim)
+			word.TextStrokeTransparency = 1
+			if isOpen and pin.state ~= "Contested" then
+				d.edge.Color = rgb(G.pencil)
+			end
+			d.edge.Thickness = if isOpen then T.outline * Cfg.Strip.paper.openEdge else T.outline
+		else
+			frontLabels[slot].TextColor3 = tok("readout")
+			frontLabels[slot].TextStrokeTransparency = 0
+			d.edge.Thickness = T.outline
+		end
+		-- a point being taken: the strip shows while it is and a little after
+		local control = (f:GetAttribute("Control") :: number?) or 0
+		local was = lastControl[f.Name]
+		lastControl[f.Name] = control
+		if pin.state == "Contested" or pin.state == "Attacked" or (was ~= nil and math.abs(control - was) > 1e-3) then
+			alertUntil = math.max(alertUntil, clock + Cfg.Strip.linger)
+		end
 		local m = markers[f.Name]
 		local pole = poleOf(f.Name)
 		-- (a beacon over a pole that's gone, the match moved to another map or the poles stood again, is built anew on
@@ -641,6 +683,25 @@ function ModeHud.start()
 	local screenK = 1
 	-- the wave countdown, shown only while the soldier stands in its wave line
 	nodes.WaveBar.Visible = false
+	do
+		-- the strip's paper (the sketch map's torn sheet, user 2026-11-12: "can we rework it to at least look better?")
+		local P = Cfg.Strip.paper
+		local sheet = SketchCfg.Paper
+		local img = Instance.new("ImageLabel")
+		img.Name = "Paper"
+		img.BackgroundTransparency = 1
+		img.Image = `rbxassetid://{sheet.image}`
+		img.ScaleType = Enum.ScaleType.Slice
+		img.SliceCenter = Rect.new(sheet.slice[1], sheet.slice[2], sheet.slice[3], sheet.slice[4])
+		img.SliceScale = P.slice
+		img.AnchorPoint = Vector2.new(0.5, 0)
+		img.Position = UDim2.new(0.5, 0, 0, P.top)
+		img.Size = UDim2.new(0.8, 2 * P.pad[1], 0, P.height)
+		img.ZIndex = 0
+		img.Visible = false
+		img.Parent = nodes.FrontBar
+		plate = img
+	end
 	set("waveTitle", Cfg.Wave.title)
 	for _, id in { "FrontBar", "ZoneBar", "WaveBar", "SketchMap", "SketchMapFFA" } do
 		local scale = Instance.new("UIScale")
@@ -676,6 +737,7 @@ function ModeHud.start()
 	local ffaOn = false -- Point Capture is running
 	local myKit: string? = nil
 	local barShown, dotsShown = 0, 0
+	local wasLive = false -- (in play last frame, past the wave hold)
 	task.spawn(function()
 		while true do
 			local now = os.clock()
@@ -711,12 +773,25 @@ function ModeHud.start()
 		local title, loadout = screenOn("TitleScreen"), screenOn("LoadoutMenu")
 		local held = Settings.held("Key_Map")
 		local inPlay = front and not title and not loadout
-		-- the front bar: big for the result; in play always on as a smaller strip (review 2026-11-12: the objective
-		-- only on M was backwards), off while the wave countdown stands in its place
+		-- the front bar: big for the result; in play a smaller strip while M is held, a point is being taken or one has
+		-- just opened (Cfg.Strip), off while the wave countdown stands in its place
 		local character = Players.LocalPlayer.Character
 		local waveAt = character and character:GetAttribute(FrontlineCfg.HoldAttribute)
 		local waiting = front and not title and not loadout and type(waveAt) == "number"
-		local strip = inPlay and not results and not waiting
+		local live = inPlay and not results and not waiting
+		if live and not wasLive then
+			alertUntil = math.max(alertUntil, os.clock() + Cfg.Strip.fresh) -- (into play: where the fight is)
+		end
+		wasLive = live
+		local strip = live and (held or os.clock() < alertUntil)
+		if live ~= onPaper then
+			onPaper = live
+			if plate then
+				plate.Visible = live
+			end
+			nodes.LeftFlag.Visible = not live
+			nodes.LeftName.Visible = not live
+		end
 		barShown = Rules.fade(
 			barShown,
 			if results and not title then 1 elseif strip then Cfg.Strip.shown else 0,
