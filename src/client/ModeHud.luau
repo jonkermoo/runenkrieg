@@ -637,6 +637,8 @@ function ModeHud.start()
 	SketchMap.new(ffaBox, Playtest.name, { you = true, zone = true })
 	nodes.SketchMapFFA = ffaBox
 	local scales: { [UIScale]: boolean } = {} -- (true: also by the HUD size setting)
+	local barScale: UIScale? = nil -- the front bar's (smaller in play: Cfg.Strip)
+	local screenK = 1
 	-- the wave countdown, shown only while the soldier stands in its wave line
 	nodes.WaveBar.Visible = false
 	set("waveTitle", Cfg.Wave.title)
@@ -646,9 +648,13 @@ function ModeHud.start()
 		-- the map follows the HUD size setting too (user 2026-11-05: "can you make the map scale with the HUD size?";
 		-- it grows from its top-left corner, so it stays in its place)
 		scales[scale] = id == "SketchMap" or id == "SketchMapFFA"
+		if id == "FrontBar" then
+			barScale = scale
+		end
 	end
 	local function rescale()
 		local k = math.clamp(gui.AbsoluteSize.Y / T.scale.referenceHeight, T.scale.min, T.scale.max)
+		screenK = k
 		local size = tonumber(Settings.get("HudSize")) or 1
 		for scale, sized in scales do
 			scale.Scale = if sized then k * size else k
@@ -705,7 +711,21 @@ function ModeHud.start()
 		local title, loadout = screenOn("TitleScreen"), screenOn("LoadoutMenu")
 		local held = Settings.held("Key_Map")
 		local inPlay = front and not title and not loadout
-		barShown = Rules.fade(barShown, if results and not title then 1 else 0, dt, Cfg.FadeSeconds)
+		-- the front bar: big for the result; in play always on as a smaller strip (review 2026-11-12: the objective
+		-- only on M was backwards), off while the wave countdown stands in its place
+		local character = Players.LocalPlayer.Character
+		local waveAt = character and character:GetAttribute(FrontlineCfg.HoldAttribute)
+		local waiting = front and not title and not loadout and type(waveAt) == "number"
+		local strip = inPlay and not results and not waiting
+		barShown = Rules.fade(
+			barShown,
+			if results and not title then 1 elseif strip then Cfg.Strip.shown else 0,
+			dt,
+			Cfg.FadeSeconds
+		)
+		if barScale then
+			barScale.Scale = screenK * (if results then 1 else Cfg.Strip.scale)
+		end
 		nodes.SketchMap.Visible = inPlay and held
 		nodes.SketchMapFFA.Visible = ffaOn and held and not title and not loadout
 		dotsShown = Rules.fade(dotsShown, if inPlay and held then 1 else 0, dt, Cfg.FadeSeconds)
@@ -715,9 +735,6 @@ function ModeHud.start()
 		showDots(dotsShown)
 		showMarkers(dotsShown)
 		-- frozen in the wave line (src/server/Frontline's WaveHold: the wave's server time): the seconds until it goes
-		local character = Players.LocalPlayer.Character
-		local waveAt = character and character:GetAttribute(FrontlineCfg.HoldAttribute)
-		local waiting = front and not title and not loadout and type(waveAt) == "number"
 		nodes.WaveBar.Visible = waiting
 		if waiting then
 			set("waveClock", tostring(math.max(math.ceil((waveAt :: number) - workspace:GetServerTimeNow()), 0)))

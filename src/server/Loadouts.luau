@@ -43,6 +43,19 @@ local unlocks: { [Player]: { [string]: boolean } } = {}
 local botUnlocks: { [number]: { [string]: boolean } } = {}
 -- the hits each soldier took this life, by players (Rules/Classes.credit)
 local hits: { [Model]: { Rules.Hit } } = setmetatable({}, { __mode = "k" }) :: any
+-- who last hurt each soldier, by id, and with what (the kill feed, Net "Kill"): the name shown, the side and the
+-- weapon's name (nil: a blast or a staff)
+local lastBy: { [Model]: { [number]: { name: string, kit: string?, how: string? } } } = setmetatable(
+	{},
+	{ __mode = "k" }
+) :: any
+local W = require(Shared.Config.Weapons)
+
+-- a soldier's shown name: a player's display name, a bot's model name
+local function shownName(character: Model): string
+	local player = Players:GetPlayerFromCharacter(character)
+	return if player then player.DisplayName else character.Name
+end
 
 function Loadouts.points(player: Player): number
 	return points[player] or C.Start
@@ -226,6 +239,16 @@ function Loadouts.hurt(victim: Model, by: Model?, amount: number, zone: string?)
 		hits[victim] = list
 	end
 	table.insert(list, { by = byId :: number, amount = amount, at = os.clock(), zone = zone })
+	local tool = (by :: Model):FindFirstChildWhichIsA("Tool")
+	local weapon = tool and tool:GetAttribute("Weapon")
+	local def = type(weapon) == "string" and W[weapon]
+	local seen = lastBy[victim] or {}
+	lastBy[victim] = seen
+	seen[byId :: number] = {
+		name = shownName(by :: Model),
+		kit = (by :: Model):GetAttribute("Kit") :: string?,
+		how = if zone == nil then nil elseif def then def.display else nil,
+	}
 end
 
 -- `fn(killer, victim)` on each kill credited to a player (src/server/Frontline: Defend)
@@ -259,6 +282,19 @@ local function died(character: Model)
 	local victimId = soldierId(character)
 	local killer, head, assists = Rules.credit(hits[character] or {}, victimId, os.clock(), A.window, A.least)
 	hits[character] = nil
+	-- everyone's kill feed, and the victim's "killed by" line (src/client/KillFeed): killer and victim names, sides,
+	-- the weapon (nil: a blast), a headshot
+	local by = killer and lastBy[character] and (lastBy[character] :: any)[killer]
+	lastBy[character] = nil
+	Net.event("Kill"):FireAllClients(
+		if by then by.name else nil,
+		if by then by.kit else nil,
+		shownName(character),
+		character:GetAttribute("Kit"),
+		if by then by.how else nil,
+		head == true,
+		victim
+	)
 	-- a bot is worth half (user 2026-10-30: "make the AIs count half the battle points when you kill them")
 	local share = if victimId and victimId < 0 then BotsCfg.KillShare else 1
 	if killer then
