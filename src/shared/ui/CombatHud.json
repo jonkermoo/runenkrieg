@@ -1,6 +1,6 @@
 {
 	"name": "CombatHud",
-	"_doc": "The combat HUD (Config/Hud; src/client/HudKit builds it, src/client/AmmoHud, StaffHud and ArtilleryHud fill it). No panels or backgrounds (user 2026-10-26): each cut-away floats over the game, the gun's at the bottom right, the staff's rock in the same place, the artillery crew's at the bottom centre; one shows at a time. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours are Config/Palette UI.Hud names. The gun's display is flat 2D (user 2026-11-12: \"can we make it 2d instead\"): src/client/AmmoHud draws it in GunCanvas, the gun's see-through silhouette under the bolt, rounds and magazine well. Desktop only. The kit list (`Kit`, src/client/KitList, Config/Hud.Kit; user 2026-10-27: \"make it a kit list but move it on the left\"): one `KitRow` per item carried this life, cloned from the template and stacked upward from the bottom left (a UIListLayout, Config/Hud.Kit.gap); each row bare ink (UI overhaul, user 2026-10-30: \"remove the paper background completely, just have the selected one be fully visible and the others semi transparent and smaller\"): the plate and the key's stamp stay clear, the key, the name in capitals and a count as words with a dark edge; the row in the hands full and larger, the others smaller and see-through (Config/Hud.Kit). The gun's hint (`Hint`): the key as a red chip, then what it does (RichText). The gunner's warning (`ArtilleryWarn`, src/client/ArtilleryHud; user 2026-11-02: \"put the warning more center bottom/top of the screen so players know\"): why the gun can't fire where it's laid, in the bottom centre.",
+	"_doc": "The combat HUD (Config/Hud; src/client/HudKit builds it, src/client/AmmoHud, StaffHud and ArtilleryHud fill it). No panels or backgrounds (user 2026-10-26): each cut-away floats over the game, the gun's at the bottom right, the staff's rock in the same place, the artillery crew's at the bottom centre; one shows at a time. Sizes in reference pixels at theme.scale.referenceHeight, one UIScale. Colours are Config/Palette UI.Hud names. The gun's display is flat 2D (user 2026-11-12: \"can we make it 2d instead\"): a card (user 2026-11-12, \"layout 1\": GunPlate fading out to the left, the gun's name, GunCanvas, a rule, then the count AmmoCount / AmmoOf and a row of rounds in Pips, the hint under it): src/client/AmmoHud draws in GunCanvas the gun's own flat drawing (Config/GunArt) with the bolt, rounds, cases and magazine live over it. Desktop only. The kit list (`Kit`, src/client/KitList, Config/Hud.Kit; user 2026-10-27: \"make it a kit list but move it on the left\"): one `KitRow` per item carried this life, cloned from the template and stacked upward from the bottom left (a UIListLayout, Config/Hud.Kit.gap); each row bare ink (UI overhaul, user 2026-10-30: \"remove the paper background completely, just have the selected one be fully visible and the others semi transparent and smaller\"): the plate and the key's stamp stay clear, the key, the name in capitals and a count as words with a dark edge; the row in the hands full and larger, the others smaller and see-through (Config/Hud.Kit). The gun's hint (`Hint`): the key as a red chip, then what it does (RichText). The gunner's warning (`ArtilleryWarn`, src/client/ArtilleryHud; user 2026-11-02: \"put the warning more center bottom/top of the screen so players know\"): why the gun can't fire where it's laid, in the bottom centre.",
 	"theme": {
 		"palette": "Hud",
 		"scale": {
@@ -50,108 +50,28 @@
 		"children": [
 			{
 				"id": "Gun",
-				"kind": "panel",
+				"kind": "group",
 				"overlay": true,
-				"anchor": [
-					1,
-					1
-				],
-				"pos": [
-					1,
-					-24,
-					1,
-					-24
-				],
-				"size": [
-					0,
-					360,
-					0,
-					186
-				],
+				"anchor": [1, 1],
+				"pos": [1, -18, 1, -18],
+				"size": [0, 430, 0, 232],
 				"children": [
-					{
-							"id": "GunCanvas",
-							"kind": "group",
-							"pos": [0, 10, 0, 10],
-							"size": [1, -20, 1, -20]
-						},
+					{ "id": "GunPlate", "kind": "panel", "color": "gunPlate", "pos": [0, 0, 0, 0], "size": [1, 0, 1, 0] },
+					{ "id": "GunName", "kind": "label", "font": "plain", "bind": "gunName", "text": "", "textSize": 13, "textColor": "brass", "align": "right", "anchor": [1, 0], "pos": [1, -16, 0, 10], "size": [0, 300, 0, 16] },
+					{ "id": "GunCanvas", "kind": "group", "pos": [0, 14, 0, 30], "size": [1, -28, 0, 124] },
+					{ "id": "GunRule", "kind": "panel", "color": "brass", "pos": [0, 16, 0, 160], "size": [1, -32, 0, 1] },
+					{ "id": "AmmoCount", "kind": "label", "overlay": true, "font": "plain", "bind": "ammo", "text": "", "textSize": 48, "textColor": "readout", "align": "right", "pos": [0, 10, 0, 166], "size": [0, 84, 0, 50] },
+					{ "id": "AmmoOf", "kind": "label", "overlay": true, "font": "plain", "bind": "ammoOf", "text": "", "textSize": 18, "textColor": "ammoOf", "align": "left", "pos": [0, 98, 0, 190], "size": [0, 50, 0, 22] },
+					{ "id": "Pips", "kind": "group", "overlay": true, "pos": [0, 154, 0, 170], "size": [1, -170, 0, 28] },
 					{
 						"id": "Hint",
 						"kind": "panel",
 						"overlay": true,
-						"anchor": [
-							0,
-							1
-						],
-						"pos": [
-							0,
-							14,
-							1,
-							-12
-						],
-						"size": [
-							0,
-							330,
-							0,
-							28
-						],
+						"anchor": [0, 1],
+						"pos": [0, 154, 1, -8],
+						"size": [1, -170, 0, 22],
 						"children": [
-							{
-								"id": "HintText",
-								"kind": "label",
-								"font": "plain",
-								"bind": "hint",
-								"text": "",
-								"textSize": 16,
-								"textColor": "hintText",
-								"center": false,
-								"anchor": [
-									0,
-									0.5
-								],
-								"pos": [
-									0,
-									0,
-									0.5,
-									0
-								],
-								"size": [
-									1,
-									0,
-									1,
-									0
-								],
-								"stroke": "window",
-								"align": "left"
-							}
-						]
-					},
-					{
-						"id": "AmmoCount",
-						"kind": "label",
-						"overlay": true,
-						"font": "plain",
-						"bind": "ammo",
-						"text": "",
-						"textSize": 26,
-						"textColor": "readout",
-						"stroke": "window",
-						"align": "right",
-						"anchor": [
-							1,
-							1
-						],
-						"pos": [
-							1,
-							-14,
-							1,
-							-8
-						],
-						"size": [
-							0,
-							120,
-							0,
-							30
+							{ "id": "HintText", "kind": "label", "font": "plain", "bind": "hint", "text": "", "textSize": 15, "textColor": "hintText", "center": false, "anchor": [0, 0.5], "pos": [0, 0, 0.5, 0], "size": [1, 0, 1, 0], "stroke": "window", "align": "left" }
 						]
 					}
 				]

@@ -5,8 +5,7 @@ local ModeHud = {
 	-- Territory Push's replicated state: this Workspace folder (src/server/Frontline's Config/Frontline.FolderName)
 	FrontlineFolder = "Frontline",
 	Refresh = 0.1, -- seconds between the bar's updates
-	FlashSeconds = 0.35, -- a contested diamond's edge flashes between pinContested and pinEdge
-	Fill = { min = 0.002, edge = 0.001 }, -- a diamond's fill: the least share drawn, the width of its hard edge
+	Fill = { min = 0.002 }, -- a seal's capture ring: the least share drawn
 	-- Territory Push's results line (Workspace.Frontline's Phase "Results"): with a winner, "<NATION> WINS"
 	NoWinner = "MATCH OVER",
 	-- Territory Push: in play the bar shows only while the map key is held (Config/Settings Key_Map, M: user 2026-10-31
@@ -17,15 +16,30 @@ local ModeHud = {
 	-- M is held, while a point is being taken (a zone contested or attacked, or its control moving) and for `linger`
 	-- seconds after, and for `fresh` seconds when a point opens up or the soldier comes into play (user 2026-11-12: "make it show with m and/or only a
 	-- point is being captured or a new one is available")
-	-- On the sketch map's torn paper (Config/SketchMap.Paper, `slice` its 9-slice scale), `top` px down the bar,
-	-- `height` tall, `pad` px past the end pins each side; your side's flag and name off; the points that can be
-	-- taken now in red pencil, their edge `openEdge` times the theme's outline
+	-- Its look (user 2026-11-12, "seal chain 2"): a dark plate faded out over `plate.fade` of its width at each end
+	-- (`see` its transparency in the middle, its brass hairlines `hairline`), `pad` px past the end seals; each point
+	-- a seal (`ring.seal` of its box) in a ring `ring.width` px whose sweep is the capture (its dark track `track`
+	-- see-through), the seal's own ring `ring.inner` px; the track between two points in the colour of the side
+	-- holding both, `link` px, darkened by `linkShade`; a contested point swells by `pulse.grow` once every
+	-- `pulse.seconds` (an attacked one stays swollen); the points in play tagged `attack` (red) or `defend` (your
+	-- colour darkened by `defendShade`), tags `tagCorner` px round; the other points' lines `nameDim` see-through; the
+	-- HQs named `hq`
 	Strip = {
 		scale = 0.85,
 		shown = 1,
 		linger = 2.5,
 		fresh = 6,
-		paper = { top = 18, height = 64, pad = { 30, 0 }, slice = 0.28, openEdge = 1.8 },
+		plate = { fade = 0.2, see = 0.3, hairline = 0.35, pad = 40 },
+		ring = { seal = 0.74, width = 3, track = 0.35, inner = 1 },
+		link = 3,
+		linkShade = 0.2,
+		pulse = { grow = 0.12, seconds = 0.7 },
+		attack = "ATTACK",
+		defend = "DEFEND",
+		defendShade = 0.45,
+		tagCorner = 3,
+		nameDim = 0.5,
+		hq = "HQ",
 	},
 	-- the teammate dot: pixels across, studs above the head's centre; full size up to `near` studs from the camera,
 	-- then smaller with distance down to `min` pixels (Rules/ModeHud.dotSize)
