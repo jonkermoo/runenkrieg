@@ -28,6 +28,9 @@ local Firing = {
 	-- .airSpread, .stray). In the air: `air` (`aimed` while aiming down the sights); landing: `landed`, easing to 0 over
 	-- `settle` seconds. Players and bots alike (bots add it to their aim error). At 50 studs, 6 degrees is ~5 studs off.
 	Airborne = { air = 7, aimed = 6, landed = 4, settle = 0.6 },
+	-- The server's own airborne check on a player's shot (Rules serverSpread): no ground within this many studs below
+	-- the HumanoidRootPart (an R6 root stands ~3 above the ground).
+	GroundProbe = 4.5,
 
 	-- Rifles (class BoltRifle) load clips of this many rounds and hold one more in the chamber: 5 + 1 (user 2026-10-12,
 	-- for balance). An en-bloc rifle (the Carcano) takes one round more, 6 + 1, because it reloads only once its

@@ -235,7 +235,14 @@ local Hud = {
 		wait = 0.3,
 		gap = 4, -- reference px between rows
 		count = "x%d", -- a grenade row's count (the Tool's "Count"; x0 once the last is thrown: the row stays)
+		-- a new life draws the first row (the primary) as soon as it can, for up to this many seconds (the wave line
+		-- holds it till the wave goes; src/client/KitList)
+		drawOnSpawn = 40,
 	},
+	-- the health bar (src/client/KillFeed, CombatHud.json Vitals): red at or under this share of full health
+	Vitals = { low = 0.35 },
+	-- the kill feed (src/client/KillFeed, CombatHud.json Feed): each line's seconds; your own death's line's seconds
+	Feed = { seconds = 4, deathSeconds = 6 },
 }
 
 return table.freeze(Hud)

@@ -1500,4 +1500,16 @@ return {
 		local h, px, pz = B.groundPlane({ 0, 1, 2, 0, 1, 2 }, 2, 3, 4, 6)
 		assert(near(h, 1) and near(px, 0.5) and near(pz, 0), "a plane rising along its width")
 	end,
+	["finite: NaN and inf in a request are refused"] = function()
+		assert(B.finite(1, -2, 3.5), "plain numbers")
+		assert(B.finite(), "nothing to check")
+		assert(not B.finite(1, 0 / 0, 3), "NaN")
+		assert(not B.finite(math.huge), "inf")
+		assert(not B.finite(1, -math.huge), "-inf")
+	end,
+	["roughReach: generous, but not NaN or far"] = function()
+		assert(B.roughReach(20, 16, 10), "within the slack")
+		assert(not B.roughReach(27, 16, 10), "beyond it")
+		assert(not B.roughReach(0 / 0, 16, 10), "NaN")
+	end,
 }

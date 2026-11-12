@@ -203,6 +203,11 @@ local function build(player: Player): DevPanel.Panel
 		order += 1
 		DevPanel.heading(p.panel, text, order)
 	end
+	-- the tabs (DevPanel.tabs): each starts at the next row
+	local tabs: { { name: string, from: number } } = {}
+	local function tab(name: string)
+		table.insert(tabs, { name = name, from = order + 1 })
+	end
 	-- an on / off row: `attribute` on `owner`, sent as `action`
 	local function onOff(id: string, label: string, action: string, owner: Instance, attribute: string)
 		order += 1
@@ -220,6 +225,7 @@ local function build(player: Player): DevPanel.Panel
 	end
 
 	-- Server: the game mode (Config/Modes, src/server/Modes), the live one lit; one not built yet can't be picked
+	tab("Match")
 	heading("Server")
 	local modes: { [string]: TextButton } = {}
 	for _, key in ModeCfg.List do
@@ -446,6 +452,7 @@ local function build(player: Player): DevPanel.Panel
 	showMode()
 
 	-- Bots (src/server/Bots, Config/Bots; FFA and Normal): auto = the mode's own fill, or a pinned count; difficulty
+	tab("Bots")
 	heading("Bots")
 	local counts: { [any]: TextButton } = {}
 	local auto = `Bots: auto (FFA {BotsCfg.Fill.FFA.total}, Normal {BotsCfg.Fill.Normal.perSide} a side)`
@@ -751,6 +758,7 @@ local function build(player: Player): DevPanel.Panel
 		refusals:Disconnect()
 	end)
 
+	tab("Me")
 	heading("Movement")
 	order += 1
 	local fly = DevPanel.button(p.panel, "Fly", "Fly: off", order)
@@ -886,6 +894,7 @@ local function build(player: Player): DevPanel.Panel
 	onOff("Ammo", "Unlimited ammo, no cooldown", "Ammo", player, A.AmmoAttribute)
 
 	-- Gun aim (Config/DevTools.Admin.GunAim): the field gun's aiming tests, on my gun
+	tab("Weapon")
 	heading("Gun aim")
 	local GA = A.GunAim
 	order += 1
@@ -996,6 +1005,7 @@ local function build(player: Player): DevPanel.Panel
 	end
 
 	-- Loadout (src/server/Loadouts): match points, a class every life (free, locked or not) or your own picks again
+	tab("Kit")
 	heading("Loadout")
 	for _, n in A.Points do
 		row(`Points{n}`, `Give me {n} match points`, "Points", n)
@@ -1107,6 +1117,7 @@ local function build(player: Player): DevPanel.Panel
 	showSlope()
 
 	-- World: the range's test shooters (Config/DevTools.TestShooter), undo destruction (src/server/DevWorld), hitches
+	tab("World")
 	DevPanel.heading(p.panel, "World", order + 1)
 	order += 2
 	local shooters = DevPanel.button(p.panel, "Shooters", "", order)
@@ -1229,6 +1240,7 @@ local function build(player: Player): DevPanel.Panel
 	end)
 	player:GetAttributeChangedSignal(A.Cinematic.GameAttribute):Connect(showGame)
 	showGame()
+	DevPanel.tabs(p, tabs)
 	return p
 end
 

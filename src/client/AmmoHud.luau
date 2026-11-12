@@ -1033,6 +1033,11 @@ function AmmoHud.show(tool: Tool?, weapon: string?, state: F.State?, gun: F.Gun?
 		return
 	end
 	p.gui.Enabled = true
+	-- the rounds as a number under the cut-away (review 2026-11-12), RELOAD in red once none is left
+	local left = F.magazineAt(state, now) + (if state.chambered then 1 else 0)
+	p.set("ammo", if left > 0 then tostring(left) else "RELOAD")
+	local count = p.node.AmmoCount :: TextLabel
+	count.TextColor3 = HudKit.rgb(if left > 0 then "readout" else "countLow")
 	if drum and (drum.tool ~= tool or not F.revolver(gun)) then
 		drum.model:Destroy()
 		drum = nil

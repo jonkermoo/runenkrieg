@@ -153,6 +153,34 @@
 								"align": "left"
 							}
 						]
+					},
+					{
+						"id": "AmmoCount",
+						"kind": "label",
+						"overlay": true,
+						"font": "plain",
+						"bind": "ammo",
+						"text": "",
+						"textSize": 26,
+						"textColor": "readout",
+						"stroke": "window",
+						"align": "right",
+						"anchor": [
+							1,
+							1
+						],
+						"pos": [
+							1,
+							-14,
+							1,
+							-8
+						],
+						"size": [
+							0,
+							120,
+							0,
+							30
+						]
 					}
 				]
 			},
@@ -436,6 +464,203 @@
 							}
 						],
 						"cut": 8
+					}
+				]
+			},
+			{
+				"id": "Vitals",
+				"kind": "panel",
+				"overlay": true,
+				"anchor": [
+					0,
+					1
+				],
+				"pos": [
+					0,
+					24,
+					1,
+					-160
+				],
+				"size": [
+					0,
+					220,
+					0,
+					26
+				],
+				"children": [
+					{
+						"id": "HealthBar",
+						"kind": "bar",
+						"pos": [
+							0,
+							0,
+							0,
+							0
+						],
+						"size": [
+							1,
+							0,
+							0,
+							8
+						],
+						"color": "window"
+					},
+					{
+						"id": "HealthText",
+						"kind": "label",
+						"font": "plain",
+						"bind": "health",
+						"text": "",
+						"textSize": 14,
+						"textColor": "readout",
+						"stroke": "window",
+						"align": "left",
+						"pos": [
+							0,
+							0,
+							0,
+							10
+						],
+						"size": [
+							1,
+							0,
+							0,
+							16
+						]
+					}
+				]
+			},
+			{
+				"id": "Feed",
+				"kind": "panel",
+				"overlay": true,
+				"anchor": [
+					1,
+					0
+				],
+				"pos": [
+					1,
+					-24,
+					0,
+					74
+				],
+				"size": [
+					0,
+					380,
+					0,
+					72
+				],
+				"children": [
+					{
+						"id": "Feed1",
+						"kind": "label",
+						"font": "plain",
+						"text": "",
+						"textSize": 16,
+						"textColor": "readout",
+						"stroke": "window",
+						"align": "right",
+						"pos": [
+							0,
+							0,
+							0,
+							0
+						],
+						"size": [
+							1,
+							0,
+							0,
+							24
+						]
+					},
+					{
+						"id": "Feed2",
+						"kind": "label",
+						"font": "plain",
+						"text": "",
+						"textSize": 16,
+						"textColor": "readout",
+						"stroke": "window",
+						"align": "right",
+						"pos": [
+							0,
+							0,
+							0,
+							24
+						],
+						"size": [
+							1,
+							0,
+							0,
+							24
+						]
+					},
+					{
+						"id": "Feed3",
+						"kind": "label",
+						"font": "plain",
+						"text": "",
+						"textSize": 16,
+						"textColor": "readout",
+						"stroke": "window",
+						"align": "right",
+						"pos": [
+							0,
+							0,
+							0,
+							48
+						],
+						"size": [
+							1,
+							0,
+							0,
+							24
+						]
+					}
+				]
+			},
+			{
+				"id": "Death",
+				"kind": "panel",
+				"overlay": true,
+				"anchor": [
+					0.5,
+					0.5
+				],
+				"pos": [
+					0.5,
+					0,
+					0.62,
+					0
+				],
+				"size": [
+					0,
+					640,
+					0,
+					36
+				],
+				"children": [
+					{
+						"id": "DeathText",
+						"kind": "label",
+						"font": "plain",
+						"bind": "death",
+						"text": "",
+						"textSize": 24,
+						"textColor": "countLow",
+						"stroke": "window",
+						"pos": [
+							0,
+							0,
+							0,
+							0
+						],
+						"size": [
+							1,
+							0,
+							1,
+							0
+						]
 					}
 				]
 			}

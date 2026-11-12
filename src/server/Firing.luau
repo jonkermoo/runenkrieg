@@ -59,6 +59,8 @@ function Firing.gun(name: string): F.Gun
 	}
 end
 
+local keys = Random.new() -- each tool's "ShotKey" (shootAs)
+
 local function publish(tool: Tool, s: F.State, seq: number?)
 	F.settle(s, os.clock())
 	tool:SetAttribute("Magazine", s.magazine)
@@ -96,6 +98,7 @@ function Firing.entry(tool: Tool): Entry?
 		e = made
 		states[tool] = made
 		publish(tool, made.state)
+		tool:SetAttribute("ShotKey", keys:NextInteger(1, 2147483646))
 		-- put away / drawn again: the action under way pauses, then plays out after the draw
 		tool:GetPropertyChangedSignal("Parent"):Connect(function()
 			local parent = tool.Parent
@@ -206,7 +209,10 @@ local function shootAs(character: Model?, origin: any, direction: any, seed: any
 	e.seq += 1
 	local ok = typeof(origin) == "Vector3"
 		and typeof(direction) == "Vector3"
-		and (seed == nil or type(seed) == "number")
+		and F.finite(origin.X)
+		and F.finite(origin.Y)
+		and F.finite(origin.Z)
+		and (seed == nil or F.finite(seed))
 		and (player == nil or allowed(player))
 		and not striking(character)
 		and F.validShot((origin - head.Position).Magnitude, direction.Magnitude, Cfg.MaxOrigin)
@@ -225,6 +231,22 @@ local function shootAs(character: Model?, origin: any, direction: any, seed: any
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
 	params.FilterDescendantsInstances = { character }
+	if player then
+		-- a player's shot: the server rolls its stray and its pellet pattern (the third argument is only the spread
+		-- the client reports, Rules serverSpread), from the tool's "ShotKey", rolled again now for the next shot
+		local key = tool:GetAttribute("ShotKey")
+		local r1, r2, pelletSeed = F.shotDice(if type(key) == "number" then key else 1)
+		tool:SetAttribute("ShotKey", keys:NextInteger(1, 2147483646))
+		local root = character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local airborne = root ~= nil
+			and workspace:Raycast(root.Position, Vector3.new(0, -Cfg.GroundProbe, 0), params) == nil
+		local spread = F.serverSpread(Cfg.Airborne, seed, airborne)
+		if spread > 0 then
+			local right, up = F.stray(spread, r1, r2)
+			direction = (CFrame.lookAt(Vector3.zero, direction) * CFrame.Angles(math.rad(up), -math.rad(right), 0)).LookVector
+		end
+		seed = pelletSeed
+	end
 	-- the muzzle must be in sight of the head (no shooting from a barrel pushed through a wall)
 	local start = workspace:Raycast(head.Position, origin - head.Position, params)
 	local name = tool:GetAttribute("Weapon") :: string

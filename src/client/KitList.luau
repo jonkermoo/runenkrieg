@@ -234,6 +234,25 @@ function KitList.start()
 		character.ChildRemoved:Connect(toolMoved)
 		scan()
 		changed()
+		-- the first row (the primary) drawn on spawn (review 2026-11-12: you spawned empty-handed), once the backpack
+		-- has it and the wave line lets it out; not if a tool came out meanwhile (Config/Hud.Kit.drawOnSpawn seconds)
+		task.spawn(function()
+			local giveUp = os.clock() + K.drawOnSpawn
+			while os.clock() < giveUp and player.Character == character do
+				local humanoid = character:FindFirstChildOfClass("Humanoid")
+				if (humanoid and humanoid.Health <= 0) or character:FindFirstChildWhichIsA("Tool") then
+					return
+				end
+				local first = order[1]
+				if humanoid and first and first.tool and character:GetAttribute(FrontCfg.HoldAttribute) == nil then
+					humanoid:EquipTool(first.tool)
+					pending, pendingAt = first.tool, os.clock()
+					changed()
+					return
+				end
+				task.wait(0.2)
+			end
+		end)
 	end
 	local function hookBackpack(child: Instance)
 		if child:IsA("Backpack") then

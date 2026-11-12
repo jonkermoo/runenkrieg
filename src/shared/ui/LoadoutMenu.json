@@ -325,9 +325,10 @@
 										"id": "RiflemanNote",
 										"kind": "label",
 										"text": "",
-										"textSize": 15,
+										"textSize": 13,
 										"textColor": "inkDim",
 										"align": "right",
+										"wrap": true,
 										"anchor": [
 											1,
 											0
@@ -340,9 +341,9 @@
 										],
 										"size": [
 											0,
-											140,
+											160,
 											0,
-											22
+											36
 										]
 									},
 									{
