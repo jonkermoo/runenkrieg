@@ -39,15 +39,17 @@ function ShotSpread.now(): (number, string)
 	return spread, if airborne then "air" elseif spread > 0 then "landing" else "steady"
 end
 
--- `direction` turned off its line by a random stray within the spread now.
-function ShotSpread.apply(direction: Vector3): Vector3
+-- `direction` turned off its line by the stray the server will roll from the dice `r1`, `r2` (Rules shotDice, from the
+-- tool's "ShotKey") within the spread now; and that spread, which the shot reports (Rules serverSpread).
+function ShotSpread.apply(direction: Vector3, r1: number, r2: number): (Vector3, number)
 	local spread, why = ShotSpread.now()
 	lastSpread, lastWhy = spread, why
 	if spread <= 0 then
-		return direction
+		return direction, spread
 	end
-	local right, up = F.stray(spread, math.random(), math.random())
-	return (CFrame.lookAt(Vector3.zero, direction) * CFrame.Angles(math.rad(up), -math.rad(right), 0)).LookVector
+	local right, up = F.stray(spread, r1, r2)
+	return (CFrame.lookAt(Vector3.zero, direction) * CFrame.Angles(math.rad(up), -math.rad(right), 0)).LookVector,
+		spread
 end
 
 -- The last shot's spread (degrees) and what it came from.

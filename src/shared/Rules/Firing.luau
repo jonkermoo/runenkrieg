@@ -395,7 +395,7 @@ end
 function Firing.validShot(originDistance: number, directionLength: number, maxOrigin: number): (boolean, string?)
 	if originDistance ~= originDistance or originDistance > maxOrigin then
 		return false, "origin"
-	elseif math.abs(directionLength - 1) > 1e-3 then
+	elseif directionLength ~= directionLength or math.abs(directionLength - 1) > 1e-3 then
 		return false, "direction"
 	end
 	return true, nil
@@ -430,6 +430,39 @@ function Firing.stray(spread: number, r1: number, r2: number): (number, number)
 	local d = math.max(spread, 0) * math.sqrt(math.clamp(r1, 0, 1))
 	local a = 2 * math.pi * r2
 	return d * math.cos(a), d * math.sin(a)
+end
+
+-- A plain number a client may send: not NaN and not infinite.
+function Firing.finite(x: any): boolean
+	return type(x) == "number" and x == x and x ~= math.huge and x ~= -math.huge
+end
+
+-- A player's shot's dice, from the server's `key` (the tool's "ShotKey", rolled again by the server after every shot,
+-- so a client can foresee the next shot's dice but never choose them): two numbers in 0..1 for its stray off the
+-- barrel (`stray`) and the seed of a shotgun's pellet pattern (`pellets`). Park-Miller, as `pellets`.
+function Firing.shotDice(key: number): (number, number, number)
+	local state = (if Firing.finite(key) then math.floor(math.abs(key)) else 1) % 2147483647
+	if state <= 0 then
+		state += 2147483646
+	end
+	local function rand(): number
+		state = (state * 16807) % 2147483647
+		return state
+	end
+	local a, b, c = rand(), rand(), rand()
+	return a / 2147483647, b / 2147483647, c
+end
+
+-- The spread (degrees) the server rolls a player's shot over: the spread its client reports (it alone knows how long
+-- ago it landed, Rules airSpread), but never less than the server's own view (`airborne`: no ground under the root; the
+-- smaller `aimed` spread, the client may be aiming) and never more than the worst there is. A bad number is the worst.
+function Firing.serverSpread(cfg: Airborne, reported: any, airborne: boolean): number
+	local floor = if airborne then math.min(cfg.air, cfg.aimed) else 0
+	local top = math.max(cfg.air, cfg.aimed, cfg.landed)
+	if not Firing.finite(reported) then
+		return top
+	end
+	return math.clamp(reported, floor, top)
 end
 
 return Firing

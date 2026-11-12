@@ -590,4 +590,34 @@ return {
 		x, y = F.stray(-3, 1, 0)
 		assert(x == 0 and y == 0, "a negative spread is none")
 	end,
+	["validShot: a NaN direction is refused"] = function()
+		assert(not F.validShot(5, 0 / 0, Cfg.MaxOrigin), "NaN direction")
+		assert(not F.validShot(math.huge, 1, Cfg.MaxOrigin), "inf origin")
+	end,
+	["finite: NaN and inf are not plain numbers"] = function()
+		assert(F.finite(3) and F.finite(-0.5), "plain")
+		assert(not F.finite(0 / 0) and not F.finite(math.huge) and not F.finite(-math.huge), "odd")
+		assert(not F.finite("3") and not F.finite(nil), "not a number")
+	end,
+	["shotDice: the same from the same key, in range, any key"] = function()
+		local a1, b1, c1 = F.shotDice(987654)
+		local a2, b2, c2 = F.shotDice(987654)
+		assert(a1 == a2 and b1 == b2 and c1 == c2, "deterministic")
+		local a3 = F.shotDice(987655)
+		assert(a3 ~= a1, "another key, other dice")
+		for _, key in { 0, -5, 0 / 0, math.huge, 2147483647, 1.5 } do
+			local a, b, c = F.shotDice(key)
+			assert(a > 0 and a < 1 and b > 0 and b < 1 and c >= 1, `key {key}`)
+		end
+	end,
+	["serverSpread: never under the server's view, never over the worst"] = function()
+		local A = Cfg.Airborne
+		local top = math.max(A.air, A.aimed, A.landed)
+		assert(F.serverSpread(A, 2, false) == 2, "a landing's spread, as reported")
+		assert(F.serverSpread(A, 0, true) == math.min(A.air, A.aimed), "in the air: at least the aimed spread")
+		assert(F.serverSpread(A, 999, false) == top, "capped")
+		assert(F.serverSpread(A, -1, false) == 0, "no negative")
+		assert(F.serverSpread(A, 0 / 0, false) == top, "NaN: the worst")
+		assert(F.serverSpread(A, nil, false) == top, "nothing sent: the worst")
+	end,
 }
