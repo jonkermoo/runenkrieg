@@ -45,6 +45,7 @@ return {
 		assert(T.allowed(Cfg, -1, true, nil, false), "a Studio Clients and Servers test player, even in a closed mode")
 		assert(not T.allowed(Cfg, -1, false, 71611711100478, false), "never outside Studio")
 		assert(T.allowed(Cfg, 1, true, nil, true))
+		assert(not T.allowed(Cfg, 1, false, 71611711100478, true), "the live place: never a non-admin, even in the admin mode")
 		assert(T.find(Map1, Cfg, "Gallery") ~= nil and T.find(Map1, Cfg, "nope") == nil)
 	end,
 	["admin speeds: positive steps including x1, a flying speed and fly keys"] = function()

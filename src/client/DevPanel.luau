@@ -112,6 +112,7 @@ function DevPanel.button(panel: ScrollingFrame, id: string, label: string, order
 	b.LayoutOrder = order
 	DevPanel.style(b, fill or UI.button, 8)
 	DevPanel.text(b, label, 15)
+	b.TextWrapped = true -- (a long label takes two lines, never clipped)
 	b.Parent = panel
 	return b
 end
@@ -126,6 +127,58 @@ function DevPanel.heading(panel: ScrollingFrame, text: string, order: number): T
 	DevPanel.text(label, text, 14)
 	label.Parent = panel
 	return label
+end
+
+-- Splits a long panel into tabs: a row of tab buttons under the title, each showing only its own rows. `starts`: each
+-- tab's name and the LayoutOrder its rows start at, in order (a tab runs to the next one's start). The first is open.
+function DevPanel.tabs(p: Panel, starts: { { name: string, from: number } })
+	p.title.LayoutOrder = -2
+	local bar = Instance.new("Frame")
+	bar.Name = "Tabs"
+	bar.BackgroundTransparency = 1
+	bar.Size = UDim2.new(1, -8, 0, 0)
+	bar.AutomaticSize = Enum.AutomaticSize.Y
+	bar.LayoutOrder = -1
+	local grid = Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.new(1 / 3, -4, 0, 30)
+	grid.CellPadding = UDim2.fromOffset(4, 4)
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.Parent = bar
+	bar.Parent = p.panel
+	local buttons: { TextButton } = {}
+	local function tabOf(order: number): number
+		local at = 0
+		for i, t in starts do
+			if order >= t.from then
+				at = i
+			end
+		end
+		return at
+	end
+	local function open(index: number)
+		for _, child in p.panel:GetChildren() do
+			if child:IsA("GuiObject") and child ~= bar and child ~= p.title then
+				child.Visible = tabOf(child.LayoutOrder) == index
+			end
+		end
+		for i, b in buttons do
+			b.BackgroundColor3 = rgb(if i == index then UI.accent else UI.button)
+		end
+		p.panel.CanvasPosition = Vector2.zero
+	end
+	for i, t in starts do
+		local b = Instance.new("TextButton")
+		b.Name = "Tab" .. t.name
+		b.LayoutOrder = i
+		DevPanel.style(b, UI.button, 6)
+		DevPanel.text(b, t.name, 13)
+		b.Activated:Connect(function()
+			open(i)
+		end)
+		b.Parent = bar
+		buttons[i] = b
+	end
+	open(1)
 end
 
 return DevPanel
