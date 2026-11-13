@@ -174,6 +174,12 @@ local Hud = {
 		shards = { orbit = { 10, -6, 14, -9, 7 }, bob = 0.06, speed = 0.7, spin = 50 },
 	},
 
+	-- the gem drawn flat in its brass ring (src/client/HudKit.gemArt, Config/HudArt.gem; the staff's and the howitzer's;
+	-- user 2026-11-12: "the brass ring ... looks best"): the crystal `crystal` of the ring tall, rocking `rock.degrees`
+	-- either way `rock.speed` times a second; a shard `depth` larger nearest the eye and smaller behind the crystal,
+	-- tilting `shardTilt` degrees either way
+	GemArt = { crystal = 0.5, rock = { degrees = 3, speed = 0.18 }, depth = 0.18, shardTilt = 14 },
+
 	Staff = {
 		fov = 20,
 		spin = 24, -- degrees a second the rock turns
@@ -185,6 +191,7 @@ local Hud = {
 		tilt = 12, -- degrees the rock leans toward the camera
 		margin = 0.05,
 		fit = 0.7, -- the view frames a cube this share of the rock's diagonal, shards and all (it turns inside it)
+		flat = true, -- drawn flat in its brass ring (Config/HudArt.gem) rather than the 3D rock turning
 	},
 
 	Artillery = {
@@ -222,6 +229,11 @@ local Hud = {
 			},
 		},
 		timer = "%.1f%%", -- the reload's share until it can fire, in tenths of a percent
+		-- the field gun drawn flat (Config/HudArt.guns; user 2026-11-12: "cutaway drawing ... accurate to our actual
+		-- model asset"): the breech framed as above, the bore's line `drop` studs over the view's middle, the still
+		-- carriage behind darkened by `stillShade`; the howitzer's crystal in the brass ring, a square `ring` of the
+		-- view's height at its right
+		flat = { drop = 0.3, stillShade = 0.22, ring = 1 },
 	},
 
 	-- the kit list (src/client/KitList, Rules/KitList; layout CombatHud.json "Kit"; user 2026-10-27: "i dont like the
