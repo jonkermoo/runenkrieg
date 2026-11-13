@@ -233,7 +233,9 @@ local Hud = {
 		-- model asset"): the breech framed as above, the bore's line `drop` studs over the view's middle, the still
 		-- carriage behind darkened by `stillShade`; the howitzer's crystal in the brass ring, a square `ring` of the
 		-- view's height at its right
-		flat = { drop = 0.3, stillShade = 0.22, ring = 1 },
+		-- `frames`: a gun framed its own way (by asset): gun space z from .. to, and y at the view's middle (the
+		-- machine gun: its receiver, the belt and the can's top)
+		flat = { drop = 0.3, stillShade = 0.22, ring = 1, frames = { mg08 = { z = { -1.9, 2.95 }, y = 0.75 } } },
 	},
 
 	-- the kit list (src/client/KitList, Rules/KitList; layout CombatHud.json "Kit"; user 2026-10-27: "i dont like the

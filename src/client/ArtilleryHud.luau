@@ -64,7 +64,8 @@ type Throw = { piece: Piece, from: CFrame, start: number }
 -- The gun drawn flat (Config/HudArt, Config/Hud.Artillery.flat; user 2026-11-12: "cutaway drawing ... accurate to our
 -- actual model asset"): the field gun's breech side on from its right, the muzzle to the right, each drawing laid where
 -- its part is in the mount's space (the cradle and the barrel elevate, the barrel recoils, the breech block swings
--- through its frames, the round slides in, the fired case is thrown out); the howitzer's crystal in the brass ring.
+-- through its frames, the round slides in, the fired case is thrown out); the machine gun the same way, each round on
+-- its belt following its own part; the howitzer's crystal in the brass ring.
 type Sprite = { img: ImageLabel, z: { number }, y: { number } }
 type Flat = {
 	layer: Frame,
@@ -82,6 +83,7 @@ type Flat = {
 	round: Sprite?,
 	case: Sprite?,
 	gem: HudKit.GemArt?,
+	belt: { { sprite: Sprite, part: BasePart, rest: CFrame } }, -- a machine gun's rounds on the belt
 	throws: { { sprite: Sprite, from: CFrame, start: number } },
 }
 
@@ -196,6 +198,7 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 			round = nil,
 			case = nil,
 			gem = nil,
+			belt = {},
 			throws = {},
 		}
 		if schemes then
@@ -231,13 +234,19 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 				return { img = img, z = z, y = y }
 			end
 			-- the breech framed: from `reach.front` ahead of the chambered round's nose to `reach.back` behind the block
+			-- (or as Config/Hud.Artillery.flat.frames has it: the machine gun)
 			local len = HudArt.round.length
 			local br = rest("Breech") or CFrame.new(gun.hinge[1], gun.hinge[2], gun.hinge[3])
 			local zlo = v.chamber.Z - len - A.reach.front
 			local zhi = br.Z + A.reach.back
+			local cy = v.chamber.Y - F.drop
+			local own = (F.frames :: any)[gun.asset]
+			if own then
+				zlo, zhi, cy = own.z[1], own.z[2], own.y
+			end
 			f.kx = 1 / (zhi - zlo)
 			f.ky = f.kx * w / h
-			f.cz, f.cy = (zlo + zhi) / 2, v.chamber.Y - F.drop
+			f.cz, f.cy = (zlo + zhi) / 2, cy
 			-- (behind it the gun card's brushed ink wash, Config/GunArt.wash)
 			local wash = Instance.new("ImageLabel")
 			wash.Name = "Wash"
@@ -254,11 +263,24 @@ local function build(model: Model, view: ViewportFrame, camera: Camera): View?
 			f.cradlePart = if cp and cp:IsA("BasePart") then cp else nil
 			f.cradleRest = rest("Cradle") or CFrame.identity
 			f.barrel = sprite(sch.parts, sch.barrel.rect, sch.barrel.z, sch.barrel.y, 3)
-			f.round = sprite(sch.parts, sch.round.rect, sch.round.z, sch.round.y, 4)
-			f.case = sprite(sch.parts, sch.case.rect, sch.case.z, sch.case.y, 4)
-			f.frames = sch.breech.frames
-			f.breech = sprite(sch.parts, sch.breech.frames[1], sch.breech.z, sch.breech.y, 5)
-			v.length = len
+			local shell, case, block = sch.round, sch.case, sch.breech
+			if shell and case and block then
+				f.round = sprite(sch.parts, shell.rect, shell.z, shell.y, 4)
+				f.case = sprite(sch.parts, case.rect, case.z, case.y, 4)
+				f.frames = block.frames
+				f.breech = sprite(sch.parts, block.frames[1], block.z, block.y, 5)
+				v.length = len
+			end
+			-- a machine gun's belt: each round's drawing follows its own part (src/client/Artillery bends the belt with
+			-- the gun and empties it)
+			for i, b in sch.belt or {} do
+				local name = string.format("Rounds%02d", i)
+				local part = model:FindFirstChild(name, true)
+				local at = rest(name)
+				if part and part:IsA("BasePart") and at then
+					table.insert(f.belt, { sprite = sprite(sch.parts, b.rect, b.z, b.y, 4), part = part, rest = at })
+				end
+			end
 		else
 			local holder = Instance.new("Frame")
 			holder.Name = "Crystal"
@@ -407,9 +429,17 @@ local function update(v: View, t: number, clock: number, camera: Camera)
 		if f.barrel then
 			lay(f, f.barrel, barrel, 0)
 		end
+		for _, b in f.belt do
+			lay(
+				f,
+				b.sprite,
+				ref:ToObjectSpace(b.part.CFrame) * b.rest:Inverse(),
+				if b.part.Transparency >= 1 then 1 else 0
+			)
+		end
 		local firedAt = (v.model:GetAttribute("FiredAt") :: number?) or -math.huge
-		local open = Rules.breechAt(t, firedAt, readyAt, v.gun.breechTimes, Cfg.BreechSwing)
 		local breech = f.breech
+		local open = if breech then Rules.breechAt(t, firedAt, readyAt, v.gun.breechTimes, Cfg.BreechSwing) else 0
 		if breech then
 			local i = math.clamp(math.round(open * (#f.frames - 1)) + 1, 1, #f.frames)
 			if i ~= f.frame then

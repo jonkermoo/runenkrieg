@@ -9,7 +9,9 @@
 -- floats about the crystal's middle).
 -- `guns` by asset: the field gun in each paint (Config/Palette.Artillery.Paint): `still` the carriage, wheels and mount
 -- (one image); `parts` a sheet with the cradle, the barrel (its chamber cut away), the breech block's swing in `frames`
--- (shut to open, one box), the round and its fired case (about the case's head, the nose toward -Z).
+-- (shut to open, one box), the round and its fired case (about the case's head, the nose toward -Z). The machine gun
+-- (mg08) the same way: `still` its tripod, mount and ammo can, the cradle and barrel, and `belt`: each round on the
+-- belt (case, bullet and link; Rounds01 first) where it hangs at rest.
 -- To redraw them: tools/gunart (local tooling, README.md there).
 export type Piece = { rect: { number }, z: { number }, y: { number } }
 export type Scheme = {
@@ -17,9 +19,10 @@ export type Scheme = {
 	parts: number,
 	barrel: Piece,
 	cradle: Piece,
-	breech: { frames: { { number } }, z: { number }, y: { number } },
-	round: Piece,
-	case: Piece,
+	breech: { frames: { { number } }, z: { number }, y: { number } }?,
+	round: Piece?,
+	case: Piece?,
+	belt: { Piece }?,
 }
 export type Shard = { rect: { number }, size: { number }, at: { number } }
 
@@ -101,6 +104,68 @@ local HudArt: {
 					},
 					round = { rect = { 424, 229, 250, 57 }, z = { -1.619, 0.05 }, y = { -0.191, 0.191 } },
 					case = { rect = { 678, 229, 250, 57 }, z = { -1.619, 0.05 }, y = { -0.191, 0.191 } },
+				},
+			},
+			mg08 = {
+				Grey = {
+					still = { image = 112443539287396, z = { -0.77, 1.622 }, y = { -1.16, 1.165 } },
+					parts = 119038825644000,
+					barrel = { rect = { 0, 0, 631, 81 }, z = { -4.286, -0.077 }, y = { 0.978, 1.522 } },
+					cradle = { rect = { 0, 85, 470, 210 }, z = { -0.207, 2.928 }, y = { 0.425, 1.827 } },
+					belt = {
+						{ rect = { 474, 85, 97, 40 }, z = { 0.05, 0.701 }, y = { 1.251, 1.522 } },
+						{ rect = { 575, 85, 97, 41 }, z = { 0.04, 0.691 }, y = { 1.226, 1.498 } },
+						{ rect = { 676, 85, 97, 40 }, z = { 0.017, 0.668 }, y = { 1.127, 1.398 } },
+						{ rect = { 777, 85, 97, 41 }, z = { 0.026, 0.677 }, y = { 1.029, 1.301 } },
+						{ rect = { 878, 85, 97, 41 }, z = { 0.042, 0.693 }, y = { 0.934, 1.206 } },
+						{ rect = { 0, 299, 97, 41 }, z = { 0.062, 0.713 }, y = { 0.84, 1.112 } },
+						{ rect = { 101, 299, 97, 40 }, z = { 0.083, 0.734 }, y = { 0.743, 1.014 } },
+						{ rect = { 202, 299, 97, 41 }, z = { 0.106, 0.756 }, y = { 0.637, 0.909 } },
+						{ rect = { 303, 299, 97, 40 }, z = { 0.132, 0.783 }, y = { 0.516, 0.787 } },
+						{ rect = { 404, 299, 97, 41 }, z = { 0.162, 0.813 }, y = { 0.369, 0.641 } },
+						{ rect = { 505, 299, 97, 40 }, z = { 0.174, 0.825 }, y = { 0.218, 0.489 } },
+						{ rect = { 606, 299, 97, 41 }, z = { 0.175, 0.825 }, y = { 0.065, 0.337 } },
+					},
+				},
+				Olive = {
+					still = { image = 109084465779433, z = { -0.77, 1.622 }, y = { -1.16, 1.165 } },
+					parts = 119038825644000,
+					barrel = { rect = { 0, 0, 631, 81 }, z = { -4.286, -0.077 }, y = { 0.978, 1.522 } },
+					cradle = { rect = { 0, 85, 470, 210 }, z = { -0.207, 2.928 }, y = { 0.425, 1.827 } },
+					belt = {
+						{ rect = { 474, 85, 97, 40 }, z = { 0.05, 0.701 }, y = { 1.251, 1.522 } },
+						{ rect = { 575, 85, 97, 41 }, z = { 0.04, 0.691 }, y = { 1.226, 1.498 } },
+						{ rect = { 676, 85, 97, 40 }, z = { 0.017, 0.668 }, y = { 1.127, 1.398 } },
+						{ rect = { 777, 85, 97, 41 }, z = { 0.026, 0.677 }, y = { 1.029, 1.301 } },
+						{ rect = { 878, 85, 97, 41 }, z = { 0.042, 0.693 }, y = { 0.934, 1.206 } },
+						{ rect = { 0, 299, 97, 41 }, z = { 0.062, 0.713 }, y = { 0.84, 1.112 } },
+						{ rect = { 101, 299, 97, 40 }, z = { 0.083, 0.734 }, y = { 0.743, 1.014 } },
+						{ rect = { 202, 299, 97, 41 }, z = { 0.106, 0.756 }, y = { 0.637, 0.909 } },
+						{ rect = { 303, 299, 97, 40 }, z = { 0.132, 0.783 }, y = { 0.516, 0.787 } },
+						{ rect = { 404, 299, 97, 41 }, z = { 0.162, 0.813 }, y = { 0.369, 0.641 } },
+						{ rect = { 505, 299, 97, 40 }, z = { 0.174, 0.825 }, y = { 0.218, 0.489 } },
+						{ rect = { 606, 299, 97, 41 }, z = { 0.175, 0.825 }, y = { 0.065, 0.337 } },
+					},
+				},
+				Brown = {
+					still = { image = 100665391590861, z = { -0.77, 1.622 }, y = { -1.16, 1.165 } },
+					parts = 119038825644000,
+					barrel = { rect = { 0, 0, 631, 81 }, z = { -4.286, -0.077 }, y = { 0.978, 1.522 } },
+					cradle = { rect = { 0, 85, 470, 210 }, z = { -0.207, 2.928 }, y = { 0.425, 1.827 } },
+					belt = {
+						{ rect = { 474, 85, 97, 40 }, z = { 0.05, 0.701 }, y = { 1.251, 1.522 } },
+						{ rect = { 575, 85, 97, 41 }, z = { 0.04, 0.691 }, y = { 1.226, 1.498 } },
+						{ rect = { 676, 85, 97, 40 }, z = { 0.017, 0.668 }, y = { 1.127, 1.398 } },
+						{ rect = { 777, 85, 97, 41 }, z = { 0.026, 0.677 }, y = { 1.029, 1.301 } },
+						{ rect = { 878, 85, 97, 41 }, z = { 0.042, 0.693 }, y = { 0.934, 1.206 } },
+						{ rect = { 0, 299, 97, 41 }, z = { 0.062, 0.713 }, y = { 0.84, 1.112 } },
+						{ rect = { 101, 299, 97, 40 }, z = { 0.083, 0.734 }, y = { 0.743, 1.014 } },
+						{ rect = { 202, 299, 97, 41 }, z = { 0.106, 0.756 }, y = { 0.637, 0.909 } },
+						{ rect = { 303, 299, 97, 40 }, z = { 0.132, 0.783 }, y = { 0.516, 0.787 } },
+						{ rect = { 404, 299, 97, 41 }, z = { 0.162, 0.813 }, y = { 0.369, 0.641 } },
+						{ rect = { 505, 299, 97, 40 }, z = { 0.174, 0.825 }, y = { 0.218, 0.489 } },
+						{ rect = { 606, 299, 97, 41 }, z = { 0.175, 0.825 }, y = { 0.065, 0.337 } },
+					},
 				},
 			},
 		},
