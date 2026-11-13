@@ -121,10 +121,19 @@ return {
 			local kit = U.Kits[kitName] :: any
 			local r = R.gear("Rifleman", kitName, C.Defs, U.Kits, C.Gear)
 			assert(r.Primary == kit.weapon and W[r.Primary].class == "BoltRifle" and r.Grenade == nil, kitName)
-			-- user 2026-10-27: "the plated helmets should only be on soldiers with semi auto rifles"
-			assert(r.headwear == kit.headwear, "the default helmet")
+			-- user 2026-10-27: "the plated helmets should only be on soldiers with semi auto rifles"; 2026-11-13: the
+			-- default helmet with its chin strap worn up, the Grenadier's with a grenade badge as well
+			assert(r.headwear == kit.headwear .. "_strap", "the default helmet with its strap")
 			local g = R.gear("Grenadier", kitName, C.Defs, U.Kits, C.Gear)
 			assert(g.Primary == kit.weapon and g.Grenade == kit.grenade, kitName)
+			assert(g.headwear == kit.headwear .. "_badge", "the default helmet with the grenade badge")
+			for _, h in { r.headwear :: string, g.headwear :: string } do
+				local e, d = A.Entries[h] :: any, A.Entries[kit.headwear] :: any
+				assert(
+					e.folder == d.folder and e.fit.shell == d.fit.shell and e.fit.brim == d.fit.brim,
+					h .. " is the kit's helmet"
+				)
+			end
 		end
 	end,
 	["auto rifler: the team's semi-auto and alternate helmet; mage: the team's staff"] = function()
@@ -140,8 +149,6 @@ return {
 			-- user 2026-10-27: "goggles on mage, armored on rifle"
 			assert(m.headwear and m.headwear:find("_goggles$"), kitName .. " mage goggles")
 			assert(A.Entries[m.headwear :: string].folder == A.Entries[kit.headwear].folder, kitName .. " team goggles")
-			local g = R.gear("Grenadier", kitName, C.Defs, U.Kits, C.Gear)
-			assert(g.headwear == kit.headwear, kitName .. " grenadier keeps the default helmet")
 		end
 	end,
 	["shotgunner: the team's pump shotgun, the shell-band helmet, no grenades, small builds (trenches, sandbags, wire, Hesco barriers, bridges)"] = function()

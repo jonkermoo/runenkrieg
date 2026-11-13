@@ -81,6 +81,8 @@ local Classes = {
 	List = { "Rifleman", "Grenadier", "Engineer", "AutoRifler", "Shotgunner", "Mage" }, -- (user 2026-11-11)
 	Defs = {
 		-- the kit's own helmet (user 2026-10-27: "the plated helmets should only be on soldiers with semi auto rifles")
+		-- with its chin strap worn up over the rim (user 2026-11-13, the class helmets: bolt-on pieces on the original
+		-- helmets)
 		Rifleman = {
 			name = "Rifleman",
 			blurb = "Bolt-action rifle",
@@ -89,6 +91,7 @@ local Classes = {
 			primary = "weapon",
 			grenades = false,
 			pack = "riflemanPack",
+			helmet = "strapHelmet",
 			builds = SMALL,
 		},
 		Grenadier = {
@@ -99,6 +102,7 @@ local Classes = {
 			primary = "weapon",
 			grenades = true,
 			pack = "grenadierPack",
+			helmet = "badgeHelmet", -- the strap helmet with a brass flaming-grenade badge (user 2026-11-13)
 			builds = SMALL,
 		},
 		-- the team's semi-automatic rifle and its alternate helmet (user: "these will use the alternate helmet")
@@ -163,6 +167,8 @@ local Classes = {
 			semi = "rifle_mondragon",
 			staff = "staff_grey",
 			altHelmet = "helmet_stahl_plate",
+			strapHelmet = "helmet_stahl_strap",
+			badgeHelmet = "helmet_stahl_badge",
 			goggles = "helmet_stahl_goggles",
 			shotgun = "shotgun_m1897",
 			shellHelmet = "helmet_stahl_ammo",
@@ -179,6 +185,8 @@ local Classes = {
 			semi = "rifle_remington8",
 			staff = "staff_olive",
 			altHelmet = "helmet_m33_plate",
+			strapHelmet = "helmet_m33_strap",
+			badgeHelmet = "helmet_m33_badge",
 			goggles = "helmet_m33_goggles",
 			shotgun = "shotgun_m1897",
 			shellHelmet = "helmet_m33_ammo",
@@ -194,7 +202,10 @@ local Classes = {
 			pistol = "pistol_webley",
 			semi = "rifle_winchester1907",
 			staff = "staff_brown",
-			altHelmet = "helmet_adrian_visor",
+			-- the Mk III turtle with the brow plate (user 2026-11-13; was helmet_adrian_visor, the Adrian with a visor)
+			altHelmet = "helmet_turtle_plate",
+			strapHelmet = "helmet_brodie_strap",
+			badgeHelmet = "helmet_brodie_badge",
 			goggles = "helmet_brodie_goggles",
 			shotgun = "shotgun_m1897",
 			shellHelmet = "helmet_brodie_ammo",

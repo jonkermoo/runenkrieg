@@ -760,18 +760,27 @@ local Assets = {
 			},
 		},
 		helmet_stahl_goggles = {
-			id = 96770262181573, -- reworked 2026-10-19 (docs/HATS.md "Rework")
+			id = 111850478853779, -- 2026-11-13: cups closer together, a nose bridge, the Mage's rune plate (was 96770262181573)
 			category = "Teams",
 			folder = "Grey/Helmets",
 			source = "assets/teams/grey/helmets/variants/helmet_stahl_goggles.fbx",
 			generator = "tools/blender/gear/accessory.py",
 			description = "The default helmet_stahl (unchanged) with a leather strap round the dome and big aviator goggles on "
-				.. "the front; flat amber lenses. Grey team.",
+				.. "the front; flat amber lenses. Grey team."
+				.. " Reworked 2026-11-13 (accessory.py --kind goggles, then --kind rune): the two cups sit close together, "
+				.. "joined by an arched leather nose bridge with a buckle, the strap ending under each cup; a small steel plate "
+				.. "with the Mage's rune (ansuz, raised, in the lens colour) on the wearer's left.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 80, 82, 86 },
 				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
-				parts = { Strap = { 46, 39, 34 }, Lens = { 222, 150, 52 }, Lugs = { 204, 172, 92 } },
+				parts = {
+					Strap = { 46, 39, 34 },
+					Lens = { 222, 150, 52 },
+					Lugs = { 204, 172, 92 },
+					Plate = { 58, 60, 64 },
+					Rune = { 222, 150, 52 },
+				},
 				shell = "stahl",
 				center = { 0, 0.672, -0.034 },
 			},
@@ -817,18 +826,27 @@ local Assets = {
 			},
 		},
 		helmet_m33_goggles = {
-			id = 136907445966779, -- narrowed M33 (2026-10-20; docs/HATS.md "New helmets")
+			id = 106775750766216, -- 2026-11-13: cups closer together, a nose bridge, the Mage's rune plate (was 136907445966779)
 			category = "Teams",
 			folder = "Olive/Helmets",
 			source = "assets/teams/olive/helmets/variants/helmet_m33_goggles.fbx",
 			generator = "tools/blender/gear/accessory.py",
 			description = "The default helmet_m33 (unchanged) with a leather strap round the dome and big aviator goggles on "
-				.. "the front; flat blue lenses. Olive team.",
+				.. "the front; flat blue lenses. Olive team."
+				.. " Reworked 2026-11-13 (accessory.py --kind goggles, then --kind rune): the two cups sit close together, "
+				.. "joined by an arched leather nose bridge with a buckle, the strap ending under each cup; a small steel plate "
+				.. "with the Mage's rune (ansuz, raised, in the lens colour) on the wearer's left.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 116, 114, 72 },
 				brim = -0.13, -- raised 0.05 so the eyes show (user 2026-10-13; was -0.18)
-				parts = { Strap = { 106, 72, 46 }, Lens = { 86, 150, 214 }, Lugs = { 176, 146, 80 } },
+				parts = {
+					Strap = { 106, 72, 46 },
+					Lens = { 86, 150, 214 },
+					Lugs = { 176, 146, 80 },
+					Plate = { 90, 90, 56 },
+					Rune = { 86, 150, 214 },
+				},
 				shell = "m33",
 				center = { 0, 0.5397, 0 },
 			},
@@ -891,18 +909,26 @@ local Assets = {
 			},
 		},
 		helmet_brodie_goggles = {
-			id = 73432666409046, -- reworked 2026-10-19 (docs/HATS.md "Rework")
+			id = 126914985166495, -- 2026-11-13: cups closer together, a nose bridge, the Mage's rune plate (was 73432666409046)
 			category = "Teams",
 			folder = "White/Helmets",
 			source = "assets/teams/white/helmets/variants/helmet_brodie_goggles.fbx",
 			generator = "tools/blender/gear/accessory.py",
 			description = "The default helmet_brodie (unchanged) with a leather strap round the dome and big aviator goggles on "
-				.. "the front; flat teal lenses. Brown team.",
+				.. "the front; flat teal lenses. Brown team."
+				.. " Reworked 2026-11-13 (accessory.py --kind goggles, then --kind rune): the two cups sit close together, "
+				.. "joined by an arched leather nose bridge with a buckle, the strap ending under each cup; a small steel plate "
+				.. "with the Mage's rune (ansuz, raised, in the lens colour) on the wearer's left.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 96, 70, 50 }, -- chocolate, as the brown uniform (user 2026-10-21)
 				brim = 0.06,
-				parts = { Strap = { 58, 40, 28 }, Lens = { 72, 176, 150 } }, -- dark leather on the chocolate (user 2026-10-21)
+				parts = {
+					Strap = { 58, 40, 28 },
+					Lens = { 72, 176, 150 },
+					Plate = { 70, 50, 36 },
+					Rune = { 72, 176, 150 },
+				}, -- dark leather on the chocolate (user 2026-10-21)
 				shell = "brodie",
 				center = { 0, 0.3781, 0.0023 },
 			},
@@ -942,6 +968,217 @@ local Assets = {
 			},
 		},
 		-- New helmets (user 2026-10-20: one more per team, "different helmet, different armoring"; docs/HATS.md "New helmets")
+		-- The class helmets (user 2026-11-13: "just adding alterations to the original helmets", bolt-on pieces only):
+		-- the Rifleman's default helmet with its chin strap worn up over the front rim, the Grenadier's with a brass
+		-- flaming-grenade badge as well (accessory.py --kind strap / badge, on the default helmet unchanged, so each
+		-- shell's helmet-on hairs fit), their ear-hole versions (slit.py --base), and the brown team's Auto rifler helmet,
+		-- the Mk III turtle with the bolted brow plate (was the Adrian with a visor).
+		helmet_stahl_strap = {
+			id = 76673554016124, -- 2026-11-13
+			category = "Teams",
+			folder = "Grey/Helmets",
+			source = "assets/teams/grey/helmets/variants/helmet_stahl_strap.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "The default helmet_stahl (unchanged) with a leather chin strap worn up over the front rim, a short tab "
+				.. "down to the rim each side and a buckle on the wearer's left. The Rifleman's. Grey team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 80, 82, 86 },
+				brim = -0.27,
+				parts = { Strap = { 46, 39, 34 }, Lugs = { 204, 172, 92 } },
+				shell = "stahl",
+				center = { 0, 0.672, -0.034 },
+			},
+		},
+		helmet_stahl_badge = {
+			id = 125852716031424, -- 2026-11-13
+			category = "Teams",
+			folder = "Grey/Helmets",
+			source = "assets/teams/grey/helmets/variants/helmet_stahl_badge.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "helmet_stahl_strap with one flat brass flaming-grenade badge on the front of the dome (a round bomb, "
+				.. "three flames). The Grenadier's. Grey team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 80, 82, 86 },
+				brim = -0.27,
+				parts = { Strap = { 46, 39, 34 }, Badge = { 204, 172, 92 }, Lugs = { 204, 172, 92 } },
+				shell = "stahl",
+				center = { 0, 0.672, -0.034 },
+			},
+		},
+		helmet_stahl_strap_katzling = {
+			id = 94495563898072, -- 2026-11-13
+			category = "Teams",
+			folder = "Grey/Helmets",
+			source = "assets/teams/grey/helmets/variants/helmet_stahl_strap_katzling.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_stahl_strap (unchanged) with the Katzling ear holes and rolled rings of helmet_stahl_katzling "
+				.. "(--tufts --base helmet_stahl_strap). Worn by Katzlings (Rules/Looks.helmetEntry). Grey team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 80, 82, 86 },
+				brim = -0.27,
+				parts = { Strap = { 46, 39, 34 }, Lugs = { 204, 172, 92 } },
+				shell = "stahl",
+				center = { 0, 0.6834, -0.034 },
+			},
+		},
+		helmet_stahl_badge_katzling = {
+			id = 73797180182840, -- 2026-11-13
+			category = "Teams",
+			folder = "Grey/Helmets",
+			source = "assets/teams/grey/helmets/variants/helmet_stahl_badge_katzling.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_stahl_badge (unchanged) with the Katzling ear holes and rolled rings of helmet_stahl_katzling "
+				.. "(--tufts --base helmet_stahl_badge). Worn by Katzlings (Rules/Looks.helmetEntry). Grey team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 80, 82, 86 },
+				brim = -0.27,
+				parts = { Strap = { 46, 39, 34 }, Badge = { 204, 172, 92 }, Lugs = { 204, 172, 92 } },
+				shell = "stahl",
+				center = { 0, 0.6834, -0.034 },
+			},
+		},
+		helmet_m33_strap = {
+			id = 85230297345255, -- 2026-11-13
+			category = "Teams",
+			folder = "Olive/Helmets",
+			source = "assets/teams/olive/helmets/variants/helmet_m33_strap.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "The default helmet_m33 (unchanged) with a leather chin strap worn up over the front rim, a short tab "
+				.. "down to the rim each side and a buckle on the wearer's left. The Rifleman's. Olive team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 116, 114, 72 },
+				brim = -0.13,
+				parts = { Strap = { 106, 72, 46 }, Lugs = { 176, 146, 80 } },
+				shell = "m33",
+				center = { 0, 0.5397, 0 },
+			},
+		},
+		helmet_m33_badge = {
+			id = 83434532429955, -- 2026-11-13
+			category = "Teams",
+			folder = "Olive/Helmets",
+			source = "assets/teams/olive/helmets/variants/helmet_m33_badge.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "helmet_m33_strap with one flat brass flaming-grenade badge on the front of the dome (a round bomb, "
+				.. "three flames). The Grenadier's. Olive team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 116, 114, 72 },
+				brim = -0.13,
+				parts = { Strap = { 106, 72, 46 }, Badge = { 176, 146, 80 }, Lugs = { 176, 146, 80 } },
+				shell = "m33",
+				center = { 0, 0.5397, 0 },
+			},
+		},
+		helmet_brodie_strap = {
+			id = 131452453544082, -- 2026-11-13
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_brodie_strap.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "The default helmet_brodie (unchanged) with a leather chin strap worn up over the front rim, a short tab "
+				.. "down to the rim each side and a buckle on the wearer's left. The Rifleman's. Brown team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 96, 70, 50 },
+				brim = 0.06,
+				parts = { Strap = { 58, 40, 28 } },
+				shell = "brodie",
+				center = { 0, 0.3781, 0.0023 },
+			},
+		},
+		helmet_brodie_badge = {
+			id = 138618854573505, -- 2026-11-13
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_brodie_badge.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "helmet_brodie_strap with one flat brass flaming-grenade badge on the front of the dome (a round bomb, "
+				.. "three flames). The Grenadier's. Brown team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 96, 70, 50 },
+				brim = 0.06,
+				parts = { Strap = { 58, 40, 28 }, Badge = { 168, 136, 74 } },
+				shell = "brodie",
+				center = { 0, 0.3781, 0.0023 },
+			},
+		},
+		helmet_brodie_strap_fennek = {
+			id = 114693700746335, -- 2026-11-13
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_brodie_strap_fennek.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_brodie_strap (unchanged) with the Fennek ear holes and rolled rings of helmet_brodie_fennek "
+				.. "(--shape hull --tufts --base helmet_brodie_strap). Worn by Fenneks (Rules/Looks.helmetEntry). Brown team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 96, 70, 50 },
+				brim = 0.06,
+				parts = { Strap = { 58, 40, 28 } },
+				shell = "brodie",
+				center = { 0, 0.3902, 0.0023 },
+			},
+		},
+		helmet_brodie_badge_fennek = {
+			id = 83523326657055, -- 2026-11-13
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_brodie_badge_fennek.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_brodie_badge (unchanged) with the Fennek ear holes and rolled rings of helmet_brodie_fennek "
+				.. "(--shape hull --tufts --base helmet_brodie_badge). Worn by Fenneks (Rules/Looks.helmetEntry). Brown team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 96, 70, 50 },
+				brim = 0.06,
+				parts = { Strap = { 58, 40, 28 }, Badge = { 168, 136, 74 } },
+				shell = "brodie",
+				center = { 0, 0.3902, 0.0023 },
+			},
+		},
+		helmet_turtle_plate = {
+			id = 88462024438270, -- 2026-11-13
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_turtle_plate.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "The Mk III turtle helmet (helmet.py --style turtle: a deeper bowl than the Brodie, a narrow brim sloping down "
+				.. "all round, the front raised, a crown rivet, hollow, 12 sides) with the bolted brow plate of the other teams' "
+				.. "Auto riflers (accessory.py --kind plate). The brown team's Auto rifler helmet (500 tris). Sized as the Adrian, "
+				.. "whose helmet-on hairs it wears.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 96, 70, 50 },
+				brim = 0,
+				parts = { Plate = { 176, 116, 58 }, Bolts = { 168, 136, 74 } },
+				shell = "adrian",
+				center = { 0, 0.5536, 0 },
+			},
+		},
+		helmet_turtle_plate_fennek = {
+			id = 85559886940952, -- 2026-11-13
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_turtle_plate_fennek.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_turtle_plate (unchanged) with the Fennek ear holes and rolled rings (--shape hull --tufts --base "
+				.. "helmet_turtle_plate). Worn by Fenneks (Rules/Looks.helmetEntry). Brown team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 96, 70, 50 },
+				brim = 0,
+				parts = { Plate = { 176, 116, 58 }, Bolts = { 168, 136, 74 } },
+				shell = "adrian",
+				center = { 0, 0.5536, 0 },
+			},
+		},
 		helmet_stahl_plate = {
 			id = 132394662760568,
 			category = "Teams",
@@ -1013,18 +1250,27 @@ local Assets = {
 			},
 		},
 		helmet_stahl_goggles_katzling = {
-			id = 102146492317293, -- 2026-10-27
+			id = 74091477692807, -- 2026-11-13: cups closer together, a nose bridge, the Mage's rune plate (was 102146492317293)
 			category = "Teams",
 			folder = "Grey/Helmets",
 			source = "assets/teams/grey/helmets/variants/helmet_stahl_goggles_katzling.fbx",
 			generator = "tools/blender/gear/slit.py",
 			description = "helmet_stahl_goggles (unchanged) with the Katzling ear holes and rolled rings of helmet_stahl_katzling "
-				.. "(--tufts --base helmet_stahl_goggles). Worn by Katzlings (Rules/Looks.helmetEntry). Grey team (1350 tris).",
+				.. "(--tufts --base helmet_stahl_goggles). Worn by Katzlings (Rules/Looks.helmetEntry). Grey team (1350 tris)."
+				.. " Reworked 2026-11-13 (accessory.py --kind goggles, then --kind rune): the two cups sit close together, "
+				.. "joined by an arched leather nose bridge with a buckle, the strap ending under each cup; a small steel plate "
+				.. "with the Mage's rune (ansuz, raised, in the lens colour) on the wearer's left.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 80, 82, 86 },
 				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
-				parts = { Strap = { 46, 39, 34 }, Lens = { 222, 150, 52 }, Lugs = { 204, 172, 92 } },
+				parts = {
+					Strap = { 46, 39, 34 },
+					Lens = { 222, 150, 52 },
+					Lugs = { 204, 172, 92 },
+					Plate = { 58, 60, 64 },
+					Rune = { 222, 150, 52 },
+				},
 				shell = "stahl",
 				center = { 0, 0.6834, -0.034 },
 			},
@@ -1156,18 +1402,26 @@ local Assets = {
 			},
 		},
 		helmet_brodie_goggles_fennek = {
-			id = 81298979861398, -- 2026-10-27
+			id = 123738308267625, -- 2026-11-13: cups closer together, a nose bridge, the Mage's rune plate (was 81298979861398)
 			category = "Teams",
 			folder = "White/Helmets",
 			source = "assets/teams/white/helmets/variants/helmet_brodie_goggles_fennek.fbx",
 			generator = "tools/blender/gear/slit.py",
 			description = "helmet_brodie_goggles (unchanged) with the Fennek ear holes and rolled rings of helmet_brodie_fennek "
-				.. "(--shape hull --tufts --base helmet_brodie_goggles). Worn by Fenneks (Rules/Looks.helmetEntry). Brown team (1056 tris).",
+				.. "(--shape hull --tufts --base helmet_brodie_goggles). Worn by Fenneks (Rules/Looks.helmetEntry). Brown team (1056 tris)."
+				.. " Reworked 2026-11-13 (accessory.py --kind goggles, then --kind rune): the two cups sit close together, "
+				.. "joined by an arched leather nose bridge with a buckle, the strap ending under each cup; a small steel plate "
+				.. "with the Mage's rune (ansuz, raised, in the lens colour) on the wearer's left.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
 				brim = 0.06,
-				parts = { Strap = { 58, 40, 28 }, Lens = { 72, 176, 150 } }, -- dark leather on the chocolate (user 2026-10-21)
+				parts = {
+					Strap = { 58, 40, 28 },
+					Lens = { 72, 176, 150 },
+					Plate = { 70, 50, 36 },
+					Rune = { 72, 176, 150 },
+				}, -- dark leather on the chocolate (user 2026-10-21)
 				shell = "brodie",
 				center = { 0, 0.3902, 0.0023 },
 			},

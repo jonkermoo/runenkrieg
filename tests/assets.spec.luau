@@ -57,12 +57,16 @@ return {
 			if e.fit and e.fit.attachment == "HatAttachment" then
 				assert(type(e.fit.shell) == "string", `{name}: no fit.shell`)
 				assert(e.fit.center and #e.fit.center == 3, `{name}: fit.center needs 3 numbers`)
-				-- a helmet's or a soft cap's (fit.soft: the Engineer's caps) own shell
+				-- a helmet's or a soft cap's (fit.soft: the Engineer's caps) own shell; the turtle wears the Adrian's
+				-- helmet-on hairs (2026-11-13: its shell holds the Adrian's all round, its rim within 0.03 of it)
 				local kind = if e.fit.soft then "cap_" else "helmet_"
-				assert(
-					string.find(name, kind .. e.fit.shell, 1, true) == 1,
-					`{name}: shell {e.fit.shell} isn't its own`
-				)
+				local own = if string.find(name, "helmet_turtle", 1, true) == 1
+					then "helmet_turtle"
+					else kind .. e.fit.shell
+				assert(string.find(name, own, 1, true) == 1, `{name}: shell {e.fit.shell} isn't its own`)
+				if own == "helmet_turtle" then
+					assert(e.fit.shell == "adrian", `{name}: the turtle wears the Adrian's hairs`)
+				end
 			end
 		end
 	end,
