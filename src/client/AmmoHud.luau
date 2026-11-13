@@ -109,7 +109,7 @@ end
 
 -- One drawn piece (a round, a case, the bolt, the well, a clip): flat shapes on a frame laid along the piece's own Z
 -- from z0 to z1 (studs about its origin; the origin of a round is its case head, its nose toward -Z), h studs across.
-type Shape = { obj: Frame, color: Color3, see: number, stroke: UIStroke? }
+type Shape = { obj: GuiObject, color: Color3, see: number, stroke: UIStroke? }
 type Piece = {
 	frame: Frame,
 	proj: Proj,
@@ -156,12 +156,71 @@ local function shape(p: Piece, za: number, zb: number, ya: number, yb: number, c
 	return s
 end
 
+-- A drawn sprite from the parts sheet (Config/GunArt.parts: `rect` on the sheet, `bleed` px of outline round its
+-- content, `slice` a nine-slice's middle) filling `box`; its content fills the box, the outline spills past it.
+local function sprite(name: string, box: GuiObject, sliceScale: number?): ImageLabel
+	local P = GunArt.parts
+	local sp = P.sprites[name]
+	local r, b = sp.rect, sp.bleed
+	local img = Instance.new("ImageLabel")
+	img.Name = name
+	img.BackgroundTransparency = 1
+	img.Image = `rbxassetid://{P.image}`
+	img.ImageRectOffset = Vector2.new(r[1], r[2])
+	img.ImageRectSize = Vector2.new(r[3], r[4])
+	img.AnchorPoint = Vector2.new(0.5, 0.5)
+	img.Position = UDim2.fromScale(0.5, 0.5)
+	img.Size = UDim2.fromScale(r[3] / (r[3] - 2 * b), r[4] / (r[4] - 2 * b))
+	if sp.slice then
+		local c = sp.slice
+		img.ScaleType = Enum.ScaleType.Slice
+		img.SliceCenter = Rect.new(c[1], c[2], c[3], c[4])
+		img.SliceScale = sliceScale or 1
+	end
+	img.Parent = box
+	return img
+end
+
+-- a sprite over [za, zb] along the piece and [ya, yb] across it (studs about its origin), as `shape` lays a flat one
+local function drawn(
+	p: Piece,
+	name: string,
+	za: number,
+	zb: number,
+	ya: number,
+	yb: number,
+	sliceScale: number?
+): ImageLabel
+	local len, h = p.z1 - p.z0, p.h
+	local box = Instance.new("Frame")
+	box.Name = `S{#p.shapes + 1}`
+	box.BackgroundTransparency = 1
+	box.BorderSizePixel = 0
+	box.Position = UDim2.fromScale((p.z1 - zb) / len, (h / 2 - yb) / h)
+	box.Size = UDim2.fromScale((zb - za) / len, (yb - ya) / h)
+	local img = sprite(name, box, sliceScale)
+	img.Name = "Image"
+	box.Parent = p.frame
+	table.insert(p.shapes, { obj = box, color = Color3.new(1, 1, 1), see = 0, stroke = nil })
+	return img
+end
+
+local function imageOf(g: GuiObject): ImageLabel?
+	local i = g:FindFirstChild("Image")
+	return if i and i:IsA("ImageLabel") then i else nil
+end
+
 local function fade(p: Piece, t: number)
 	if p.alpha == t then
 		return
 	end
 	p.alpha = t
 	for _, s in p.shapes do
+		local img = imageOf(s.obj)
+		if img then
+			img.ImageTransparency = t
+			continue
+		end
 		s.obj.BackgroundTransparency = 1 - (1 - s.see) * (1 - t)
 		if s.stroke then
 			s.stroke.Transparency = t
@@ -176,6 +235,11 @@ local function tint(p: Piece, k: number)
 	end
 	p.tint = k
 	for _, s in p.shapes do
+		local img = imageOf(s.obj)
+		if img then
+			img.ImageColor3 = s.color:Lerp(Color3.new(), k)
+			continue
+		end
 		s.obj.BackgroundColor3 = s.color:Lerp(Color3.new(), k)
 	end
 end
@@ -209,7 +273,7 @@ local function copy(p: Piece): Piece
 		alpha = p.alpha,
 	}
 	for _, s in p.shapes do
-		local o = f:FindFirstChild(s.obj.Name) :: Frame
+		local o = f:FindFirstChild(s.obj.Name) :: GuiObject
 		table.insert(q.shapes, { obj = o, color = s.color, see = s.see, stroke = o:FindFirstChildOfClass("UIStroke") })
 	end
 	return q
@@ -231,10 +295,10 @@ end
 -- the drawing order, back to front
 local Z = { body = 1, well = 2, clip = 3, far = 4, round = 5, chamber = 6, bolt = 7, handle = 8, flying = 9 }
 
--- How a round is drawn: a cartridge (case, rim, bullet) or a pump gun's shell (hull, brass head); length, width, the
--- case's share of the length, colours.
+-- How a round is drawn: a cartridge or a pump gun's shell, a drawn sprite (`kind`) stretched over its length and width.
 type Look = {
 	shell: boolean,
+	kind: string, -- its sprite (Config/GunArt.parts: "rifle", "pistol", "shell")
 	L: number,
 	d: number,
 	case: number,
@@ -244,26 +308,9 @@ type Look = {
 }
 
 local function cartridge(pr: Proj, parent: Instance, look: Look, spent: boolean, zindex: number): Piece
-	local Fl = G.flat
 	local L, d = look.L, look.d
 	local p = newPiece(pr, parent, -L, 0, d, zindex)
-	local caseColor = if spent then look.spent else look.caseColor
-	local rimColor = caseColor:Lerp(Color3.new(), 0.25)
-	if look.shell then
-		local head = L * Fl.shellHead
-		shape(p, -L, -head, -d * Fl.body / 2, d * Fl.body / 2, if spent then look.spent else look.bullet)
-		shape(p, -head, 0, -d * Fl.body / 2, d * Fl.body / 2, look.caseColor, { z = 2 })
-		shape(p, -d * Fl.rim, 0, -d / 2, d / 2, rimColor, { z = 3 })
-		return p
-	end
-	local caseLen = L * look.case
-	if not spent then
-		-- (the bullet's back half tucked under the case's mouth: only its rounded nose shows)
-		local tuck = d * Fl.nose
-		shape(p, -L, -caseLen + tuck, -d * Fl.nose / 2, d * Fl.nose / 2, look.bullet, { round = true })
-	end
-	shape(p, -caseLen, -d * Fl.rim, -d * Fl.body / 2, d * Fl.body / 2, caseColor, { z = 2 })
-	shape(p, -d * Fl.rim, 0, -d / 2, d / 2, rimColor, { z = 3 })
+	drawn(p, if spent then look.kind .. "_spent" else look.kind, -L, 0, -d / 2, d / 2)
 	return p
 end
 
@@ -282,6 +329,7 @@ type View = {
 	dia: number, -- a round's width (studs)
 	-- the bolt
 	boltPiece: Piece, -- about its face
+	boltArt: { img: ImageLabel, frames: { { number } }, turn: number, frame: number }?, -- the gun's own bolt, drawn
 	handle: { stem: Frame, knob: Frame, pivot: Vector3, at: Vector3, width: number, knobSize: number }?, -- (rest)
 	boltRestCF: CFrame,
 	bolt: BasePart?,
@@ -370,6 +418,7 @@ local function build(tool: Tool, weapon: string, gun: BasePart, canvas: Frame): 
 		layer = layer,
 		dia = 0,
 		handle = nil,
+		boltArt = nil,
 		boltRestCF = CFrame.identity,
 		bolt = nil,
 		boltRest = 0,
@@ -465,6 +514,7 @@ local function build(tool: Tool, weapon: string, gun: BasePart, canvas: Frame): 
 	v.length, v.dia = L, d
 	local look: Look = {
 		shell = v.tube,
+		kind = if v.tube then "shell" else (GunArt.guns[weapon] and GunArt.guns[weapon].round or "rifle"),
 		L = L,
 		d = d,
 		case = caseShare,
@@ -503,24 +553,48 @@ local function build(tool: Tool, weapon: string, gun: BasePart, canvas: Frame): 
 	local bodyLen = full * B.body
 	local radius = d * B.radius
 	local boltColor, steel = HudKit.rgb("bolt"), HudKit.rgb("steel")
-	local bp = newPiece(pr, layer, 0, full, radius * 2 * math.max(B.lug, 1), Z.bolt)
-	shape(bp, 0, bodyLen, -radius, radius, boltColor)
-	shape(bp, bodyLen, full, -radius * B.cock, radius * B.cock, steel)
-	shape(bp, 0, d * B.lugLength, -radius * B.lug, radius * B.lug, steel, { z = 2 })
-	-- (a flat highlight along its top)
-	shape(
-		bp,
-		d * B.lugLength,
-		bodyLen * 0.94,
-		radius * 0.3,
-		radius * 0.62,
-		boltColor:Lerp(Color3.new(1, 1, 1), 0.35),
-		{ line = false, z = 2 }
-	)
+	local art = GunArt.guns[weapon]
+	local boltArt = art and art.bolt
+	local bp: Piece
+	if boltArt then
+		-- the gun's own bolt, drawn from its mesh (Config/GunArt: its box at rest in gun space, a frame per step of its
+		-- turn): laid about the chamber, slid back with the bolt, the frame the one nearest its turn
+		local bz, by = boltArt.z, boltArt.y
+		local half = math.max(math.abs(by[1] - ch.Y), math.abs(by[2] - ch.Y))
+		bp = newPiece(pr, layer, bz[1] - ch.Z, bz[2] - ch.Z, 2 * half, Z.bolt)
+		local img = Instance.new("ImageLabel")
+		img.Name = "Image"
+		img.BackgroundTransparency = 1
+		img.Image = `rbxassetid://{art.image}`
+		img.Size = UDim2.fromScale(1, 1)
+		local box = Instance.new("Frame")
+		box.Name = "S1"
+		box.BackgroundTransparency = 1
+		box.Position = UDim2.fromScale(0, (half - (by[2] - ch.Y)) / (2 * half))
+		box.Size = UDim2.fromScale(1, (by[2] - by[1]) / (2 * half))
+		img.Parent = box
+		box.Parent = bp.frame
+		table.insert(bp.shapes, { obj = box, color = Color3.new(1, 1, 1), see = 0, stroke = nil })
+		v.boltArt = { img = img, frames = boltArt.frames, turn = math.rad(boltArt.turn), frame = 0 }
+	else
+		bp = newPiece(pr, layer, 0, full, radius * 2 * math.max(B.lug, 1), Z.bolt)
+		shape(bp, 0, bodyLen, -radius, radius, boltColor)
+		shape(bp, bodyLen, full, -radius * B.cock, radius * B.cock, steel)
+		shape(bp, 0, d * B.lugLength, -radius * B.lug, radius * B.lug, steel, { z = 2 })
+		shape(
+			bp,
+			d * B.lugLength,
+			bodyLen * 0.94,
+			radius * 0.3,
+			radius * 0.62,
+			boltColor:Lerp(Color3.new(1, 1, 1), 0.35),
+			{ line = false, z = 2 }
+		)
+	end
 	v.boltPiece = bp
-	-- its handle, out to the gun's own knob (gun space at rest), on the bolt's axis at the knob
+	-- its handle, out to the gun's own knob (gun space at rest), on the bolt's axis at the knob (a drawn bolt has its own)
 	local knob = w.reload and (w.reload :: any).knob
-	if bolt and knob and math.abs(knob[1]) > B.side then
+	if bolt and knob and math.abs(knob[1]) > B.side and not boltArt then
 		local kat = Vector3.new(knob[1] * s[1], knob[2] * s[2], knob[3] * s[3])
 		local stem = Instance.new("Frame")
 		stem.Name = "Handle"
@@ -554,30 +628,33 @@ local function build(tool: Tool, weapon: string, gun: BasePart, canvas: Frame): 
 	local front = ch.Z - L * Bd.ahead
 	local back = rear + v.travel + d * Bd.behind
 	local hr = d * Bd.receiver / 2
-	local art = GunArt[weapon]
 	local still: { { piece: Piece, at: CFrame } } = {} -- (placed once framed)
 	local box: Box
+	local winLow: number? = nil -- the window's lower edge (gun space): the well opens into it
 	if art then
 		local img = Instance.new("ImageLabel")
 		img.Name = "Body"
 		img.AnchorPoint = Vector2.new(0.5, 0.5)
 		img.BackgroundTransparency = 1
 		img.Image = `rbxassetid://{art.image}`
+		img.ImageRectOffset = Vector2.new(art.body[1], art.body[2])
+		img.ImageRectSize = Vector2.new(art.body[3], art.body[4])
 		img.ZIndex = Z.body
 		img.Parent = layer
 		v.art = img
 		box = { lo = Vector3.new(0, art.y[1], art.z[1]), hi = Vector3.new(0, art.y[2], art.z[2]) }
 		local A = G.art
-		local za, zb = -L - d * A.ahead, rear + v.travel + d * A.behind - ch.Z
+		-- (as far back as the closed bolt's rear: drawn back, the bolt rides out over the wrist)
+		local za, zb = -L - d * A.ahead, rear + d * A.behind - ch.Z
 		local hw = radius * A.window
 		local win = newPiece(pr, layer, za, zb, 2 * hw, Z.well)
-		local pane = shape(win, za, zb, -hw, hw, HudKit.rgb("well"), { see = A.see, line = false })
-		roundCorners(pane)
-		local rim = Instance.new("UIStroke")
-		rim.Color = HudKit.rgb("brass")
-		rim.Transparency = A.rim
-		rim.Thickness = 1
-		rim.Parent = pane
+		drawn(win, "recess", za, zb, -hw, hw, A.slice)
+		winLow = ch.Y - hw
+		if boltArt then
+			-- (framed with the drawn bolt fully back)
+			box.lo = box.lo:Min(Vector3.new(0, boltArt.y[1], boltArt.z[1]))
+			box.hi = box.hi:Max(Vector3.new(0, boltArt.y[2], boltArt.z[2] + v.travel))
+		end
 		table.insert(still, { piece = win, at = CFrame.new(ch) })
 	else
 		local body = newPiece(pr, layer, front - ch.Z, back - ch.Z, 2 * hr, Z.body)
@@ -668,16 +745,19 @@ local function build(tool: Tool, weapon: string, gun: BasePart, canvas: Frame): 
 	local moves = w.ammo.clip == "Box"
 	if wellLo and wellHi then
 		local lo, hi = wellLo :: Vector3, wellHi :: Vector3
+		if winLow and not v.tube and hi.Y > winLow then
+			-- (its sides stop at the window's lower edge)
+			hi = Vector3.new(hi.X, math.max(winLow + d * G.art.join, lo.Y + d), hi.Z)
+		end
 		local t = d * Wl.wall
 		local mid = (lo + hi) / 2
 		local span = hi - lo
 		local hz, hy = span.Z / 2, span.Y / 2
-		local wp = newPiece(pr, layer, -hz - t, hz + t, span.Y + 2 * t, Z.well)
-		local edge = HudKit.rgb("wellEdge")
-		shape(wp, -hz, hz, -hy, hy, HudKit.rgb("well"), { see = Wl.see, line = false })
-		shape(wp, -hz - t, -hz, -hy - t, hy, edge)
-		shape(wp, hz, hz + t, -hy - t, hy, edge)
-		shape(wp, -hz - t, hz + t, -hy - t, -hy, edge)
+		local wp = newPiece(pr, layer, -hz - t, hz + t, span.Y + 2 * t, Z.well + 1)
+		-- (a recess cut into the gun, open into the bolt's window over it; a pump gun's tube a closed one; a detachable
+		-- box its own steel walls)
+		local name = if v.tube then "recess" elseif moves then "box_open" else "recess_open"
+		drawn(wp, name, -hz - t, hz + t, -hy - t, hy, G.art.slice)
 		local atRest = CFrame.new(mid)
 		table.insert(still, { piece = wp, at = atRest })
 		if moves then
@@ -689,7 +769,7 @@ local function build(tool: Tool, weapon: string, gun: BasePart, canvas: Frame): 
 	if w.ammo.clip == "Enbloc" and wellLo then
 		local hgt = v.pitch * (cap - 1) + d
 		local plate = newPiece(pr, layer, -L / 2, L / 2, hgt, Z.clip)
-		shape(plate, -L / 2, L / 2, -hgt / 2, hgt / 2, HudKit.rgb("clip"), { see = 0.25 })
+		drawn(plate, "plate", -L / 2, L / 2, -hgt / 2, hgt / 2, G.art.slice)
 		local top = v.slot(1, 1, 1)
 		table.insert(
 			v.mag,
@@ -704,7 +784,7 @@ local function build(tool: Tool, weapon: string, gun: BasePart, canvas: Frame): 
 		local S = G.strip
 		local th = d * S.thick
 		local strip = newPiece(pr, layer, -th / 2, th / 2, 1, Z.clip)
-		shape(strip, -th / 2, th / 2, -0.5, 0.5, HudKit.rgb("clip"))
+		drawn(strip, "strip", -th / 2, th / 2, -0.5, 0.5)
 		v.strip = strip -- (its rounds come down from over the canvas's top: they aren't framed)
 	end
 	-- the framing: the box side on, fitted to the canvas
@@ -720,6 +800,12 @@ local function build(tool: Tool, weapon: string, gun: BasePart, canvas: Frame): 
 	if art and v.art then
 		local x, y = at(pr, Vector3.new(0, (art.y[1] + art.y[2]) / 2, (art.z[1] + art.z[2]) / 2))
 		put(pr, v.art, x, y, (art.z[2] - art.z[1]) * pr.k, (art.y[2] - art.y[1]) * pr.k, 0)
+	end
+	if v.boltArt then
+		local f = v.boltArt.frames[1]
+		v.boltArt.img.ImageRectOffset = Vector2.new(f[1], f[2])
+		v.boltArt.img.ImageRectSize = Vector2.new(f[3], f[4])
+		v.boltArt.frame = 1
 	end
 	return v :: View
 end
@@ -786,6 +872,19 @@ local function update(v: View, state: F.State, gun: F.Gun, now: number, clock: n
 	local open = d > v.travel * G.openFrom
 	local face = v.chamber.Z + d
 	place(v.boltPiece, v.chamber * CFrame.new(0, 0, d))
+	local ba = v.boltArt
+	if ba and ba.turn > 0 then
+		-- (the frame nearest the bolt's turn about its axis)
+		local right = (boltNow * v.boltRestCF:Inverse()).RightVector
+		local turned = math.abs(math.atan2(right.Y, right.X))
+		local i = math.clamp(math.round(turned / ba.turn * (#ba.frames - 1)) + 1, 1, #ba.frames)
+		if i ~= ba.frame then
+			ba.frame = i
+			local f = ba.frames[i]
+			ba.img.ImageRectOffset = Vector2.new(f[1], f[2])
+			ba.img.ImageRectSize = Vector2.new(f[3], f[4])
+		end
+	end
 	local h = v.handle
 	if h then
 		-- (moved exactly as the gun's bolt: turned about its axis, slid back; side on, the knob swings up)
@@ -1080,16 +1179,14 @@ type Drum = {
 }
 local drum: Drum? = nil
 
-local function circle(parent: Instance, color: Color3, zindex: number, outlined: boolean): Frame
+-- a round drawn sprite (Config/GunArt.parts), centred where it is put
+local function circle(parent: Instance, name: string, zindex: number): Frame
 	local f = Instance.new("Frame")
 	f.AnchorPoint = Vector2.new(0.5, 0.5)
 	f.BorderSizePixel = 0
-	f.BackgroundColor3 = color
+	f.BackgroundTransparency = 1
 	f.ZIndex = zindex
-	roundCorners(f)
-	if outlined then
-		ink(f)
-	end
+	sprite(name, f).ZIndex = zindex
 	f.Parent = parent
 	return f
 end
@@ -1125,7 +1222,7 @@ local function buildDrum(tool: Tool, weapon: string, gun: BasePart, canvas: Fram
 	local k = chh * D.fill / (2 * radius)
 	-- the cylinder from behind at the right; the gun's own drawing (Config/GunArt) fitted in the room left of it
 	local cx = 1 - (radius * k + chh * (1 - D.fill) / 2) / cw
-	local art = GunArt[weapon]
+	local art = GunArt.guns[weapon]
 	if art then
 		local room = cw * cx - radius * k - D.gap * chh
 		local aw, ah = art.z[2] - art.z[1], art.y[2] - art.y[1]
@@ -1134,6 +1231,8 @@ local function buildDrum(tool: Tool, weapon: string, gun: BasePart, canvas: Fram
 		img.Name = "Body"
 		img.BackgroundTransparency = 1
 		img.Image = `rbxassetid://{art.image}`
+		img.ImageRectOffset = Vector2.new(art.body[1], art.body[2])
+		img.ImageRectSize = Vector2.new(art.body[3], art.body[4])
 		img.AnchorPoint = Vector2.new(0.5, 0.5)
 		img.Position = UDim2.fromScale(room / 2 / cw, 0.5)
 		img.Size = UDim2.fromScale(aw * s / cw, ah * s / chh)
@@ -1142,24 +1241,19 @@ local function buildDrum(tool: Tool, weapon: string, gun: BasePart, canvas: Fram
 	else
 		cx = 0.5
 	end
-	local disc = circle(group, HudKit.rgb("bolt"), 1, true)
+	local disc = circle(group, "drum", 1)
 	disc.Position = UDim2.fromScale(cx, 0.5)
 	disc.Size = UDim2.fromScale(2 * radius * k / cw, 2 * radius * k / chh)
-	local hub = circle(group, HudKit.rgb("steel"), 2, true)
+	local hub = circle(group, "hub", 2)
 	hub.Position = UDim2.fromScale(cx, 0.5)
 	hub.Size = UDim2.fromScale(dia * 0.7 * k / cw, dia * 0.7 * k / chh)
-	local parts = w.parts :: any
-	local brass = rgb(parts.Rounds or { 196, 160, 84 })
 	local chambers = {}
 	for _, src in sources do
-		local hole = circle(group, HudKit.rgb("chamberHole"), 2, true)
+		local hole = circle(group, "hole", 2)
 		hole.Size = UDim2.fromScale(dia * D.hole * k / cw, dia * D.hole * k / chh)
-		local head = circle(hole, brass, 3, true)
+		local head = circle(hole, "head", 3)
 		head.Position = UDim2.fromScale(0.5, 0.5)
 		head.Size = UDim2.fromScale(0.86, 0.86)
-		local primer = circle(head, brass:Lerp(Color3.new(), 0.3), 4, false)
-		primer.Position = UDim2.fromScale(0.5, 0.5)
-		primer.Size = UDim2.fromScale(D.primer, D.primer)
 		table.insert(chambers, { source = src, hole = hole, head = head })
 	end
 	return { tool = tool, gun = gun, cyl = cyl, group = group, chambers = chambers, k = k, w = cw, h = chh, cx = cx }
@@ -1177,7 +1271,7 @@ end
 
 -- The round count's row (user 2026-11-12, the gun card): a cartridge per round the gun holds (its magazine and its
 -- chamber), the ones fired hollow at the right; a pump gun's are shells.
-type Pip = { parts: { Frame }, edge: UIStroke }
+type Pip = { live: ImageLabel, spent: ImageLabel }
 local pips: { Pip } = {}
 local pipsFor: Tool? = nil
 
@@ -1185,74 +1279,35 @@ local function buildPips(holder: Frame, weapon: string, full: number, look: Look
 	holder:ClearAllChildren()
 	table.clear(pips)
 	local w = W[weapon]
-	local parts = w.parts :: any
 	local P = G.pips
-	local shell = if look then look.shell else w.ammo.clip == "Loose"
-	local caseColor = if look then look.caseColor else rgb(parts.Rounds or { 196, 160, 84 })
-	local tip = if look then look.bullet else rgb(parts.Bullets or { 184, 115, 72 })
+	local art = GunArt.guns[weapon]
+	local kind = if look then look.kind elseif w.ammo.clip == "Loose" then "shell" else (art and art.round or "pistol")
 	local list = Instance.new("UIListLayout")
 	list.FillDirection = Enum.FillDirection.Horizontal
 	list.VerticalAlignment = Enum.VerticalAlignment.Bottom
 	list.SortOrder = Enum.SortOrder.LayoutOrder
 	list.Padding = UDim.new(0, P.gap)
 	list.Parent = holder
-	local function piece(
-		cell: Frame,
-		color: Color3,
-		x: number,
-		y: number,
-		pw: number,
-		ph: number,
-		round: boolean
-	): Frame
-		local f = Instance.new("Frame")
-		f.BorderSizePixel = 0
-		f.BackgroundColor3 = color
-		f.Position = UDim2.fromScale(x, y)
-		f.Size = UDim2.fromScale(pw, ph)
-		local c = Instance.new("UICorner")
-		c.CornerRadius = if round then UDim.new(0.5, 0) else UDim.new(0, P.corner)
-		c.Parent = f
-		f.Parent = cell
-		return f
-	end
-	-- (shells: the coloured hull over a brass head; cartridges: a copper nose over the case)
-	-- (each pip's own outline: a hollow case once it's fired)
-	-- (a pump gun's shells are wider)
+	-- (each a drawn round standing on its head, a hollow outline once it's fired; a pump gun's shells are wider)
+	local sp = GunArt.parts.sprites[kind .. "_pip"]
+	local aspect = (sp.rect[3] - 2 * sp.bleed) / (sp.rect[4] - 2 * sp.bleed)
 	for i = 1, full do
 		local cell = Instance.new("Frame")
 		cell.Name = `Pip{i}`
 		cell.BackgroundTransparency = 1
 		cell.LayoutOrder = i
-		cell.Size = UDim2.new(0, if shell then P.shellWidth else P.width, 1, 0)
+		cell.Size = UDim2.new(0, if kind == "shell" then P.shellWidth else P.width, 1, 0)
 		cell.Parent = holder
-		local bits: { Frame }
-		if shell then
-			bits = {
-				piece(cell, tip, 0, 0, 1, 1 - P.head, false),
-				piece(cell, caseColor, 0, 1 - P.head, 1, P.head, false),
-			}
-		else
-			bits = {
-				piece(cell, tip, 0.12, 0, 0.76, P.nose + 0.08, true),
-				piece(cell, caseColor, 0, P.nose, 1, 1 - P.nose, false),
-			}
-		end
-		local outline = Instance.new("Frame")
-		outline.Name = "Spent"
-		outline.BackgroundTransparency = 1
-		outline.Position = UDim2.fromScale(0, if shell then 0 else P.nose)
-		outline.Size = UDim2.fromScale(1, if shell then 1 else 1 - P.nose)
-		local oc = Instance.new("UICorner")
-		oc.CornerRadius = UDim.new(0, P.corner)
-		oc.Parent = outline
-		local edge = Instance.new("UIStroke")
-		edge.Color = HudKit.rgb("readout")
-		edge.Transparency = P.spent
-		edge.Thickness = 1
-		edge.Parent = outline
-		outline.Parent = cell
-		table.insert(pips, { parts = bits, edge = edge })
+		local box = Instance.new("Frame")
+		box.BackgroundTransparency = 1
+		box.AnchorPoint = Vector2.new(0.5, 1)
+		box.Position = UDim2.fromScale(0.5, 1)
+		box.Size = UDim2.fromScale(1, 1)
+		local ratio = Instance.new("UIAspectRatioConstraint")
+		ratio.AspectRatio = aspect
+		ratio.Parent = box
+		box.Parent = cell
+		table.insert(pips, { live = sprite(kind .. "_pip", box), spent = sprite(kind .. "_pip_spent", box) })
 	end
 end
 
@@ -1269,10 +1324,8 @@ local function showCount(p: HudKit.Panel, tool: Tool, weapon: string, left: numb
 	count.TextColor3 = HudKit.rgb(if left > 0 then "readout" else "countLow")
 	for i, pip in pips do
 		local live = i <= left
-		for _, b in pip.parts do
-			b.Visible = live
-		end
-		pip.edge.Enabled = not live
+		pip.live.Visible = live
+		pip.spent.Visible = not live
 	end
 end
 
@@ -1280,27 +1333,19 @@ function AmmoHud.start()
 	panel = HudKit.panel("Gun", "AmmoHud", true) -- (the HUD size setting scales it)
 	local words = panel.node.HintText :: TextLabel
 	words.RichText = true
-	-- the card's plate: dark, fading out to the left (the screen's edge is on its right), a brass hairline along its
-	-- top, the rule between the gun and its count faint
-	local C = G.card
-	local function fadeLeft(g: GuiObject, solid: number)
-		local grad = Instance.new("UIGradient")
-		grad.Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 1),
-			NumberSequenceKeypoint.new(C.fade, solid),
-			NumberSequenceKeypoint.new(1, solid),
-		})
-		grad.Parent = g
-	end
-	fadeLeft(panel.node.GunPlate, C.see)
-	local hair = Instance.new("Frame")
-	hair.Name = "Hairline"
-	hair.BorderSizePixel = 0
-	hair.BackgroundColor3 = HudKit.rgb("brass")
-	hair.Size = UDim2.new(1, 0, 0, 1)
-	fadeLeft(hair, C.hairline)
-	hair.Parent = panel.node.GunPlate
-	fadeLeft(panel.node.GunRule, C.rule)
+	-- the card: no plate (user 2026-11-12: "lets do an ink wash, no plate"), a brushed ink wash behind the gun with its
+	-- brass rule drawn under it (Config/GunArt.wash, one drawing)
+	local plate = panel.node.GunPlate :: Frame
+	plate.BackgroundTransparency = 1
+	panel.node.GunRule.Visible = false
+	local Wa = G.wash
+	local wash = Instance.new("ImageLabel")
+	wash.Name = "Wash"
+	wash.BackgroundTransparency = 1
+	wash.Image = `rbxassetid://{GunArt.wash}`
+	wash.Position = UDim2.fromOffset(Wa.pos[1], Wa.pos[2])
+	wash.Size = UDim2.new(1, Wa.size[1], 0, Wa.size[2])
+	wash.Parent = plate
 	local canvas = panel.node.GunCanvas
 	canvas.ClipsDescendants = true
 end
