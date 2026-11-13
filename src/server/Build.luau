@@ -1494,6 +1494,14 @@ local function place(b: Builder, key: any, at: any, dev: boolean?): string?
 	if not team then
 		return "No team (the character has no Kit)"
 	end
+	local p0, look0 = at.Position, at.LookVector
+	if not Rules.finite(p0.X, p0.Y, p0.Z, look0.X, look0.Y, look0.Z) then
+		return "No such piece"
+	end
+	-- (cheap first: a spot far out of reach is refused before any survey)
+	if not dev and not Rules.roughReach((root.Position - p0).Magnitude, C.Reach + 2, C.RoughSlack) then
+		return "Too far"
+	end
 	local foxhole = piece.kind == "Foxhole"
 	local F = C.Foxhole
 	-- (a foxhole: round its grid corner, Rules.foxholeSnap)
@@ -1735,8 +1743,15 @@ end
 
 -- Plans a trench (Net "Build" "Plan": its start and end on the ground)
 -- Returns why it was refused, nil when laid.
+local lastRequest: { [Player]: number } = {} -- a player's last Place or Plan (the Build remote)
+
 local function plan(b: Builder, from: any, to: any): string?
-	if not b.team or typeof(from) ~= "Vector3" or typeof(to) ~= "Vector3" then
+	if
+		not b.team
+		or typeof(from) ~= "Vector3"
+		or typeof(to) ~= "Vector3"
+		or not Rules.finite(from.X, from.Y, from.Z, to.X, to.Y, to.Z)
+	then
 		return "No team or no such plan"
 	end
 	local reason = Trenches.plan(b.id, b.team, b.root, from, to)
@@ -1752,6 +1767,11 @@ local builtWatchers: { (Player, number) -> () } = {}
 function Build.onBuilt(fn: (Player, number) -> ())
 	table.insert(builtWatchers, fn)
 end
+-- HP a bot's swings added, by its negative id (the Tab scoreboard's "Built": src/server/Bots, src/server/MatchStats)
+local botBuiltWatchers: { (number, number) -> () } = {}
+function Build.onBotBuilt(fn: (number, number) -> ())
+	table.insert(botBuiltWatchers, fn)
+end
 -- `spent`: the share of a full swing this strike is paid for (Rules.swingSpent; Config/Classes.Earn.Work, user
 -- 2026-11-06: "player's who play engineer should benefit just as much as aggressive players")
 local function credit(b: Builder, hp: number, spent: number)
@@ -1762,6 +1782,10 @@ local function credit(b: Builder, hp: number, spent: number)
 	if hp > 0 and player then
 		for _, fn in builtWatchers do
 			task.spawn(fn, player, hp)
+		end
+	elseif hp > 0 and b.id < 0 then
+		for _, fn in botBuiltWatchers do
+			task.spawn(fn, b.id, hp)
 		end
 	end
 end
@@ -2549,6 +2573,14 @@ function Build.start(artillery: Guns)
 		if not builder then
 			return
 		end
+		if kind == "Place" or kind == "Plan" then
+			-- (Place and Plan survey the ground: at most one a RequestGap, the rest dropped)
+			local now = os.clock()
+			if Rules.tooSoon(now, lastRequest[player], C.RequestGap, 1) then
+				return
+			end
+			lastRequest[player] = now
+		end
 		if kind == "Place" then
 			place(builder, a, b)
 		elseif kind == "Plan" then
@@ -2560,6 +2592,7 @@ function Build.start(artillery: Guns)
 	Players.PlayerRemoving:Connect(function(player)
 		lastSwing[player] = nil
 		lastSound[player] = nil
+		lastRequest[player] = nil
 	end)
 	-- blueprints nobody worked on
 	task.spawn(function()

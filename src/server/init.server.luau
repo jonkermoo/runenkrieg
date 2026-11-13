@@ -93,6 +93,22 @@ if loadouts then
 	L.onKill(function(killer)
 		Stats.add(killer, "Kills", 1)
 	end)
+	L.onAssist(function(id)
+		local p = if id > 0 then game:GetService("Players"):GetPlayerByUserId(id) else nil
+		if p then
+			Stats.add(p, "Assists", 1)
+		end
+	end)
+	-- the Tab scoreboard (src/client/Scoreboard): asked for while Tab is held, answered at most every half second
+	local askedAt: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
+	Net.event("Scores").OnServerEvent:Connect(function(player: Player)
+		local now = os.clock()
+		if now - (askedAt[player] or -math.huge) < 0.5 then
+			return
+		end
+		askedAt[player] = now
+		Net.event("Scores"):FireClient(player, Stats.board())
+	end)
 	L.onEarn(function(player, n)
 		Stats.add(player, "Earned", n)
 	end)

@@ -1115,6 +1115,13 @@ end
 -- Lays a plan (Net "Build" "Plan", or a bot's Build.planAs): its start and end (ground points), `owner` the UserId or
 -- BotId that laid it. Returns the reason when refused.
 function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3, b0: Vector3): string?
+	local function away(p: Vector3): number
+		return Vector3.new(root.Position.X - p.X, 0, root.Position.Z - p.Z).Magnitude
+	end
+	-- (cheap first: too far from both ends, before any snapping)
+	if math.min(away(a0), away(b0)) > T.firstReach + 4 then
+		return `Too far: stand within {T.firstReach} studs of either end`
+	end
 	local a, linkA = snap(a0, team)
 	local b, linkB = snap(b0, team)
 	if linkA and linkB and linkA.other == linkB.other then
@@ -1128,12 +1135,6 @@ function Trenches.plan(owner: number, team: string, root: BasePart, a0: Vector3,
 	local spans = Rules.planBlocks(length, T.block, T.minBlock)
 	if not spans then
 		return "Too short"
-	end
-	local function away(p: Vector3): number
-		return Vector3.new(root.Position.X - p.X, 0, root.Position.Z - p.Z).Magnitude
-	end
-	if math.min(away(a0), away(b0)) > T.firstReach + 4 then
-		return `Too far: stand within {T.firstReach} studs of either end`
 	end
 	local dir = flat.Unit
 	-- (a bot's run joins a free end at no more than Config/Bots.Trenches.Shape.maxBend: the lines a player would dig,

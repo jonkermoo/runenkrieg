@@ -13,6 +13,10 @@ local Build = {
 	-- how far from the builder's root a piece can be laid, and a swing reach its piece (studs, to the piece's footprint)
 	Reach = 14,
 	SwingReach = 8,
+	-- a player's Place and Plan requests: at most one per `RequestGap` seconds (more are dropped unread), and a Place
+	-- further than Reach + `RoughSlack` from the builder is refused before the ground is surveyed (Rules/Build.roughReach)
+	RequestGap = 0.15,
+	RoughSlack = 10,
 	-- a piece keeps this far from anything solid round its footprint, from the ground up (buildings, props, trunks, low
 	-- walls, rubble; other pieces go by footprint, Survey.onPiece; soldiers only on it) (user 2026-11-02: "make it a
 	-- generous stud margin", "i want to adjust them so it stops colliding with stuff")

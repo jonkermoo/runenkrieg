@@ -22,13 +22,26 @@ local Remotes: { string } = {
 	"DevBlast",
 	"SectionBroken", -- server -> clients: (pieces: {{cf, size, color, t}}, origin: Vector3) debris to spawn
 	-- Shooting (src/server/Firing, src/client/Firing; Rules/Firing decides on both sides):
-	"Fire", -- client -> server: (origin: Vector3, direction: Vector3) a shot from the held weapon
+	-- client -> server: (origin: Vector3, barrel: Vector3, spread: number) a shot from the held weapon: the server rolls
+	-- its stray within the spread and a shotgun's pattern (the tool's "ShotKey", Rules/Firing shotDice)
+	"Fire",
 	"WorkBolt", -- client -> server: () work the bolt after a shot
 	"Reload", -- client -> server: () load a clip (or single rounds, a stripper-clip rifle with rounds left)
 	"StopLoad", -- client -> server: () stop loading single rounds (after the round in the hand)
 	-- server -> clients: (shooter: Model, weapon: string, origin: Vector3, hit: Vector3, normal: Vector3?, part: BasePart?)
 	-- an accepted shot, for everyone's effects (the shooter has already shown its own)
 	"Shot",
+	-- server -> clients: (killer: string?, killerKit: string?, victim: string, victimKit: string?, weapon: string?,
+	-- headshot: boolean, victimPlayer: Player?) a soldier died (src/server/Loadouts; the kill feed, src/client/KillFeed)
+	"Kill",
+	-- server -> client: (reason: string, marks: number, who: string?, whoKit: string?) Marks you just earned
+	-- (src/server/Loadouts.award: a Config/Classes.Earn reason; `who` the victim of a kill or an assist), for the
+	-- rewards popup (src/client/Rewards)
+	"Reward",
+	-- client -> server: () ask for the live scoreboard while Tab is held; server -> client: ({ Row }) every soldier's
+	-- kills, assists, HP healed and HP built this match, with their name and side (src/server/MatchStats.board,
+	-- src/client/Scoreboard)
+	"Scores",
 	-- (action "Load": single rounds, from = seconds into it, to = rounds going in or nil = until full; "LoadStop": to =
 	-- the rounds going in now)
 	-- server -> clients: (shooter: Model, action: "Bolt" | "Reload" | "Reload2" | "Load" | "LoadStop", out: string?, from, to,

@@ -297,6 +297,24 @@ function Build.strikeGap(swings: { { strike: number, rest: number, length: numbe
 end
 
 -- whether a swing comes too soon after the last (`slack` x the dig's length)
+-- Whether every one of a request's numbers is a plain number (no NaN, no infinity): a client's CFrame or Vector3 broken
+-- open (src/server/Build checks a Place's and a Plan's before any survey).
+function Build.finite(...: number): boolean
+	for i = 1, select("#", ...) do
+		local x = select(i, ...)
+		if type(x) ~= "number" or x ~= x or x == math.huge or x == -math.huge then
+			return false
+		end
+	end
+	return true
+end
+
+-- A Place's cheap first look (before the ground survey): `at` is `distance` studs from the builder; a bridge or a
+-- dugout moves to its trench square, a gun's footprint stands round its spot, so this allows `slack` over `reach`.
+function Build.roughReach(distance: number, reach: number, slack: number): boolean
+	return distance == distance and distance <= reach + slack
+end
+
 function Build.tooSoon(now: number, last: number?, length: number, slack: number): boolean
 	return last ~= nil and now - last < length * slack
 end

@@ -278,11 +278,14 @@ function Firing.start()
 				return
 			end
 			-- off the ground or just landed, the shot strays off the barrel (Config/Firing.Airborne)
-			local dir = ShotSpread.apply(barrel)
+			-- the server rolls the stray and a shotgun's pattern from the tool's "ShotKey" (Rules shotDice); the same
+			-- dice here, so the shot drawn is the shot cast
+			local key = weapon.tool:GetAttribute("ShotKey")
+			local r1, r2, seed = F.shotDice(if type(key) == "number" then key else 1)
+			local dir, spread = ShotSpread.apply(barrel, r1, r2)
 			local _, _, out = F.fire(l.state, l.gun, now)
 			l.sent += 1
-			local seed = math.random(1, 2147483646)
-			Net.event("Fire"):FireServer(origin, dir, seed)
+			Net.event("Fire"):FireServer(origin, barrel, spread)
 			local hits = {}
 			for _, line in lines(weapon.name, dir, seed) do
 				local result = cast(origin, line, excluded(character))

@@ -4,9 +4,10 @@
 
 local Classes = {}
 
--- What a life as class `d` costs now: its fee, and its unlock on top while it isn't unlocked this match (`unlocked`).
+-- What a life as class `d` costs now: its unlock while it isn't unlocked this match (`unlocked`; the unlock pays that
+-- first life), else its fee.
 function Classes.price(d: any, unlocked: boolean?): number
-	return (if unlocked then 0 else d.unlock) + d.fee
+	return if unlocked then d.fee else d.unlock
 end
 
 -- The class a soldier spawns as and what it pays: their `picked` class when it exists, isn't locked and `points` cover

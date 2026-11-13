@@ -484,12 +484,13 @@ function Menus.start()
 
 	local state: any = nil
 	local deployAt = 0
+	local fallback: string? = nil -- the class you'll deploy as instead of the picked one (render)
 	local function render()
 		if not state then
 			return
 		end
 		local marks = L.Marks :: TextLabel
-		marks.Text = `{Classes.Currency}  {math.floor(state.points)}`
+		marks.Text = `{Classes.Currency} {math.floor(state.points)}`
 		local picked = state.picked
 		local magic = GR.Magic[state.kit]
 		for _, card in state.classes do
@@ -509,18 +510,21 @@ function Menus.start()
 				r.cost.TextColor3 = gcol(if on then "text" elseif can then "blue" else "pencil")
 				r.name.TextTransparency, r.blurb.TextTransparency = fade, fade
 				r.cost.TextTransparency, r.note.TextTransparency = 0, 0
-				-- (the marks rebalance, user 2026-11-05: its unlock + fee until unlocked this match, then the fee alone)
-				r.cost.Text = if card.locked
-					then "Soon"
-					elseif card.cost == 0 then "Free"
-					elseif card.unlocked then tostring(card.fee)
-					else `{card.unlock} + {card.fee}`
+				-- (user 2026-11-12: its unlock until unlocked this match, the first life included, then the fee each
+				-- respawn) (in plain words: the big number is what this life costs, the note what it is made of)
+				r.cost.Text = if card.locked then "Soon" elseif card.cost == 0 then "Free" else tostring(card.cost)
 				local short = math.ceil(card.cost - state.points)
-				r.note.Text = if card.locked or card.cost == 0
-					then ""
-					elseif not card.affordable and short > 0 then `{short} short`
-					elseif card.unlocked then "a life"
-					else "unlock + a life"
+				local terms = if card.unlocked
+					then `Unlocked · each life: {card.fee}`
+					else `Unlock: {card.unlock}, first life free · then {card.fee} a life`
+				local brief = if card.unlocked
+					then `each life: {card.fee}`
+					else `{card.unlock} to unlock, then {card.fee} a life`
+				r.note.Text = if card.locked
+					then "Not ready yet"
+					elseif card.cost == 0 then "Always free"
+					elseif not card.affordable and short > 0 then `{short} {Classes.Currency} short\n{brief}`
+					else terms
 				local runeName = Cards.runes[card.key]
 				local canvas = r.rune
 				if canvas and runeName then
@@ -534,6 +538,18 @@ function Menus.start()
 		local def = Classes.Defs[picked]
 		local className = L.ClassName :: TextLabel
 		className.Text = if def then def.name else ""
+		-- (picked but too dear or not ready: the server spawns you as the Default class; the preview's name and Deploy
+		-- say so, never a surprise)
+		fallback = nil
+		for _, card in state.classes do
+			if card.key == picked and picked ~= Classes.Default and (card.locked or not card.affordable) then
+				local d = Classes.Defs[Classes.Default]
+				fallback = d and d.name
+				if fallback and def then
+					className.Text = `{fallback} · {def.name} needs more {Classes.Currency}`
+				end
+			end
+		end
 		loadout.relayout()
 	end
 
@@ -871,6 +887,9 @@ function Menus.start()
 	-- Deploy on its ink plate, the plate red once you can go; where you'll deploy, under the loadout's map
 	local deployWords = deploy:FindFirstChild("Words") :: TextLabel?
 	local deploySlab = deploy:FindFirstChild("Slab") :: ImageLabel?
+	local function deployWord(): string
+		return if fallback then `Deploy as {fallback}` else "Deploy"
+	end
 	local function setDeploy(text: string, ready: boolean)
 		deploy.Text = text
 		if deployWords then
@@ -959,12 +978,12 @@ function Menus.start()
 					setDeploy(`Ready in {math.ceil(left)}`, false)
 				else
 					local wave = math.max(math.ceil(waveAt - workspace:GetServerTimeNow()), 0)
-					setDeploy(`Deploy · wave in {wave}`, true)
+					setDeploy(`{if fallback then `As {fallback}` else "Deploy"} · wave in {wave}`, true)
 				end
 			elseif left > 0 then
 				setDeploy(`Deploy in {math.ceil(left)}`, false)
 			else
-				setDeploy("Deploy", true)
+				setDeploy(deployWord(), true)
 			end
 			-- the soldier turns slowly in its view
 			local t = os.clock() * P.Turn

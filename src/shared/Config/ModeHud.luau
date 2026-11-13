@@ -13,6 +13,8 @@ local ModeHud = {
 	-- "V and map conflicts. make it holding m"), with a dot over each teammate seen through walls (on the loadout
 	-- screen it always shows); both fade in and out in FadeSeconds
 	FadeSeconds = 0.12,
+	-- in play the front bar stays on as a strip (review 2026-11-12): this share of its size, this opaque
+	Strip = { scale = 0.7, shown = 0.85 },
 	-- the teammate dot: pixels across, studs above the head's centre; full size up to `near` studs from the camera,
 	-- then smaller with distance down to `min` pixels (Rules/ModeHud.dotSize)
 	Dot = { size = 10, above = 3.2, near = 25, min = 4 },

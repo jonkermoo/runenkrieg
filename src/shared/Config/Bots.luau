@@ -14,6 +14,9 @@ local Bots = {
 	-- on each bot's model: a negative number standing in for a UserId (src/server/ZoneMatch scores, leader and winner;
 	-- src/server/Loadouts kill credit and match points)
 	IdAttribute = "BotId",
+	-- before a bot's shown name in every mode: over its head, the kill feed, the rewards popup, the Tab scoreboard and
+	-- the results (user 2026-10-31: names marked as bots; 2026-11-12: "[BOT] Name" everywhere)
+	NameTag = "[BOT] ",
 	-- on the bots' Workspace folder, per bot (the id's number without its sign): its name and zone score, for every
 	-- client's match HUD (src/client/ZoneHud)
 	NameAttribute = "Name_",
@@ -145,8 +148,6 @@ local Bots = {
 	-- Normal (the frontline push, src/server/Frontline): bots fight on a side, deploy in its waves and take orders from
 	-- their side's commander (Rules/BotOrders)
 	Normal = {
-		-- before a bot's name (user 2026-10-31: names marked as bots)
-		nameTag = "[BOT] ",
 		commandEvery = 1, -- seconds between each side's orders
 		joinEvery = 0.5, -- one bot in at most this often (20 v 20 fills in about 20 s)
 		-- while an own sector has enemies in its zone (and they lead there or it is losing control), this share of the
