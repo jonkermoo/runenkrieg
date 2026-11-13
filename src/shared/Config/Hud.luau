@@ -155,7 +155,22 @@ local Hud = {
 		-- chamber `hole` of a round's width, a live round's primer `primer` of its head; the gun's drawing beside it
 		-- `gun` of the view's height at most, `gap` of it between them; tipped on a reload (a top-break's), its face
 		-- never flatter than `tip` of its width
-		drum = { fill = 0.86, hole = 1.05, primer = 0.36, gap = 0.12, gun = 0.94, tip = 0.42 },
+		-- (the cylinder has a body: seen from behind and `pitch` degrees above, so its fluted wall shows past the back
+		-- face; a cartridge's head `head` of its chamber's hole, the ratchet `ratchet` of it, a round counts as out of
+		-- its chamber, its case drawn, once it stands `out` of its length behind the face)
+		drum = {
+			fill = 0.86,
+			hole = 1.05,
+			primer = 0.36,
+			gap = 0.12,
+			gun = 0.94,
+			tip = 0.42,
+			pitch = 24,
+			head = 0.9,
+			ratchet = 1.15,
+			out = 0.1,
+			travel = 0.45, -- how far the drawn cylinder's middle follows the part's on a reload
+		},
 	},
 
 	-- a crystal in a cut-away (src/client/HudKit.shine: the staff's gem, the howitzer's): its own colour full, darkened

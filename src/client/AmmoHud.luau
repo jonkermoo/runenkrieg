@@ -1169,7 +1169,12 @@ end
 -- down on its hinge: seen from behind it flattens, never past `tip`, and its rounds come in from behind), and the
 -- gun's drawing moves the parts drawn apart (Config/GunArt `movers`: the barrel and cylinder on the hinge, the hammer,
 -- the trigger, the latch, the rod), each where its own part is ----
-type Chamber = { source: BasePart, hole: Frame, head: Frame }
+-- The cylinder has a body (user 2026-11-12: "give the chamber and bullets a physical body too, not just a plane ...
+-- detailed"; Config/GunArt.drum): seen from behind and a little above, its back face with a counterbored hole per
+-- chamber and the ratchet, its fluted wall and far end past it; a round is its head on the face, and its case too once
+-- it stands out behind it (the fresh rounds coming in). Every piece is put where the gun's own part is, through the one
+-- view.
+type Chamber = { source: BasePart, long: number, hole: ImageLabel, head: ImageLabel, body: ImageLabel }
 type Mover = { img: ImageLabel, part: BasePart, rest: CFrame, z: { number }, y: { number } }
 type Drum = {
 	tool: Tool,
@@ -1177,9 +1182,13 @@ type Drum = {
 	cyl: BasePart?,
 	cylRest: CFrame,
 	group: Frame,
-	disc: Frame,
-	hub: Frame,
+	face: ImageLabel,
+	far: ImageLabel,
+	wall: ImageLabel,
+	ratchet: ImageLabel,
 	chambers: { Chamber },
+	length: number, -- the cylinder's, studs
+	dia: number, -- a round's, studs
 	movers: { Mover },
 	art: GunArt.Gun?,
 	k: number,
@@ -1191,16 +1200,19 @@ type Drum = {
 }
 local drum: Drum? = nil
 
--- a round drawn sprite (Config/GunArt.parts), centred where it is put
-local function circle(parent: Instance, name: string, zindex: number): Frame
-	local f = Instance.new("Frame")
-	f.AnchorPoint = Vector2.new(0.5, 0.5)
-	f.BorderSizePixel = 0
-	f.BackgroundTransparency = 1
-	f.ZIndex = zindex
-	sprite(name, f).ZIndex = zindex
-	f.Parent = parent
-	return f
+-- a piece of the cylinder's sheet (Config/GunArt.drum), centred where it is put
+local function drumPiece(parent: Instance, name: string, zindex: number): ImageLabel
+	local r = GunArt.drum.sprites[name]
+	local img = Instance.new("ImageLabel")
+	img.Name = name
+	img.BackgroundTransparency = 1
+	img.Image = `rbxassetid://{GunArt.drum.image}`
+	img.ImageRectOffset = Vector2.new(r[1], r[2])
+	img.ImageRectSize = Vector2.new(r[3], r[4])
+	img.AnchorPoint = Vector2.new(0.5, 0.5)
+	img.ZIndex = zindex
+	img.Parent = parent
+	return img
 end
 
 local function buildDrum(tool: Tool, weapon: string, gun: BasePart, canvas: Frame): Drum
@@ -1232,7 +1244,10 @@ local function buildDrum(tool: Tool, weapon: string, gun: BasePart, canvas: Fram
 	end
 	reach = if #sources > 0 then reach / #sources else dia * 2
 	local radius = reach + dia * 0.8
-	local k = chh * D.fill / (2 * radius)
+	local length = if cyl then cyl.Size.Z else dia * 3
+	local pitch = math.rad(D.pitch)
+	-- (as tall as the view takes it: the face tipped by the view, the wall past it)
+	local k = chh * D.fill / (2 * radius * math.cos(pitch) + length * math.sin(pitch))
 	-- the gun's own drawing (Config/GunArt) and the cylinder from behind beside it, the two centred on the card
 	-- (user 2026-11-12: the gun sat left of the plate's middle)
 	local art = GunArt.guns[weapon]
@@ -1278,15 +1293,27 @@ local function buildDrum(tool: Tool, weapon: string, gun: BasePart, canvas: Fram
 			end
 		end
 	end
-	local disc = circle(group, "drum", 1)
-	local hub = circle(group, "hub", 2)
+	local far = drumPiece(group, "far", 1)
+	local wall = drumPiece(group, "wall", 2)
+	local face = drumPiece(group, "face", 3)
+	local ratchet = drumPiece(group, "ratchet", 4)
 	local chambers = {}
+	local round = GunArt.parts.sprites.pistol
 	for _, src in sources do
-		local hole = circle(group, "hole", 2)
-		local head = circle(hole, "head", 3)
-		head.Position = UDim2.fromScale(0.5, 0.5)
-		head.Size = UDim2.fromScale(0.86, 0.86)
-		table.insert(chambers, { source = src, hole = hole, head = head })
+		local hole = drumPiece(group, "hole", 4)
+		-- (its case: the drawn pistol round, Config/GunArt.parts, as much of it from the head as stands out)
+		local body = Instance.new("ImageLabel")
+		body.Name = "case"
+		body.BackgroundTransparency = 1
+		body.Image = `rbxassetid://{GunArt.parts.image}`
+		body.ImageRectOffset = Vector2.new(round.rect[1] + round.bleed, round.rect[2])
+		body.AnchorPoint = Vector2.new(0.5, 0.5)
+		body.ZIndex = 5
+		body.Parent = group
+		local head = drumPiece(group, "head", 6)
+		local dims = { src.Size.X, src.Size.Y, src.Size.Z }
+		table.sort(dims)
+		table.insert(chambers, { source = src, long = dims[3], hole = hole, head = head, body = body })
 	end
 	return {
 		tool = tool,
@@ -1294,9 +1321,13 @@ local function buildDrum(tool: Tool, weapon: string, gun: BasePart, canvas: Fram
 		cyl = cyl,
 		cylRest = cylRest,
 		group = group,
-		disc = disc,
-		hub = hub,
+		face = face,
+		far = far,
+		wall = wall,
+		ratchet = ratchet,
 		chambers = chambers,
+		length = length,
+		dia = dia,
 		movers = movers,
 		art = art,
 		k = k,
@@ -1323,28 +1354,52 @@ local function updateDrum(dr: Drum)
 			m.img.Rotation = math.deg(math.atan2(-look.Y, -look.Z))
 		end
 	end
-	-- the cylinder from behind (the gun's +X to the right, +Y up): its back face, tipped as the cylinder is
+	-- the cylinder from behind and `pitch` above (the gun's +X to the right; +Y and what lies further forward up the
+	-- card), about where its middle rests
 	local now = if dr.cyl then dr.gun.CFrame:ToObjectSpace(dr.cyl.CFrame) else dr.cylRest
-	local tipped = now * dr.cylRest:Inverse()
-	local axis = tipped.LookVector -- (the cylinder's own -Z: at rest the gun's)
-	local flat = math.max(math.abs(axis.Z), D.tip) -- the face's height, of its width
-	local back = math.sqrt(1 - flat * flat) -- how far up the card a stud behind the face shows
-	local tilt = CFrame.lookAt(Vector3.zero, axis) -- (the tip alone, without the cylinder's own turn)
-	local moved = now.Position - dr.cylRest.Position
-	local x, y = dr.cx + moved.X * dr.k / dr.w, 0.5 - moved.Y * dr.k / dr.h
-	local function size(across: number): UDim2
-		return UDim2.fromScale(across * dr.k / dr.w, across * dr.k * flat / dr.h)
+	local back = (now * dr.cylRest:Inverse()):VectorToWorldSpace(Vector3.zAxis) -- (toward its back face)
+	local pitch = math.rad(D.pitch)
+	local sp, cp = math.sin(pitch), math.cos(pitch)
+	local origin = dr.cylRest.Position
+	local function at2(p: Vector3): (number, number)
+		local r = p - origin
+		return dr.cx * dr.w + r.X * dr.k, dr.h / 2 - (r.Y * cp - r.Z * sp) * dr.k
 	end
-	dr.disc.Position = UDim2.fromScale(x, y)
-	dr.disc.Size = size(2 * dr.radius)
-	dr.hub.Position = UDim2.fromScale(x, y)
-	dr.hub.Size = size(dr.hole * 0.66)
+	local function put2(g: GuiObject, p: Vector3, w: number, h: number, rot: number)
+		local x, y = at2(p)
+		g.Position = UDim2.fromScale(x / dr.w, y / dr.h)
+		g.Size = UDim2.fromScale(w * dr.k / dr.w, h * dr.k / dr.h)
+		g.Rotation = rot
+	end
+	-- (the axis as the card shows it, per stud; the faces' height of their width, never flatter than `tip`)
+	local ax, ay = back.X, -(back.Y * cp - back.Z * sp)
+	local along = math.sqrt(ax * ax + ay * ay)
+	local flat = math.max(math.abs(back.Y * sp + back.Z * cp), D.tip)
+	local turn = if along > 1e-3 then math.deg(math.atan2(-ax, ay)) else 0 -- (a piece's top toward the far end)
+	local lie = if along > 1e-3 then math.deg(math.atan2(-ay, -ax)) else 0 -- (a case's nose toward it)
+	-- (its middle goes only `travel` of the way the part's does, so it stays on the wash)
+	local centre = origin + (now.Position - origin) * D.travel
+	local rear = centre + back * (dr.length / 2)
+	put2(dr.far, centre - back * (dr.length / 2), 2 * dr.radius, 2 * dr.radius * flat, turn)
+	put2(dr.wall, centre, 2 * dr.radius, dr.length * along, turn)
+	put2(dr.face, rear, 2 * dr.radius, 2 * dr.radius * flat, turn)
+	put2(dr.ratchet, rear, dr.hole * D.ratchet, dr.hole * D.ratchet * flat, turn)
+	local round = GunArt.parts.sprites.pistol
+	local rw, rh, rb = round.rect[3], round.rect[4], round.bleed
 	for _, c in dr.chambers do
-		local rel = tilt:VectorToObjectSpace(dr.gun.CFrame:ToObjectSpace(c.source.CFrame).Position - now.Position)
-		c.hole.Position =
-			UDim2.fromScale(x + rel.X * dr.k / dr.w, y - (rel.Y * flat + math.max(rel.Z, 0) * back) * dr.k / dr.h)
-		c.hole.Size = size(dr.hole)
-		c.head.Visible = c.source.Transparency < 1
+		local rel = dr.gun.CFrame:ToObjectSpace(c.source.CFrame).Position - now.Position
+		local seat = rear + (rel - back * rel:Dot(back)) -- its chamber's mouth on the face
+		local out = math.max((rel + back * (c.long / 2) - (seat - centre)):Dot(back), 0) -- its head behind the face
+		local shown = c.source.Transparency < 1
+		put2(c.hole, seat, dr.hole, dr.hole * flat, turn)
+		put2(c.head, seat + back * out, dr.hole * D.head, dr.hole * D.head * flat, turn)
+		c.head.Visible = shown
+		local share = math.min(out / c.long, 1)
+		c.body.Visible = shown and share > D.out
+		if c.body.Visible then
+			c.body.ImageRectSize = Vector2.new(share * (rw - 2 * rb), rh)
+			put2(c.body, seat + back * (out / 2), out * along, dr.dia * rh / (rh - 2 * rb), lie)
+		end
 	end
 end
 
