@@ -30,9 +30,10 @@ local function tinted(name: string, kit: any): string
 	return `<font color="#{Color3.fromRGB(c[1], c[2], c[3]):ToHex()}">{safe}</font>`
 end
 
--- Marks as shown: whole, or to a tenth under 10 (a few swings of building pay fractions)
+-- Marks as shown: whole, or to a tenth under Config/Hud.Rewards.whole (a few swings of building pay fractions)
 local function marks(n: number): string
-	if n >= 10 or math.abs(n - math.floor(n + 0.5)) < 0.05 then
+	local R = HudCfg.Rewards
+	if n >= R.whole or math.abs(n - math.floor(n + 0.5)) < R.near then
 		return tostring(math.floor(n + 0.5))
 	end
 	return string.format("%.1f", n)
@@ -140,7 +141,7 @@ function Rewards.start()
 		for i, l in older do
 			local e = entries[i + 1]
 			l.Text = if e then `<font color="#{countHex}">+{marks(e.marks)}</font>  {what(e)}` else ""
-			fade(l, e, 0.15 * i)
+			fade(l, e, HudCfg.Rewards.stagger * i)
 		end
 	end)
 end

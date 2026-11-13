@@ -264,11 +264,16 @@ local Hud = {
 		},
 		-- the reasons that gather into one line, and the line they gather into
 		gathered = { Piece = "Work", Work = "Work", Heal = "Heal" },
+		-- Marks shown whole from `whole` up, or when within `near` of a whole number; else to a tenth (building pays
+		-- fractions); each older line starts fading `stagger` seconds after the one above it
+		whole = 10,
+		near = 0.05,
+		stagger = 0.15,
 	},
 	-- the Tab scoreboard (src/client/Scoreboard, src/shared/ui/Scoreboard.json Board; user 2026-11-12): the match
 	-- behind it darkened (`shade`, the share see-through) and blurred (`blur`, BlurEffect size); rows `rowGap` apart,
-	-- at most `rows` a side; asked again every `every` seconds while held
-	Board = { shade = 0.45, blur = 14, rowGap = 17, rows = 30, every = 1 },
+	-- at most `rows` a side; asked again every `every` seconds while held; your own row's brass fill `mine` see-through
+	Board = { shade = 0.45, blur = 14, rowGap = 17, rows = 30, every = 1, mine = 0.35 },
 }
 
 return table.freeze(Hud)

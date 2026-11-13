@@ -105,7 +105,7 @@ function Scoreboard.start()
 			local mine = r.id == player.UserId
 			if mine then
 				line.BackgroundColor3 = HudKit.rgb("brassDark")
-				line.BackgroundTransparency = 0.35
+				line.BackgroundTransparency = B.mine
 			end
 			local values = { r.name, r.Kills, r.Assists, r.Healed, r.Built }
 			for c, key in COLS do
