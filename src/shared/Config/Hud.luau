@@ -43,9 +43,14 @@ local Hud = {
 		flat = { case = 0.68, rim = 0.14, body = 0.9, nose = 0.74, shellHead = 0.3, far = 0.28, outline = 1 },
 		-- the gun card (user 2026-11-12: "layout 1", "make sure it looks like the guns in game too, just 2d"): the gun's
 		-- own drawing (Config/GunArt) framed whole, the action seen through a window cut along the bolt's run from
-		-- `ahead` round widths before a chambered round's nose to `behind` past the bolt fully back, `window` times the
+		-- `ahead` round widths before a chambered round's nose to `behind` past the closed bolt's rear, `window` times the
 		-- bolt's radius each way, `see` see-through, its brass rim `rim` see-through
-		art = { ahead = 0.4, behind = 0.3, window = 1.4, see = 0.2, rim = 0.55 },
+		-- (the window and the magazine well are drawn recesses, nine-sliced at `slice` of their drawn size; the well's
+		-- sides stop `join` round widths over the window's lower edge)
+		art = { ahead = 0.4, behind = 0.3, window = 1.4, see = 0.2, rim = 0.55, slice = 0.25, join = 0.1 },
+		-- the brushed ink wash behind the gun, its brass rule drawn under it (Config/GunArt.wash; user 2026-11-12: "lets
+		-- do an ink wash, no plate"): px from the card's top left, px wider than the card and tall
+		wash = { pos = { 0, 0 }, size = { 0, 171 } },
 		-- the card's plate fading out over its left `fade` (then `see` see-through), its top hairline and the rule under
 		-- the gun
 		card = { fade = 0.35, see = 0.28, hairline = 0.3, rule = 0.75 },
