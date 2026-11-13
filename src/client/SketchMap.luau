@@ -41,6 +41,7 @@ local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Playtest = require(Shared.Config.Maps.Playtest)
 local LiveMap = require(Shared.LiveMap)
 local Ink = require(script.Parent.Ink)
+local PaperArt = require(script.Parent.PaperArt)
 local PointSeal = require(script.Parent.PointSeal)
 
 local SketchMap = {}
@@ -63,8 +64,20 @@ type Seen = { me: Player, kit: string? }
 type Marker = {
 	on: string,
 	list: (seen: Seen) -> { { at: Vector3, colour: Color3 } },
-	make: (ink: Color3) -> Frame,
+	make: () -> Frame,
 }
+
+-- a marker's drawn dot (Config/PaperArt `dot`: white with an ink edge, tinted), `size` of the area's width across (the
+-- drawing's dot `Cfg.Drawn.dot` of its sprite)
+local function drawnDot(size: number): Frame
+	local f = Instance.new("Frame")
+	f.BackgroundTransparency = 1
+	f.Size = UDim2.fromScale(size / Cfg.Drawn.dot, size / Cfg.Drawn.dot)
+	local aspect = Instance.new("UIAspectRatioConstraint")
+	aspect.Parent = f
+	PaperArt.new("dot").Parent = f
+	return f
+end
 
 -- the marker kinds, drawn in this order under the local arrow; each is pooled (its frames reused, hidden when spare)
 local MARKERS: { Marker } = {
@@ -106,20 +119,8 @@ local MARKERS: { Marker } = {
 			end
 			return marks
 		end,
-		make = function(ink)
-			local dot = Instance.new("Frame")
-			dot.BorderSizePixel = 0
-			dot.Size = UDim2.fromScale(Cfg.Teammate.size, Cfg.Teammate.size)
-			local aspect = Instance.new("UIAspectRatioConstraint")
-			aspect.Parent = dot
-			local corner = Instance.new("UICorner")
-			corner.CornerRadius = UDim.new(0.5, 0)
-			corner.Parent = dot
-			local edge = Instance.new("UIStroke")
-			edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-			edge.Color = ink
-			edge.Parent = dot
-			return dot
+		make = function()
+			return drawnDot(Cfg.Teammate.size)
 		end,
 	},
 }
@@ -144,20 +145,8 @@ table.insert(MARKERS, {
 		end
 		return { { at = zone:GetPivot().Position, colour = colour } }
 	end,
-	make = function(ink)
-		local disc = Instance.new("Frame")
-		disc.BorderSizePixel = 0
-		disc.Size = UDim2.fromScale(Cfg.Zone.size, Cfg.Zone.size)
-		local aspect = Instance.new("UIAspectRatioConstraint")
-		aspect.Parent = disc
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0.5, 0)
-		corner.Parent = disc
-		local edge = Instance.new("UIStroke")
-		edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		edge.Color = ink
-		edge.Parent = disc
-		return disc
+	make = function()
+		return drawnDot(Cfg.Zone.size)
 	end,
 })
 
@@ -544,17 +533,13 @@ function SketchMap.new(
 		r.Visible = false
 		local aspect = Instance.new("UIAspectRatioConstraint")
 		aspect.Parent = r
-		local round = Instance.new("UICorner")
-		round.CornerRadius = UDim.new(0.5, 0)
-		round.Parent = r
-		local line = Instance.new("UIStroke")
-		line.Color = rgb(C.pencil)
-		line.Parent = r
+		-- (a red pencil loop, drawn: Config/PaperArt)
+		local loop = PaperArt.new("loop")
+		loop.Size = UDim2.fromScale(Cfg.Drawn.loop, Cfg.Drawn.loop)
+		loop.ImageColor3 = rgb(C.pencil)
+		loop.Parent = r
 		r.Parent = area
 		ring = r
-		area:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-			line.Thickness = math.max(2, Cfg.Deploy.thick * area.AbsoluteSize.X)
-		end)
 	end
 
 	-- The match's replay at its end (src/client/Results; user 2026-10-31: "a slight animation of the progression of the
@@ -853,24 +838,8 @@ function SketchMap.new(
 		arrow.ZIndex = 3
 		local aspect = Instance.new("UIAspectRatioConstraint")
 		aspect.Parent = arrow
-		local body = Instance.new("Frame")
-		body.BorderSizePixel = 0
-		body.BackgroundColor3 = rgb(C.pencil)
-		body.AnchorPoint = Vector2.new(0.5, 0.5)
-		body.Position = UDim2.fromScale(0.5, 0.62)
-		body.Size = UDim2.fromScale(0.5, 0.5)
-		body.Rotation = 45
-		body.Parent = arrow
-		local edge = Instance.new("UIStroke")
-		edge.Color = ink
-		edge.Parent = body
-		local tip = Instance.new("Frame")
-		tip.BorderSizePixel = 0
-		tip.BackgroundColor3 = rgb(C.pencil)
-		tip.AnchorPoint = Vector2.new(0.5, 1)
-		tip.Position = UDim2.fromScale(0.5, 0.5)
-		tip.Size = UDim2.fromScale(0.16, 0.5)
-		tip.Parent = arrow
+		-- (a red pencil arrowhead, drawn: Config/PaperArt)
+		PaperArt.new("arrow").Parent = arrow
 		arrow.Parent = area
 		you = arrow
 	end
@@ -913,23 +882,21 @@ function SketchMap.new(
 		local me = Players.LocalPlayer
 		local character = me.Character
 		local seen: Seen = { me = me, kit = deployKit or (character and character:GetAttribute("Kit") :: string?) }
-		local edge = math.max(1, Cfg.Teammate.edge * area.AbsoluteSize.X)
 		for _, layer in layers do
 			local marks = layer.marker.list(seen)
 			for n, mark in marks do
 				local f = layer.pool[n]
 				if not f then
-					f = layer.marker.make(ink)
+					f = layer.marker.make()
 					f.AnchorPoint = Vector2.new(0.5, 0.5)
 					f.ZIndex = 2
 					f.Parent = layer.box
 					layer.pool[n] = f
 				end
 				f.Position = UDim2.fromScale(math.clamp(u(mark.at.X), 0, 1), math.clamp(v(mark.at.Z), 0, 1))
-				f.BackgroundColor3 = mark.colour
-				local stroke = f:FindFirstChildOfClass("UIStroke")
-				if stroke then
-					stroke.Thickness = edge
+				local drawn = f:FindFirstChildOfClass("ImageLabel")
+				if drawn then
+					drawn.ImageColor3 = mark.colour
 				end
 				f.Visible = true
 			end

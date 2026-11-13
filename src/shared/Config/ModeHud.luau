@@ -29,9 +29,14 @@ local ModeHud = {
 		shown = 1,
 		linger = 2.5,
 		fresh = 6,
-		plate = { fade = 0.2, see = 0.3, hairline = 0.35, pad = 40 },
+		-- drawn (user 2026-11-12: "Both B", a map ribbon with wax seals; Config/PaperArt): the plate a paper ribbon
+		-- (nine-sliced at `slice` of its drawn size), the track's dashes each tile `dash` px long and tall; a seal's wax
+		-- drawing `wax.size` of its box across, darkened by `wax.shade` from its holder's magic colour, the pencil loop
+		-- round a point in play `wax.loop` of the box; the track a side holds a brush stroke `link` px tall
+		plate = { fade = 0.2, see = 0.3, hairline = 0.35, pad = 40, slice = 0.6, dash = { 96, 6 } },
 		ring = { seal = 0.74, width = 3, track = 0.35, inner = 1 },
-		link = 3,
+		wax = { size = 1.5, shade = 0.22, loop = 1.75 },
+		link = 8,
 		linkShade = 0.2,
 		pulse = { grow = 0.12, seconds = 0.7 },
 		attack = "ATTACK",
