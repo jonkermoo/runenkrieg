@@ -2,7 +2,9 @@
 -- The staff's mana, quartermaster's brass (Config/Hud.Staff; layout src/shared/ui/CombatHud.json "Staff"; user
 -- 2026-10-26: "the staff should be a magic rock of the teams color (faded out if empty, bright if max. flicker while
 -- recharging after a stage 3 blast to signify that its no usable)"). Shown while the staff is drawn, in the gun
--- display's place. A brass panel, bottom right, with a magic rock turning in a ViewportFrame: a cracked quartz point
+-- display's place. Bottom right, the rock drawn flat in a brass ring (Config/Hud.Staff.flat, Config/HudArt.gem,
+-- src/client/HudKit.gemArt; user 2026-11-12: drawn art, "the brass ring ... looks best"; it floats and rocks, its shards
+-- going round it), or with `flat` off a magic rock turning in a ViewportFrame: a cracked quartz point
 -- with shards floating round it (Config/Hud.Gem, Config/Assets hud_gem) in the player's team magic colour
 -- (Config/Spells.Staff.Teams):
 -- - flat and dark (src/client/HudKit.shine), shards and all: its own colour full, dying out toward grey as the mana
@@ -67,6 +69,22 @@ function StaffHud.start()
 	camera.Parent = view
 	view.CurrentCamera = camera
 	local rock: HudKit.Gem? = nil
+	-- drawn flat (Config/Hud.Staff.flat): the crystal in its brass ring, in the 3D view's place
+	local art: HudKit.GemArt? = nil
+	if S.flat then
+		view.Visible = false
+		local holder = Instance.new("Frame")
+		holder.Name = "StaffArt"
+		holder.BackgroundTransparency = 1
+		holder.AnchorPoint = Vector2.new(0.5, 0.5)
+		holder.Position = UDim2.fromScale(0.5, 0.5)
+		holder.Size = UDim2.fromScale(1, 1)
+		holder.ZIndex = view.ZIndex
+		local square = Instance.new("UIAspectRatioConstraint")
+		square.Parent = holder
+		holder.Parent = panel.panel
+		art = HudKit.gemArt(holder)
+	end
 	local home = panel.panel.Position
 	local max = Spells.Mana.max
 	local angle = 0
@@ -80,7 +98,7 @@ function StaffHud.start()
 		if not character or not staff or not weapon then
 			return
 		end
-		if not rock then
+		if not rock and not art then
 			rock = makeRock(view, camera)
 		end
 		local now = os.clock()
@@ -112,21 +130,19 @@ function StaffHud.start()
 		local flash = if r < S.flash then 1 - r / S.flash else 0
 		local u = (now - fullAt) / S.pop.time
 		local swell = if u < 1 then 1 + S.pop.size * math.sin(u * math.pi) * (1 - u) else 1
-		camera.FieldOfView = S.fov / swell
+		local lit = glow:Lerp(Color3.new(1, 1, 1), flash * S.flashLight)
 
-		if rock then
+		if art then
+			HudKit.poseGemArt(art, now, math.sin(now * S.bob.speed * math.pi * 2) * S.bob.height, swell)
+			HudKit.shineArt(art, value / max, locked, lit, now)
+		elseif rock then
+			camera.FieldOfView = S.fov / swell
 			angle += math.rad(S.spin) * dt
 			local bob = math.sin(now * S.bob.speed * math.pi * 2) * S.bob.height * rock.size.Magnitude
 			local at = CFrame.new(0, bob, 0) * CFrame.Angles(0, angle, 0) * CFrame.Angles(math.rad(S.tilt), 0, 0)
 			HudKit.poseGem(rock, at, now)
 			-- dying out toward grey as the mana runs low, its own colour full (and a pop); dead only while burnt out
-			HudKit.shine(
-				rock.crystal,
-				value / max,
-				locked,
-				{ glow:Lerp(Color3.new(1, 1, 1), flash * S.flashLight), core },
-				now
-			)
+			HudKit.shine(rock.crystal, value / max, locked, { lit, core }, now)
 		end
 	end)
 end
