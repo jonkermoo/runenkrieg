@@ -51,7 +51,8 @@ local SketchMap = {
 	-- (user 2026-10-31: "... and expand it")
 	-- (in a leather map case, drawn: Config/PaperArt `case`, user 2026-11-12 "Both B": `case.pad` px of leather round
 	-- the sheet, nine-sliced at `case.slice` of its drawn size)
-	Hud = { x = 12, y = 10, width = 486, case = { pad = 9, slice = 0.5 } },
+	-- bigger again (user 2026-11-12: "bigger by default"; was 486), still times the HUD size setting (src/client/ModeHud)
+	Hud = { x = 12, y = 10, width = 660, case = { pad = 9, slice = 0.5 } },
 	-- the drawn markers (Config/PaperArt): the dot `dot` of its sprite across, the deploy ring's pencil loop `loop` of
 	-- the ring's box
 	Drawn = { dot = 0.62, loop = 1.16 },

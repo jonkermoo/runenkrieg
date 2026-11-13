@@ -152,8 +152,10 @@ local Hud = {
 			Rounds = "{key}: load rounds", -- a revolver's gate
 		},
 		-- a revolver's cylinder (src/client/AmmoHud) seen from behind, flat: `fill` of the view's height across, each
-		-- chamber `hole` of a round's width, a live round's primer `primer` of its head
-		drum = { fill = 0.86, hole = 1.05, primer = 0.36, gap = 0.12 },
+		-- chamber `hole` of a round's width, a live round's primer `primer` of its head; the gun's drawing beside it
+		-- `gun` of the view's height at most, `gap` of it between them; tipped on a reload (a top-break's), its face
+		-- never flatter than `tip` of its width
+		drum = { fill = 0.86, hole = 1.05, primer = 0.36, gap = 0.12, gun = 0.94, tip = 0.42 },
 	},
 
 	-- a crystal in a cut-away (src/client/HudKit.shine: the staff's gem, the howitzer's): its own colour full, darkened

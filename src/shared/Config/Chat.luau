@@ -33,7 +33,7 @@ local Chat = {
 	-- roblox's wouldve been": its ChatWindowConfiguration.TextSize, 14)
 	Panel = {
 		x = 16,
-		y = 168, -- under the in-play sketch map (Config/SketchMap.Hud: 10 + 486 x 295 / 1024, plus 18)
+		y = 200, -- under the in-play sketch map (Config/SketchMap.Hud: 10 + 660 x 252 / 1024, its case's 9, plus 18)
 		width = 360,
 		height = 230,
 		tabs = 22, -- the tab row's height

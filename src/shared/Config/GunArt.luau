@@ -6,7 +6,10 @@
 -- clips, magazine) at `body` (x, y, width, height on the sheet), its edges in gun space `z` (left edge at z[2], the
 -- butt; right at z[1], the muzzle) and `y` (bottom, top); `bolt`: the gun's own bolt drawn from its mesh, a frame per
 -- step of its `turn` (degrees; one frame when it doesn't turn), every frame the same box in gun space (`z`, `y`, the
--- bolt closed); `round`: which drawn round it takes ("rifle", "pistol", "shell").
+-- bolt closed); `round`: which drawn round it takes ("rifle", "pistol", "shell"); `movers` (the revolvers): the parts
+-- their pull and their reload move in the drawing's own plane (the Webley's barrel and cylinder on the hinge, the
+-- hammer, the trigger, the latch, the Nagant's rod), left out of the body and drawn apart: `part` the gun's part each
+-- follows, its box in gun space at rest, `under` the body or over it.
 -- `parts`: the sheet shared by every gun: rounds, spent cases and their standing pips (`_pip`, `_pip_spent`), the
 -- recesses cut into the gun (nine-sliced: `slice`, px on the sprite), a detachable box, an en-bloc clip's plate, a
 -- stripper clip's strip, the revolver's cylinder from behind (drum, hub, hole, head); each `rect` on the sheet with
@@ -14,7 +17,16 @@
 -- To redraw them: tools/gunart (local tooling, README.md there).
 export type Sprite = { rect: { number }, bleed: number, slice: { number }? }
 export type Bolt = { frames: { { number } }, z: { number }, y: { number }, turn: number }
-export type Gun = { image: number, body: { number }, z: { number }, y: { number }, round: string, bolt: Bolt? }
+export type Mover = { part: string, rect: { number }, z: { number }, y: { number }, under: boolean }
+export type Gun = {
+	image: number,
+	body: { number },
+	z: { number },
+	y: { number },
+	round: string,
+	bolt: Bolt?,
+	movers: { Mover }?,
+}
 
 local GunArt: { wash: number, parts: { image: number, sprites: { [string]: Sprite } }, guns: { [string]: Gun } } = {
 	wash = 80555168305590,
@@ -59,18 +71,71 @@ local GunArt: { wash: number, parts: { image: number, sprites: { [string]: Sprit
 			},
 		},
 		pistol_nagant = {
-			image = 115379418012719,
+			image = 87295014817962,
 			body = { 0, 0, 890, 640 },
 			z = { -1.006, 0.7406 },
 			y = { -0.8859, 0.37 },
 			round = "pistol",
+			movers = {
+				{
+					part = "Rod",
+					rect = { 0, 644, 389, 85 },
+					z = { -0.6455, 0.1175 },
+					y = { 0.0097, 0.1771 },
+					under = true,
+				},
+				{
+					part = "Hammer",
+					rect = { 393, 644, 141, 183 },
+					z = { 0.1802, 0.4581 },
+					y = { -0.012, 0.3483 },
+					under = true,
+				},
+				{
+					part = "Trigger",
+					rect = { 538, 644, 146, 192 },
+					z = { -0.0947, 0.1917 },
+					y = { -0.4549, -0.0775 },
+					under = true,
+				},
+			},
 		},
 		pistol_webley = {
-			image = 79880904110797,
+			image = 104893432258547,
 			body = { 0, 0, 911, 640 },
 			z = { -1.3105, 0.7895 },
 			y = { -0.913, 0.5626 },
 			round = "pistol",
+			movers = {
+				{
+					part = "Barrel",
+					rect = { 0, 644, 655, 267 },
+					z = { -1.3105, 0.2006 },
+					y = { -0.071, 0.5458 },
+					under = false,
+				},
+				{
+					part = "Hammer",
+					rect = { 659, 644, 167, 216 },
+					z = { 0.0347, 0.4204 },
+					y = { -0.0063, 0.4912 },
+					under = true,
+				},
+				{
+					part = "Trigger",
+					rect = { 830, 644, 121, 186 },
+					z = { -0.1137, 0.1662 },
+					y = { -0.3676, 0.0626 },
+					under = true,
+				},
+				{
+					part = "Latch",
+					rect = { 955, 644, 65, 71 },
+					z = { 0.0508, 0.2006 },
+					y = { 0.3979, 0.5626 },
+					under = false,
+				},
+			},
 		},
 		rifle_g98 = {
 			image = 71728688119812,
