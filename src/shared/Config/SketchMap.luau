@@ -49,7 +49,12 @@ local SketchMap = {
 	-- chat sits under it, Config/Chat.Panel.y); height = width x aspect (the image's)
 	-- the in-play map, top left (reference pixels; its height follows the map image's shape); 1.35x wider than at first
 	-- (user 2026-10-31: "... and expand it")
-	Hud = { x = 12, y = 10, width = 486 },
+	-- (in a leather map case, drawn: Config/PaperArt `case`, user 2026-11-12 "Both B": `case.pad` px of leather round
+	-- the sheet, nine-sliced at `case.slice` of its drawn size)
+	Hud = { x = 12, y = 10, width = 486, case = { pad = 9, slice = 0.5 } },
+	-- the drawn markers (Config/PaperArt): the dot `dot` of its sprite across, the deploy ring's pencil loop `loop` of
+	-- the ring's box
+	Drawn = { dot = 0.62, loop = 1.16 },
 	-- sizes as shares of the drawn area's width
 	-- each point's rune by its place in the chain (the HQs at the two ends `hq`), the same on the sketch map and on the
 	-- beacon over its flag (src/client/PointSeal)
