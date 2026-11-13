@@ -1767,6 +1767,11 @@ local builtWatchers: { (Player, number) -> () } = {}
 function Build.onBuilt(fn: (Player, number) -> ())
 	table.insert(builtWatchers, fn)
 end
+-- HP a bot's swings added, by its negative id (the Tab scoreboard's "Built": src/server/Bots, src/server/MatchStats)
+local botBuiltWatchers: { (number, number) -> () } = {}
+function Build.onBotBuilt(fn: (number, number) -> ())
+	table.insert(botBuiltWatchers, fn)
+end
 -- `spent`: the share of a full swing this strike is paid for (Rules.swingSpent; Config/Classes.Earn.Work, user
 -- 2026-11-06: "player's who play engineer should benefit just as much as aggressive players")
 local function credit(b: Builder, hp: number, spent: number)
@@ -1777,6 +1782,10 @@ local function credit(b: Builder, hp: number, spent: number)
 	if hp > 0 and player then
 		for _, fn in builtWatchers do
 			task.spawn(fn, player, hp)
+		end
+	elseif hp > 0 and b.id < 0 then
+		for _, fn in botBuiltWatchers do
+			task.spawn(fn, b.id, hp)
 		end
 	end
 end

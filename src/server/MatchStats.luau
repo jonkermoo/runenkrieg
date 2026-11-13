@@ -4,7 +4,9 @@
 -- (src/server/Build.onBuilt) and points earned (src/server/Loadouts.onEarn). Cleared at each match's start; at its end
 -- the match (src/server/Frontline, src/server/ZoneMatch) sends everyone the results (Net "MatchResults"). Bot
 -- soldiers have rows too (src/server/Bots: their kills; user 2026-11-01: bots may win the honours, under their shown
--- names).
+-- names). Assists (src/server/Loadouts.onAssist) count too, and the bots' building and healing (src/server/Bots). While
+-- Tab is held each client asks for the live scoreboard (Net "Scores", MatchStats.board; src/client/Scoreboard; user
+-- 2026-11-12): every soldier on the field, by side, with their kills, assists, HP healed and HP built.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15,13 +17,17 @@ local Rules = require(Shared.Rules.MatchStats)
 
 local MatchStats = {}
 
-local KEYS = { "Kills", "Healed", "Built", "Earned" }
+local KEYS = { "Kills", "Assists", "Healed", "Built", "Earned" }
 local rows: { [number]: Rules.Row } = {}
+-- the bots on the field now (src/server/Bots): each one's id, shown name and side, so the scoreboard lists them all
+local roster: () -> { { id: number, name: string, kit: string? } } = function()
+	return {}
+end
 
 local function rowOf(player: Player): Rules.Row
 	local r = rows[player.UserId]
 	if not r then
-		r = { id = player.UserId, name = player.Name }
+		r = { id = player.UserId, name = player.DisplayName }
 		for _, k in KEYS do
 			r[k] = 0
 		end
@@ -30,12 +36,7 @@ local function rowOf(player: Player): Rules.Row
 	return r
 end
 
-function MatchStats.reset()
-	table.clear(rows)
-end
-
--- bot `id` (its negative id) did `n` more of `key`; `name` and `kit` as shown (its latest life's)
-function MatchStats.addBot(id: number, name: string, kit: string?, key: string, n: number)
+local function botRow(id: number, name: string): Rules.Row
 	local r = rows[id]
 	if not r then
 		r = { id = id, name = name }
@@ -44,14 +45,62 @@ function MatchStats.addBot(id: number, name: string, kit: string?, key: string, 
 		end
 		rows[id] = r
 	end
+	return r
+end
+
+-- `fn()`: the bots on the field now (src/server/Bots)
+function MatchStats.bots(fn: () -> { { id: number, name: string, kit: string? } })
+	roster = fn
+end
+
+function MatchStats.reset()
+	table.clear(rows)
+end
+
+-- bot `id` (its negative id) did `n` more of `key`; `name` and `kit` as shown (its latest life's)
+function MatchStats.addBot(id: number, name: string, kit: string?, key: string, n: number)
+	local r = botRow(id, name)
 	r.name, r.kit = name, kit
 	r[key] += n
 end
 
--- `player` did `n` more of `key` ("Kills", "Healed", "Built", "Earned")
+-- `player` did `n` more of `key` ("Kills", "Assists", "Healed", "Built", "Earned")
 function MatchStats.add(player: Player, key: string, n: number)
 	local r = rowOf(player)
 	r[key] += n
+end
+
+-- The live scoreboard (Net "Scores"): every player and every bot on the field, each `{ id, name, kit, Kills, Assists,
+-- Healed, Built }` (health whole), `kit` their side now (nil: not on one yet).
+function MatchStats.board(): { Rules.Row }
+	local out: { Rules.Row } = {}
+	local function row(r: Rules.Row, kit: string?)
+		table.insert(out, {
+			id = r.id,
+			name = r.name,
+			kit = kit,
+			Kills = r.Kills,
+			Assists = r.Assists,
+			Healed = math.floor(r.Healed + 0.5),
+			Built = math.floor(r.Built + 0.5),
+		})
+	end
+	for _, p in Players:GetPlayers() do
+		local r = rowOf(p)
+		r.name = p.DisplayName
+		local character = p.Character
+		local kit = character and character:GetAttribute("Kit")
+		if type(kit) == "string" then
+			r.kit = kit -- (kept while respawning)
+		end
+		row(r, r.kit)
+	end
+	for _, b in roster() do
+		local r = botRow(b.id, b.name)
+		r.name, r.kit = b.name, b.kit or r.kit
+		row(r, r.kit)
+	end
+	return out
 end
 
 -- Sends each player the results: the honours from every row, their own row, and `extra` (the mode's: Normal's

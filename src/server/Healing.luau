@@ -43,6 +43,11 @@ local healWatchers: { (Player, number) -> () } = {}
 function Healing.onHealed(fn: (Player, number) -> ())
 	table.insert(healWatchers, fn)
 end
+-- HP a bot healed another soldier by, by its negative id (the Tab scoreboard: src/server/Bots, src/server/MatchStats)
+local botHealWatchers: { (number, number) -> () } = {}
+function Healing.onBotHealed(fn: (number, number) -> ())
+	table.insert(botHealWatchers, fn)
+end
 local lastHit: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
 local lastHealth: { [Model]: number } = setmetatable({}, { __mode = "k" }) :: any
 local lastAsk: { [Player]: number } = setmetatable({}, { __mode = "k" }) :: any
@@ -170,6 +175,13 @@ local function tick(dt: number)
 		if medic and h.patient ~= healer and th.Health > before then
 			for _, fn in healWatchers do
 				task.spawn(fn, medic, th.Health - before)
+			end
+		elseif not medic and h.patient ~= healer and th.Health > before then
+			local botId = healer:GetAttribute(BotsCfg.IdAttribute)
+			if type(botId) == "number" then
+				for _, fn in botHealWatchers do
+					task.spawn(fn, botId, th.Health - before)
+				end
 			end
 		end
 		if th.Health >= th.MaxHealth then

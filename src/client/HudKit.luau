@@ -5,7 +5,9 @@
 -- ScreenGui (src/client/AmmoHud, StaffHud, ArtilleryHud; Config/DevTools.Admin.Cinematic.HudGuis hides them by name).
 -- Offsets are reference pixels: one UIScale per panel does the rest; a `sized` panel (the kit list, the gun's cut-away)
 -- is also scaled by the player's HUD size setting (Config/Settings HudSize).
---   HudKit.panel(id, guiName, sized?) -> { gui, panel, node: { [id]: GuiObject }, set(bind, text), fill(id, share) }
+--   HudKit.panel(id, guiName, sized?, spec?) -> { gui, panel, node: { [id]: GuiObject }, set(bind, text), fill(id, share) }
+--   (`spec`: another src/shared/ui spec whose root holds the panel, in this one's theme; the rewards popup and the Tab
+--   scoreboard, src/shared/ui/Scoreboard.json)
 --   HudKit.paint(node, colour, transparency): a stencil plate's (`cut`) colour
 
 local Players = game:GetService("Players")
@@ -133,8 +135,8 @@ export type Panel = {
 	fill: (id: string, share: number, color: Color3?) -> (),
 }
 
-function HudKit.panel(id: string, guiName: string, sized: boolean?): Panel
-	local spec = assert(find(Spec.root, id), id)
+function HudKit.panel(id: string, guiName: string, sized: boolean?, other: any?): Panel
+	local spec = assert(find((other or Spec).root, id), id)
 	local gui = Instance.new("ScreenGui")
 	gui.Name = guiName
 	gui.ResetOnSpawn = false

@@ -510,16 +510,16 @@ function Menus.start()
 				r.cost.TextColor3 = gcol(if on then "text" elseif can then "blue" else "pencil")
 				r.name.TextTransparency, r.blurb.TextTransparency = fade, fade
 				r.cost.TextTransparency, r.note.TextTransparency = 0, 0
-				-- (the marks rebalance, user 2026-11-05: its unlock + fee until unlocked this match, then the fee alone)
-				-- (in plain words: the big number is what this life costs, the note what it is made of)
+				-- (user 2026-11-12: its unlock until unlocked this match, the first life included, then the fee each
+				-- respawn) (in plain words: the big number is what this life costs, the note what it is made of)
 				r.cost.Text = if card.locked then "Soon" elseif card.cost == 0 then "Free" else tostring(card.cost)
 				local short = math.ceil(card.cost - state.points)
 				local terms = if card.unlocked
 					then `Unlocked · each life: {card.fee}`
-					else `Unlock: {card.unlock} once · each life: {card.fee}`
+					else `Unlock: {card.unlock}, first life free · then {card.fee} a life`
 				local brief = if card.unlocked
 					then `each life: {card.fee}`
-					else `{card.unlock} once + {card.fee} a life`
+					else `{card.unlock} to unlock, then {card.fee} a life`
 				r.note.Text = if card.locked
 					then "Not ready yet"
 					elseif card.cost == 0 then "Always free"

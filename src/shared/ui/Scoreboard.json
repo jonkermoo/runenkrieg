@@ -1,0 +1,843 @@
+{
+	"name": "Scoreboard",
+	"_doc": "The rewards popup and the Tab scoreboard (user 2026-11-12), built by src/client/HudKit with src/shared/ui/CombatHud.json's theme (fonts, scale) and Config/Palette UI.Hud colours. `Rewards` (src/client/Rewards): right of the crosshair, the newest reward on two lines (`RewardMarks`: '+10 Marks', `RewardWhat`: 'Killed [BOT] Hans Weber'), older ones one line each under it (`Reward2`..`Reward4`), each fading after Config/Hud.Rewards.seconds; building and healing gather into one running line. `Board` (src/client/Scoreboard): while Tab is held, over the darkened, blurred match: the title, each side's panel (`Left`, `Right`: its name in its side's colour, its total kills, the column heads, `LeftRow` / `RightRow` the template row cloned per soldier and stepped down Config/Hud.Board.rowGap), the hint under them. Sizes in reference pixels.",
+	"root": {
+		"id": "Screen",
+		"kind": "group",
+		"size": [
+			1,
+			0,
+			1,
+			0
+		],
+		"children": [
+			{
+				"id": "Rewards",
+				"kind": "panel",
+				"overlay": true,
+				"anchor": [
+					0,
+					0.5
+				],
+				"pos": [
+					0.5,
+					64,
+					0.5,
+					-30
+				],
+				"size": [
+					0,
+					400,
+					0,
+					130
+				],
+				"children": [
+					{
+						"id": "RewardMarks",
+						"kind": "label",
+						"font": "plain",
+						"text": "",
+						"textSize": 24,
+						"textColor": "count",
+						"stroke": "window",
+						"align": "left",
+						"bind": "marks",
+						"pos": [
+							0,
+							0,
+							0,
+							0
+						],
+						"size": [
+							0,
+							400,
+							0,
+							30
+						]
+					},
+					{
+						"id": "RewardWhat",
+						"kind": "label",
+						"font": "plain",
+						"text": "",
+						"textSize": 18,
+						"textColor": "readout",
+						"stroke": "window",
+						"align": "left",
+						"bind": "what",
+						"pos": [
+							0,
+							0,
+							0,
+							30
+						],
+						"size": [
+							0,
+							400,
+							0,
+							24
+						]
+					},
+					{
+						"id": "Reward2",
+						"kind": "label",
+						"font": "plain",
+						"text": "",
+						"textSize": 16,
+						"textColor": "readout",
+						"stroke": "window",
+						"align": "left",
+						"pos": [
+							0,
+							0,
+							0,
+							60
+						],
+						"size": [
+							0,
+							400,
+							0,
+							22
+						]
+					},
+					{
+						"id": "Reward3",
+						"kind": "label",
+						"font": "plain",
+						"text": "",
+						"textSize": 16,
+						"textColor": "readout",
+						"stroke": "window",
+						"align": "left",
+						"pos": [
+							0,
+							0,
+							0,
+							82
+						],
+						"size": [
+							0,
+							400,
+							0,
+							22
+						]
+					},
+					{
+						"id": "Reward4",
+						"kind": "label",
+						"font": "plain",
+						"text": "",
+						"textSize": 16,
+						"textColor": "readout",
+						"stroke": "window",
+						"align": "left",
+						"pos": [
+							0,
+							0,
+							0,
+							104
+						],
+						"size": [
+							0,
+							400,
+							0,
+							22
+						]
+					}
+				]
+			},
+			{
+				"id": "Board",
+				"kind": "group",
+				"anchor": [
+					0.5,
+					0.5
+				],
+				"pos": [
+					0.5,
+					0,
+					0.5,
+					0
+				],
+				"size": [
+					0,
+					900,
+					0,
+					660
+				],
+				"children": [
+					{
+						"id": "BoardTitle",
+						"kind": "label",
+						"font": "title",
+						"text": "Muster roll",
+						"textSize": 34,
+						"textColor": "count",
+						"stroke": "window",
+						"pos": [
+							0,
+							0,
+							0,
+							0
+						],
+						"size": [
+							0,
+							900,
+							0,
+							44
+						]
+					},
+					{
+						"id": "Left",
+						"kind": "panel",
+						"color": "field",
+						"line": "brass",
+						"pos": [
+							0,
+							0,
+							0,
+							50
+						],
+						"size": [
+							0.5,
+							-8,
+							1,
+							-82
+						],
+						"children": [
+							{
+								"id": "LeftName",
+								"kind": "label",
+								"font": "title",
+								"text": "",
+								"textSize": 22,
+								"textColor": "readout",
+								"stroke": "window",
+								"align": "left",
+								"pos": [
+									0,
+									10,
+									0,
+									6
+								],
+								"size": [
+									0,
+									300,
+									0,
+									28
+								]
+							},
+							{
+								"id": "LeftTotal",
+								"kind": "label",
+								"font": "plain",
+								"text": "",
+								"textSize": 16,
+								"textColor": "count",
+								"stroke": "window",
+								"align": "right",
+								"pos": [
+									0,
+									300,
+									0,
+									8
+								],
+								"size": [
+									0,
+									130,
+									0,
+									26
+								]
+							},
+							{
+								"id": "LeftHead",
+								"kind": "group",
+								"pos": [
+									0,
+									0,
+									0,
+									40
+								],
+								"size": [
+									1,
+									0,
+									0,
+									22
+								],
+								"children": [
+									{
+										"id": "LeftHeadName",
+										"kind": "label",
+										"font": "plain",
+										"text": "Name",
+										"textSize": 13,
+										"textColor": "kitName",
+										"stroke": "window",
+										"align": "left",
+										"pos": [
+											0,
+											8,
+											0,
+											0
+										],
+										"size": [
+											0,
+											214,
+											0,
+											22
+										]
+									},
+									{
+										"id": "LeftHeadK",
+										"kind": "label",
+										"font": "plain",
+										"text": "Kills",
+										"textSize": 13,
+										"textColor": "kitName",
+										"stroke": "window",
+										"pos": [
+											0,
+											226,
+											0,
+											0
+										],
+										"size": [
+											0,
+											40,
+											0,
+											22
+										]
+									},
+									{
+										"id": "LeftHeadA",
+										"kind": "label",
+										"font": "plain",
+										"text": "Assists",
+										"textSize": 13,
+										"textColor": "kitName",
+										"stroke": "window",
+										"pos": [
+											0,
+											268,
+											0,
+											0
+										],
+										"size": [
+											0,
+											40,
+											0,
+											22
+										]
+									},
+									{
+										"id": "LeftHeadHeal",
+										"kind": "label",
+										"font": "plain",
+										"text": "Healed",
+										"textSize": 13,
+										"textColor": "kitName",
+										"stroke": "window",
+										"pos": [
+											0,
+											312,
+											0,
+											0
+										],
+										"size": [
+											0,
+											56,
+											0,
+											22
+										]
+									},
+									{
+										"id": "LeftHeadBuilt",
+										"kind": "label",
+										"font": "plain",
+										"text": "Built",
+										"textSize": 13,
+										"textColor": "kitName",
+										"stroke": "window",
+										"pos": [
+											0,
+											372,
+											0,
+											0
+										],
+										"size": [
+											0,
+											62,
+											0,
+											22
+										]
+									}
+								]
+							},
+							{
+								"id": "LeftRow",
+								"kind": "group",
+								"pos": [
+									0,
+									0,
+									0,
+									64
+								],
+								"size": [
+									1,
+									0,
+									0,
+									18
+								],
+								"children": [
+									{
+										"id": "LeftRowName",
+										"kind": "label",
+										"font": "plain",
+										"text": "",
+										"textSize": 15,
+										"textColor": "readout",
+										"stroke": "window",
+										"align": "left",
+										"pos": [
+											0,
+											8,
+											0,
+											0
+										],
+										"size": [
+											0,
+											214,
+											0,
+											18
+										]
+									},
+									{
+										"id": "LeftRowK",
+										"kind": "label",
+										"font": "plain",
+										"text": "",
+										"textSize": 15,
+										"textColor": "readout",
+										"stroke": "window",
+										"pos": [
+											0,
+											226,
+											0,
+											0
+										],
+										"size": [
+											0,
+											40,
+											0,
+											18
+										]
+									},
+									{
+										"id": "LeftRowA",
+										"kind": "label",
+										"font": "plain",
+										"text": "",
+										"textSize": 15,
+										"textColor": "readout",
+										"stroke": "window",
+										"pos": [
+											0,
+											268,
+											0,
+											0
+										],
+										"size": [
+											0,
+											40,
+											0,
+											18
+										]
+									},
+									{
+										"id": "LeftRowHeal",
+										"kind": "label",
+										"font": "plain",
+										"text": "",
+										"textSize": 15,
+										"textColor": "readout",
+										"stroke": "window",
+										"pos": [
+											0,
+											312,
+											0,
+											0
+										],
+										"size": [
+											0,
+											56,
+											0,
+											18
+										]
+									},
+									{
+										"id": "LeftRowBuilt",
+										"kind": "label",
+										"font": "plain",
+										"text": "",
+										"textSize": 15,
+										"textColor": "readout",
+										"stroke": "window",
+										"pos": [
+											0,
+											372,
+											0,
+											0
+										],
+										"size": [
+											0,
+											62,
+											0,
+											18
+										]
+									}
+								]
+							}
+						]
+					},
+					{
+						"id": "Right",
+						"kind": "panel",
+						"color": "field",
+						"line": "brass",
+						"pos": [
+							0.5,
+							8,
+							0,
+							50
+						],
+						"size": [
+							0.5,
+							-8,
+							1,
+							-82
+						],
+						"children": [
+							{
+								"id": "RightName",
+								"kind": "label",
+								"font": "title",
+								"text": "",
+								"textSize": 22,
+								"textColor": "readout",
+								"stroke": "window",
+								"align": "left",
+								"pos": [
+									0,
+									10,
+									0,
+									6
+								],
+								"size": [
+									0,
+									300,
+									0,
+									28
+								]
+							},
+							{
+								"id": "RightTotal",
+								"kind": "label",
+								"font": "plain",
+								"text": "",
+								"textSize": 16,
+								"textColor": "count",
+								"stroke": "window",
+								"align": "right",
+								"pos": [
+									0,
+									300,
+									0,
+									8
+								],
+								"size": [
+									0,
+									130,
+									0,
+									26
+								]
+							},
+							{
+								"id": "RightHead",
+								"kind": "group",
+								"pos": [
+									0,
+									0,
+									0,
+									40
+								],
+								"size": [
+									1,
+									0,
+									0,
+									22
+								],
+								"children": [
+									{
+										"id": "RightHeadName",
+										"kind": "label",
+										"font": "plain",
+										"text": "Name",
+										"textSize": 13,
+										"textColor": "kitName",
+										"stroke": "window",
+										"align": "left",
+										"pos": [
+											0,
+											8,
+											0,
+											0
+										],
+										"size": [
+											0,
+											214,
+											0,
+											22
+										]
+									},
+									{
+										"id": "RightHeadK",
+										"kind": "label",
+										"font": "plain",
+										"text": "Kills",
+										"textSize": 13,
+										"textColor": "kitName",
+										"stroke": "window",
+										"pos": [
+											0,
+											226,
+											0,
+											0
+										],
+										"size": [
+											0,
+											40,
+											0,
+											22
+										]
+									},
+									{
+										"id": "RightHeadA",
+										"kind": "label",
+										"font": "plain",
+										"text": "Assists",
+										"textSize": 13,
+										"textColor": "kitName",
+										"stroke": "window",
+										"pos": [
+											0,
+											268,
+											0,
+											0
+										],
+										"size": [
+											0,
+											40,
+											0,
+											22
+										]
+									},
+									{
+										"id": "RightHeadHeal",
+										"kind": "label",
+										"font": "plain",
+										"text": "Healed",
+										"textSize": 13,
+										"textColor": "kitName",
+										"stroke": "window",
+										"pos": [
+											0,
+											312,
+											0,
+											0
+										],
+										"size": [
+											0,
+											56,
+											0,
+											22
+										]
+									},
+									{
+										"id": "RightHeadBuilt",
+										"kind": "label",
+										"font": "plain",
+										"text": "Built",
+										"textSize": 13,
+										"textColor": "kitName",
+										"stroke": "window",
+										"pos": [
+											0,
+											372,
+											0,
+											0
+										],
+										"size": [
+											0,
+											62,
+											0,
+											22
+										]
+									}
+								]
+							},
+							{
+								"id": "RightRow",
+								"kind": "group",
+								"pos": [
+									0,
+									0,
+									0,
+									64
+								],
+								"size": [
+									1,
+									0,
+									0,
+									18
+								],
+								"children": [
+									{
+										"id": "RightRowName",
+										"kind": "label",
+										"font": "plain",
+										"text": "",
+										"textSize": 15,
+										"textColor": "readout",
+										"stroke": "window",
+										"align": "left",
+										"pos": [
+											0,
+											8,
+											0,
+											0
+										],
+										"size": [
+											0,
+											214,
+											0,
+											18
+										]
+									},
+									{
+										"id": "RightRowK",
+										"kind": "label",
+										"font": "plain",
+										"text": "",
+										"textSize": 15,
+										"textColor": "readout",
+										"stroke": "window",
+										"pos": [
+											0,
+											226,
+											0,
+											0
+										],
+										"size": [
+											0,
+											40,
+											0,
+											18
+										]
+									},
+									{
+										"id": "RightRowA",
+										"kind": "label",
+										"font": "plain",
+										"text": "",
+										"textSize": 15,
+										"textColor": "readout",
+										"stroke": "window",
+										"pos": [
+											0,
+											268,
+											0,
+											0
+										],
+										"size": [
+											0,
+											40,
+											0,
+											18
+										]
+									},
+									{
+										"id": "RightRowHeal",
+										"kind": "label",
+										"font": "plain",
+										"text": "",
+										"textSize": 15,
+										"textColor": "readout",
+										"stroke": "window",
+										"pos": [
+											0,
+											312,
+											0,
+											0
+										],
+										"size": [
+											0,
+											56,
+											0,
+											18
+										]
+									},
+									{
+										"id": "RightRowBuilt",
+										"kind": "label",
+										"font": "plain",
+										"text": "",
+										"textSize": 15,
+										"textColor": "readout",
+										"stroke": "window",
+										"pos": [
+											0,
+											372,
+											0,
+											0
+										],
+										"size": [
+											0,
+											62,
+											0,
+											18
+										]
+									}
+								]
+							}
+						]
+					},
+					{
+						"id": "BoardHint",
+						"kind": "label",
+						"font": "plain",
+						"text": "Release Tab to close",
+						"textSize": 14,
+						"textColor": "kitName",
+						"stroke": "window",
+						"anchor": [
+							0.5,
+							1
+						],
+						"pos": [
+							0.5,
+							0,
+							1,
+							0
+						],
+						"size": [
+							0,
+							600,
+							0,
+							24
+						]
+					}
+				]
+			}
+		]
+	}
+}

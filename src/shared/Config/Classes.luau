@@ -1,15 +1,16 @@
 --!strict
 -- Classes and the match currency (user 2026-10-27: "a type of temporary currency that resets every match that allows
 -- players to spawn with a certain loadout"). Every player starts a match with `Start` points and earns `Earn`. A class
--- is unlocked once a match for its `unlock` and then costs its `fee` each life it is played (user 2026-11-05, the marks
--- rebalance: "you pay for a class, then smaller fees to use it"; src/server/Loadouts, Rules/Classes.price). The points are invisible to the player except in the loadout menu while respawning (user: "they only
+-- is unlocked once a match for its `unlock`, which pays its first life, and then costs its `fee` each respawn as it
+-- (user 2026-11-12: "Grenadier and Engineer is 100 to unlock, include that it is 50 after respawn and give the kit to
+-- the player for free"; src/server/Loadouts, Rules/Classes.price). The points are invisible to the player except in the loadout menu while respawning (user: "they only
 -- see their match currency in the loadout menu when they are respawning"). A pick it can't pay for spawns the
 -- `Default` class and stays picked.
 
 export type Def = {
 	name: string,
-	unlock: number, -- paid once a match, at the first spawn as the class
-	fee: number, -- paid every life as the class (the first one too)
+	unlock: number, -- paid once a match, at the first spawn as the class; it pays that first life too
+	fee: number, -- paid every later life as the class (each respawn)
 	-- the primary: "weapon" (the kit's bolt rifle, Config/Uniforms.Kits) or a key of the kit's `Gear` below
 	primary: string,
 	grenades: boolean, -- carries the kit's grenades
@@ -69,8 +70,9 @@ local Classes = {
 		Turn = 0.35,
 	},
 	-- points at the start of every match: enough to unlock and play the Grenadier or the Engineer (user 2026-11-05:
-	-- "give all soldiers a starting fee enough to pay for engineer or to pay for grenadier")
-	Start = 85, -- (user 2026-11-06: "Start at 85": a first life as Grenadier or Engineer, unlock and fee)
+	-- "give all soldiers a starting fee enough to pay for engineer or to pay for grenadier"; 85 from 2026-11-06, 100
+	-- with the 2026-11-12 prices)
+	Start = 100,
 	Default = "Rifleman", -- free: anyone can always play it
 	-- the classes in the menu's order
 	List = { "Rifleman", "Grenadier", "Engineer", "AutoRifler", "Shotgunner", "Mage" }, -- (user 2026-11-11)
@@ -88,8 +90,8 @@ local Classes = {
 		Grenadier = {
 			name = "Grenadier",
 			blurb = "Rifle and five grenades",
-			unlock = 75,
-			fee = 10,
+			unlock = 100,
+			fee = 50,
 			primary = "weapon",
 			grenades = true,
 			builds = SMALL,
@@ -98,8 +100,8 @@ local Classes = {
 		AutoRifler = {
 			name = "Auto rifler",
 			blurb = "Semi-automatic rifle",
-			unlock = 150,
-			fee = 20,
+			unlock = 200,
+			fee = 100,
 			primary = "semi",
 			grenades = false,
 			helmet = "altHelmet",
@@ -110,8 +112,8 @@ local Classes = {
 		Shotgunner = {
 			name = "Shotgunner",
 			blurb = "Pump shotgun, shell-band helmet",
-			unlock = 150,
-			fee = 20,
+			unlock = 200,
+			fee = 100,
 			primary = "shotgun",
 			grenades = false,
 			helmet = "shellHelmet",
@@ -122,8 +124,8 @@ local Classes = {
 		Engineer = {
 			name = "Engineer",
 			blurb = "Builds field guns, rune howitzers, MG nests and dugouts", -- (its own builds; user 2026-11-11)
-			unlock = 75,
-			fee = 10,
+			unlock = 100,
+			fee = 50,
 			-- the kit's pistol (user 2026-10-28: the Engineer's own sidearm; the C96, the Nagant, the Webley)
 			primary = "pistol",
 			grenades = false,
@@ -136,8 +138,8 @@ local Classes = {
 		Mage = {
 			name = "Mage",
 			blurb = "Rune staff",
-			unlock = 200,
-			fee = 30,
+			unlock = 300,
+			fee = 150,
 			primary = "staff",
 			grenades = false,
 			helmet = "goggles",
@@ -182,7 +184,10 @@ local Classes = {
 	-- 2026-11-05, folded it into the numbers below; 2026-11-06 a quarter, user: "i played for about 10 minutes and i
 	-- have 300 points already": a 20 v 20 bot match measured a player at ~27 a minute, the target ~6, so the Auto rifler
 	-- comes at ~15 minutes and the Mage at ~28); the points may hold fractions, shown rounded down (src/client/Menus)
-	Pay = 0.25,
+	-- 2026-11-12 four times that again with the new prices (unlocks 100 / 200 / 300, fees 50 / 100 / 150; user chose
+	-- ~27 a minute): a Grenadier or Engineer unlocks in ~4 minutes and a ~2 minute life pays its 50 back; the Auto
+	-- rifler and Shotgunner (~7.5 minutes) and the Mage (~11) cost an average soldier more each life than it earns
+	Pay = 1,
 	-- points earned (the marks rebalance, user 2026-11-05: kills, objectives, building, support and gun crews all rated
 	-- the same, so each style earns about 6 a minute; no Win award, "drop")
 	Earn = {
@@ -198,7 +203,7 @@ local Classes = {
 		-- building by the time at it (user 2026-11-06: "player's who play engineer should benefit just as much as
 		-- aggressive players who play strictly for gun pvp"): per full dig's worth of Build swings (Config/Shovel.Dig
 		-- .length, 2.6 s) that raise something, a trench square, a piece, a dugout, a repair (src/server/Build,
-		-- Rules/Build.swingSpent): 23 a minute, ~5.8 Marks after Pay, a fighter's rate; it replaces the Trench award
+		-- Rules/Build.swingSpent): 23 a minute (Pay 1), a fighter's rate; it replaces the Trench award
 		Work = 1,
 		Repair = 4, -- a wrecked gun made usable again (the swing that does it; src/server/Artillery)
 		Drag = 5, -- a downed teammate dragged at least `DragPay.least` studs (once per knock-down; src/server/Dragging)

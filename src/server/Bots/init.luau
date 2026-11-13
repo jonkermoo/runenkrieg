@@ -340,7 +340,7 @@ spawnBody = function(b: Bot)
 	CollectionService:AddTag(m, Cfg.Tag)
 	SoldierGroups.track(m) -- (its team's group: teammates pass through each other)
 	local humanoid = m:FindFirstChildOfClass("Humanoid") :: Humanoid
-	humanoid.DisplayName = if b.mode == "Normal" then NV.nameTag .. b.name else b.name
+	humanoid.DisplayName = Cfg.NameTag .. b.name
 	humanoid.BreakJointsOnDeath = false
 	humanoid.RequiresNeck = false -- the ragdoll loosens the Neck (src/server/Ragdoll): never a death by itself
 	humanoid.MaxHealth = DamageCfg.Health
@@ -583,7 +583,7 @@ local function add(mode: string, side: string?)
 	}
 	b.name = freeName()
 	table.insert(bots, b)
-	botFolder():SetAttribute(Cfg.NameAttribute .. tostring(count), b.name)
+	botFolder():SetAttribute(Cfg.NameAttribute .. tostring(count), Cfg.NameTag .. b.name)
 	spawnBody(b)
 end
 
@@ -1756,14 +1756,35 @@ function Bots.start()
 	ZoneMatch.onBotCapture(function(id)
 		Loadouts.awardBot(id, "Capture")
 	end)
-	-- a bot's kills count for a match's honours (src/server/MatchStats), under its shown name
-	Loadouts.onBotKill(function(id: number)
+	-- a bot's kills, assists, building and healing count for a match's honours and the Tab scoreboard
+	-- (src/server/MatchStats), under its shown name
+	local function stat(id: number, key: string, n: number)
 		for _, b in bots do
 			if b.id == id then
-				local shown = if b.mode == "Normal" then NV.nameTag .. b.name else b.name
-				MatchStats.addBot(id, shown, b.kit, "Kills", 1)
+				MatchStats.addBot(id, Cfg.NameTag .. b.name, b.kit, key, n)
 			end
 		end
+	end
+	Loadouts.onBotKill(function(id: number)
+		stat(id, "Kills", 1)
+	end)
+	Loadouts.onAssist(function(id: number)
+		if id < 0 then
+			stat(id, "Assists", 1)
+		end
+	end)
+	require(script.Parent.Build).onBotBuilt(function(id: number, hp: number)
+		stat(id, "Built", hp)
+	end)
+	Healing.onBotHealed(function(id: number, hp: number)
+		stat(id, "Healed", hp)
+	end)
+	MatchStats.bots(function()
+		local list = {}
+		for _, b in bots do
+			table.insert(list, { id = b.id, name = Cfg.NameTag .. b.name, kit = b.kit })
+		end
+		return list
 	end)
 	Frontline.onBotAward(function(m: Model, reason: string, times: number?)
 		local id = m:GetAttribute(Cfg.IdAttribute)

@@ -17,14 +17,14 @@ LOCKED.Engineer.locked = true
 local ENGINEER = { Gun = true, Nest = true, Dugout = true }
 
 return {
-	["the user's prices (2026-11-06): unlocks 75 / 150 / 150 / 75 / 200, fees 10 / 20 / 20 / 10 / 30"] = function()
+	["the user's prices (2026-11-12): unlocks 100 / 200 / 200 / 100 / 300, then 50 / 100 / 100 / 50 / 150 a respawn"] = function()
 		local want = {
 			Rifleman = { 0, 0 },
-			Grenadier = { 75, 10 },
-			AutoRifler = { 150, 20 },
-			Shotgunner = { 150, 20 },
-			Engineer = { 75, 10 },
-			Mage = { 200, 30 },
+			Grenadier = { 100, 50 },
+			AutoRifler = { 200, 100 },
+			Shotgunner = { 200, 100 },
+			Engineer = { 100, 50 },
+			Mage = { 300, 150 },
 		}
 		for key, p in want do
 			local d = C.Defs[key]
@@ -49,12 +49,12 @@ return {
 		end
 	end,
 	["a pick is paid only when it can be"] = function()
-		local key, cost = R.resolve("Mage", 230, C.Defs, C.Default)
-		assert(key == "Mage" and cost == 230, "exactly enough: the unlock and the first fee")
-		key, cost = R.resolve("Mage", 229, C.Defs, C.Default)
+		local key, cost = R.resolve("Mage", 300, C.Defs, C.Default)
+		assert(key == "Mage" and cost == 300, "exactly enough: the unlock, which pays the first life")
+		key, cost = R.resolve("Mage", 299, C.Defs, C.Default)
 		assert(key == C.Default and cost == 0, "short: the free default")
 		key, cost = R.resolve("Engineer", 1000, C.Defs, C.Default)
-		assert(key == "Engineer" and cost == 85, "the engineer, unlocked and paid")
+		assert(key == "Engineer" and cost == 100, "the engineer, unlocked and paid")
 		key, cost = R.resolve("Engineer", 1000, LOCKED, C.Default)
 		assert(key == C.Default and cost == 0, "locked: the default")
 		key, cost = R.resolve("Nope", 1000, C.Defs, C.Default)
@@ -151,10 +151,10 @@ return {
 		for kind in ENGINEER do
 			assert(not R.mayBuild("Shotgunner", kind, C.Defs, C.Default), kind .. ": the engineer's")
 		end
-		local key, cost = R.resolve("Shotgunner", 169, C.Defs, C.Default)
+		local key, cost = R.resolve("Shotgunner", 199, C.Defs, C.Default)
 		assert(key == C.Default and cost == 0, "short: the free default")
-		key, cost = R.resolve("Shotgunner", 170, C.Defs, C.Default)
-		assert(key == "Shotgunner" and cost == 170, "paid")
+		key, cost = R.resolve("Shotgunner", 200, C.Defs, C.Default)
+		assert(key == "Shotgunner" and cost == 200, "paid")
 	end,
 	["katzlings and fenneks wear every class helmet with ear holes (user 2026-10-27)"] = function()
 		local Looks = require("../src/shared/Rules/Looks")
@@ -249,7 +249,7 @@ return {
 			assert(n > 0 and n <= R.price(C.Defs.Grenadier), `{reason}: {n}`)
 		end
 		assert(C.Earn.Win == nil, "no Win award (user 2026-11-05: drop)")
-		assert(C.Pay == 0.25, "a quarter of the numbers (user 2026-11-06: earnings far too fast)")
+		assert(C.Pay == 1, "the awards as written (user 2026-11-12: four times the old quarter, with the new prices)")
 		assert(R.earn(5, C.Earn.Kill) == 5 + C.Earn.Kill)
 		assert(R.earn(5, -10) == 0)
 	end,
@@ -267,20 +267,20 @@ return {
 		local after = R.state(50, "Mage", nil, C.List, C.Defs, { Mage = true })
 		for _, card in after.classes do
 			if card.key == "Mage" then
-				assert(card.unlocked and card.cost == 30 and card.affordable, "unlocked: only the fee")
+				assert(card.unlocked and card.cost == 150 and not card.affordable, "unlocked: only the fee")
 			end
 		end
 	end,
 	["an unlocked class costs only its fee for the rest of the match"] = function()
 		local unlocked = {}
-		local key, cost = R.resolve("Mage", 230, C.Defs, C.Default, nil, unlocked)
-		assert(key == "Mage" and cost == 230, "the first life: unlock + fee")
+		local key, cost = R.resolve("Mage", 300, C.Defs, C.Default, nil, unlocked)
+		assert(key == "Mage" and cost == 300, "the first life: the unlock")
 		unlocked[key] = true
-		key, cost = R.resolve("Mage", 30, C.Defs, C.Default, nil, unlocked)
-		assert(key == "Mage" and cost == 30, "later lives: the fee")
-		key, cost = R.resolve("Mage", 29, C.Defs, C.Default, nil, unlocked)
+		key, cost = R.resolve("Mage", 150, C.Defs, C.Default, nil, unlocked)
+		assert(key == "Mage" and cost == 150, "later lives: the fee")
+		key, cost = R.resolve("Mage", 149, C.Defs, C.Default, nil, unlocked)
 		assert(key == C.Default and cost == 0, "short of the fee: the free default")
-		key, cost = R.resolve("AutoRifler", 50, C.Defs, C.Default, nil, unlocked)
+		key, cost = R.resolve("AutoRifler", 150, C.Defs, C.Default, nil, unlocked)
 		assert(key == C.Default and cost == 0, "another class still needs its unlock")
 	end,
 	["support pays: heals by health healed, a drag once per knock-down and far enough"] = function()
@@ -298,14 +298,15 @@ return {
 		assert(B.swingSpent(100, 10, full) == 1, "after a pause: one full swing, no more")
 		assert(C.Earn.Trench == nil, "the per-square award is folded into Work")
 		local perMinute = 60 / full * C.Earn.Work * C.Pay
-		assert(perMinute > 5 and perMinute < 7, `nonstop building pays {perMinute} a minute, a fighter's ~6`)
+		-- (a fighter's ~27 since 2026-11-12, four times the old ~6)
+		assert(perMinute > 20 and perMinute < 28, `nonstop building pays {perMinute} a minute, a fighter's ~27`)
 	end,
 	["an admin's pinned class wins, locked or not, and is free"] = function()
-		local key, cost = R.resolve("Mage", 230, C.Defs, C.Default, "Engineer")
+		local key, cost = R.resolve("Mage", 300, C.Defs, C.Default, "Engineer")
 		assert(key == "Engineer" and cost == 0, "pinned engineer, free")
-		key, cost = R.resolve("Mage", 230, C.Defs, C.Default, "Nope")
-		assert(key == "Mage" and cost == 230, "an unknown pin is ignored")
-		key, cost = R.resolve("Mage", 230, C.Defs, C.Default, nil)
-		assert(key == "Mage" and cost == 230, "no pin: as before")
+		key, cost = R.resolve("Mage", 300, C.Defs, C.Default, "Nope")
+		assert(key == "Mage" and cost == 300, "an unknown pin is ignored")
+		key, cost = R.resolve("Mage", 300, C.Defs, C.Default, nil)
+		assert(key == "Mage" and cost == 300, "no pin: as before")
 	end,
 }

@@ -51,10 +51,15 @@ local lastBy: { [Model]: { [number]: { name: string, kit: string?, how: string? 
 ) :: any
 local W = require(Shared.Config.Weapons)
 
--- a soldier's shown name: a player's display name, a bot's model name
+-- a soldier's shown name: a player's display name, a bot's model name marked as a bot (Config/Bots.NameTag)
 local function shownName(character: Model): string
 	local player = Players:GetPlayerFromCharacter(character)
-	return if player then player.DisplayName else character.Name
+	if player then
+		return player.DisplayName
+	end
+	return if character:GetAttribute(BotsCfg.IdAttribute) ~= nil
+		then BotsCfg.NameTag .. character.Name
+		else character.Name
 end
 
 function Loadouts.points(player: Player): number
@@ -162,14 +167,20 @@ local function reinforced(player: Player): number
 end
 
 -- Pays `player` the Config/Classes.Earn for `reason` ("Kill", "Assist", "Capture", "Piece", ...), `times` over, and
--- Config/Classes.Pay, the live mode's boost on top (Config/Modes `earn`) and a Normal match's reinforcements.
-function Loadouts.award(player: Player, reason: string, times: number?)
+-- Config/Classes.Pay, the live mode's boost on top (Config/Modes `earn`) and a Normal match's reinforcements. The
+-- player's rewards popup is told (Net "Reward", src/client/Rewards): the reason, the Marks and, for a kill or an
+-- assist, `who` (the shown name) and `whoKit` (their side).
+function Loadouts.award(player: Player, reason: string, times: number?, who: string?, whoKit: string?)
 	local amount = C.Earn[reason]
 	assert(amount, "unknown award " .. reason)
 	local boost = C.Pay * Modes.earnBoost(ModesCfg, workspace:GetAttribute(ModesCfg.Attribute)) * reinforced(player)
-	points[player] = Rules.earn(Loadouts.points(player), amount * (times or 1) * boost)
+	local paid = amount * (times or 1) * boost
+	points[player] = Rules.earn(Loadouts.points(player), paid)
 	for _, fn in earnWatchers do
-		task.spawn(fn, player, amount * (times or 1) * boost)
+		task.spawn(fn, player, paid)
+	end
+	if paid > 0 then
+		Net.event("Reward"):FireClient(player, reason, paid, who, whoKit)
 	end
 end
 
@@ -263,15 +274,22 @@ function Loadouts.onBotKill(fn: (number, Model) -> ())
 	table.insert(botKillWatchers, fn)
 end
 
--- pays a player or a bot by id (`share` of the award: a bot's death pays Config/Bots.KillShare)
-local function pay(id: number, reason: string, share: number)
+-- `fn(id, victim)` on each assist, a player's (UserId) or a bot's (negative id): src/server/MatchStats, src/server/Bots
+local assistWatchers: { (number, Model) -> () } = {}
+function Loadouts.onAssist(fn: (number, Model) -> ())
+	table.insert(assistWatchers, fn)
+end
+
+-- pays a player or a bot by id (`share` of the award: a bot's death pays Config/Bots.KillShare); `who` and `whoKit`
+-- the victim, for a player's rewards popup
+local function pay(id: number, reason: string, share: number, who: string?, whoKit: string?)
 	if id < 0 then
 		Loadouts.awardBot(id, reason, share)
 		return
 	end
 	local p = Players:GetPlayerByUserId(id)
 	if p then
-		Loadouts.award(p, reason, share)
+		Loadouts.award(p, reason, share, who, whoKit)
 	end
 end
 
@@ -286,11 +304,12 @@ local function died(character: Model)
 	-- the weapon (nil: a blast), a headshot
 	local by = killer and lastBy[character] and (lastBy[character] :: any)[killer]
 	lastBy[character] = nil
+	local victimName, victimKit = shownName(character), character:GetAttribute("Kit") :: string?
 	Net.event("Kill"):FireAllClients(
 		if by then by.name else nil,
 		if by then by.kit else nil,
-		shownName(character),
-		character:GetAttribute("Kit"),
+		victimName,
+		victimKit,
 		if by then by.how else nil,
 		head == true,
 		victim
@@ -298,9 +317,9 @@ local function died(character: Model)
 	-- a bot is worth half (user 2026-10-30: "make the AIs count half the battle points when you kill them")
 	local share = if victimId and victimId < 0 then BotsCfg.KillShare else 1
 	if killer then
-		pay(killer, "Kill", share)
+		pay(killer, "Kill", share, victimName, victimKit)
 		if head then
-			pay(killer, "Headshot", share)
+			pay(killer, "Headshot", share, victimName, victimKit)
 		end
 		local k = if killer > 0 then Players:GetPlayerByUserId(killer) else nil
 		if k then
@@ -314,7 +333,10 @@ local function died(character: Model)
 		end
 	end
 	for _, id in assists do
-		pay(id, "Assist", share)
+		pay(id, "Assist", share, victimName, victimKit)
+		for _, fn in assistWatchers do
+			task.spawn(fn, id, character)
+		end
 	end
 	if victim then
 		-- the loadout opens on the free class again (user 2026-10-31: "default players to have the rifleman selected

@@ -243,6 +243,32 @@ local Hud = {
 	Vitals = { low = 0.35 },
 	-- the kill feed (src/client/KillFeed, CombatHud.json Feed): each line's seconds; your own death's line's seconds
 	Feed = { seconds = 4, deathSeconds = 6 },
+	-- the rewards popup right of the crosshair (src/client/Rewards, src/shared/ui/Scoreboard.json Rewards; user
+	-- 2026-11-12): each reward's seconds, fading over its last `fade`; building and healing gather into one running line
+	-- while they keep paying within `gather` seconds of the last; what each Config/Classes.Earn reason says
+	Rewards = {
+		seconds = 3.5,
+		fade = 0.8,
+		gather = 2.5,
+		words = {
+			Kill = "Killed",
+			Assist = "Assist on",
+			Capture = "Zone captured",
+			Neutralise = "Sector neutralised",
+			Defend = "Defended the sector",
+			Piece = "Building",
+			Work = "Building",
+			Repair = "Gun repaired",
+			Drag = "Dragged a comrade",
+			Heal = "Healing",
+		},
+		-- the reasons that gather into one line, and the line they gather into
+		gathered = { Piece = "Work", Work = "Work", Heal = "Heal" },
+	},
+	-- the Tab scoreboard (src/client/Scoreboard, src/shared/ui/Scoreboard.json Board; user 2026-11-12): the match
+	-- behind it darkened (`shade`, the share see-through) and blurred (`blur`, BlurEffect size); rows `rowGap` apart,
+	-- at most `rows` a side; asked again every `every` seconds while held
+	Board = { shade = 0.45, blur = 14, rowGap = 17, rows = 30, every = 1 },
 }
 
 return table.freeze(Hud)

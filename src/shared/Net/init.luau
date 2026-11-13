@@ -34,6 +34,14 @@ local Remotes: { string } = {
 	-- server -> clients: (killer: string?, killerKit: string?, victim: string, victimKit: string?, weapon: string?,
 	-- headshot: boolean, victimPlayer: Player?) a soldier died (src/server/Loadouts; the kill feed, src/client/KillFeed)
 	"Kill",
+	-- server -> client: (reason: string, marks: number, who: string?, whoKit: string?) Marks you just earned
+	-- (src/server/Loadouts.award: a Config/Classes.Earn reason; `who` the victim of a kill or an assist), for the
+	-- rewards popup (src/client/Rewards)
+	"Reward",
+	-- client -> server: () ask for the live scoreboard while Tab is held; server -> client: ({ Row }) every soldier's
+	-- kills, assists, HP healed and HP built this match, with their name and side (src/server/MatchStats.board,
+	-- src/client/Scoreboard)
+	"Scores",
 	-- (action "Load": single rounds, from = seconds into it, to = rounds going in or nil = until full; "LoadStop": to =
 	-- the rounds going in now)
 	-- server -> clients: (shooter: Model, action: "Bolt" | "Reload" | "Reload2" | "Load" | "LoadStop", out: string?, from, to,
