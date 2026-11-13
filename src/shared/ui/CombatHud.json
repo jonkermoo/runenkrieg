@@ -57,8 +57,8 @@
 				"size": [0, 430, 0, 232],
 				"children": [
 					{ "id": "GunPlate", "kind": "panel", "color": "gunPlate", "pos": [0, 0, 0, 0], "size": [1, 0, 1, 0] },
-					{ "id": "GunName", "kind": "label", "font": "plain", "bind": "gunName", "text": "", "textSize": 13, "textColor": "brass", "align": "right", "anchor": [1, 0], "pos": [1, -16, 0, 10], "size": [0, 300, 0, 16] },
-					{ "id": "GunCanvas", "kind": "group", "pos": [0, 14, 0, 30], "size": [1, -28, 0, 124] },
+					{ "id": "GunName", "kind": "label", "font": "plain", "bind": "gunName", "text": "", "textSize": 13, "textColor": "brass", "align": "right", "overlay": true, "stroke": "window", "anchor": [1, 0], "pos": [1, -16, 0, 170], "size": [0, 170, 0, 16] },
+					{ "id": "GunCanvas", "kind": "group", "pos": [0, 14, 0, 15], "size": [1, -28, 0, 112] },
 					{ "id": "GunRule", "kind": "panel", "color": "brass", "pos": [0, 16, 0, 160], "size": [1, -32, 0, 1] },
 					{ "id": "AmmoCount", "kind": "label", "overlay": true, "font": "plain", "bind": "ammo", "text": "", "textSize": 48, "textColor": "readout", "align": "right", "pos": [0, 10, 0, 166], "size": [0, 84, 0, 50] },
 					{ "id": "AmmoOf", "kind": "label", "overlay": true, "font": "plain", "bind": "ammoOf", "text": "", "textSize": 18, "textColor": "ammoOf", "align": "left", "pos": [0, 98, 0, 190], "size": [0, 50, 0, 22] },

@@ -1164,15 +1164,27 @@ end
 -- ---- a revolver (ammo.clip "Gate" or "BreakOpen": the Nagant, the Webley): its cylinder seen from behind, flat: a
 -- disc with a hole per chamber and a live round's head in each loaded one, following the gun's own rounds every frame
 -- (src/client/GunFx turns them and shows a chamber's round while it is live), so it turns on each shot and fills
--- chamber by chamber on a load ----
+-- chamber by chamber on a load. It follows the gun through a reload too (user 2026-11-12: "during a reload the
+-- cylinder/chamber doesn't follow the gun"): the cylinder's back face tips as the gun's does (a top-break's, swung
+-- down on its hinge: seen from behind it flattens, never past `tip`, and its rounds come in from behind), and the
+-- gun's drawing moves the parts drawn apart (Config/GunArt `movers`: the barrel and cylinder on the hinge, the hammer,
+-- the trigger, the latch, the rod), each where its own part is ----
 type Chamber = { source: BasePart, hole: Frame, head: Frame }
+type Mover = { img: ImageLabel, part: BasePart, rest: CFrame, z: { number }, y: { number } }
 type Drum = {
 	tool: Tool,
 	gun: BasePart,
 	cyl: BasePart?,
+	cylRest: CFrame,
 	group: Frame,
+	disc: Frame,
+	hub: Frame,
 	chambers: { Chamber },
+	movers: { Mover },
+	art: GunArt.Gun?,
 	k: number,
+	radius: number, -- the disc's, studs
+	hole: number, -- a chamber's hole across, studs
 	w: number,
 	h: number,
 	cx: number, -- the cylinder's centre across the canvas (share)
@@ -1203,14 +1215,15 @@ local function buildDrum(tool: Tool, weapon: string, gun: BasePart, canvas: Fram
 	group.Parent = canvas
 	local cylPart = tool:FindFirstChild(rv.turns[1])
 	local cyl = if cylPart and cylPart:IsA("BasePart") then cylPart else nil
-	local centre = if cyl then gun.CFrame:ToObjectSpace(cyl.CFrame).Position else Vector3.zero
+	local cylRest = if cyl then restRel(gun, cyl) else CFrame.identity
+	local centre = cylRest.Position
 	local sources: { BasePart } = {}
 	local reach, dia = 0, G.fallback.width
 	for _, name in rv.rounds do
 		local p = tool:FindFirstChild(name)
 		if p and p:IsA("BasePart") then
 			table.insert(sources, p)
-			local rel = gun.CFrame:ToObjectSpace(p.CFrame).Position - centre
+			local rel = restRel(gun, p).Position - centre
 			reach += Vector2.new(rel.X, rel.Y).Magnitude
 			local dims = { p.Size.X, p.Size.Y, p.Size.Z }
 			table.sort(dims)
@@ -1220,51 +1233,117 @@ local function buildDrum(tool: Tool, weapon: string, gun: BasePart, canvas: Fram
 	reach = if #sources > 0 then reach / #sources else dia * 2
 	local radius = reach + dia * 0.8
 	local k = chh * D.fill / (2 * radius)
-	-- the cylinder from behind at the right; the gun's own drawing (Config/GunArt) fitted in the room left of it
-	local cx = 1 - (radius * k + chh * (1 - D.fill) / 2) / cw
+	-- the gun's own drawing (Config/GunArt) and the cylinder from behind beside it, the two centred on the card
+	-- (user 2026-11-12: the gun sat left of the plate's middle)
 	local art = GunArt.guns[weapon]
+	local cx = 0.5
+	local movers: { Mover } = {}
 	if art then
-		local room = cw * cx - radius * k - D.gap * chh
 		local aw, ah = art.z[2] - art.z[1], art.y[2] - art.y[1]
-		local s = math.min(room / aw, chh / ah)
-		local img = Instance.new("ImageLabel")
-		img.Name = "Body"
-		img.BackgroundTransparency = 1
-		img.Image = `rbxassetid://{art.image}`
-		img.ImageRectOffset = Vector2.new(art.body[1], art.body[2])
-		img.ImageRectSize = Vector2.new(art.body[3], art.body[4])
-		img.AnchorPoint = Vector2.new(0.5, 0.5)
-		img.Position = UDim2.fromScale(room / 2 / cw, 0.5)
-		img.Size = UDim2.fromScale(aw * s / cw, ah * s / chh)
-		img.ZIndex = 1
-		img.Parent = group
-	else
-		cx = 0.5
+		local gap = D.gap * chh
+		local s = math.min((cw - gap - 2 * radius * k) / aw, chh * D.gun / ah)
+		local left = (cw - (aw * s + gap + 2 * radius * k)) / 2
+		cx = (left + aw * s + gap + radius * k) / cw
+		local box = Instance.new("Frame")
+		box.Name = "Art"
+		box.BackgroundTransparency = 1
+		box.AnchorPoint = Vector2.new(0, 0.5)
+		box.Position = UDim2.fromScale(left / cw, 0.5)
+		box.Size = UDim2.fromScale(aw * s / cw, ah * s / chh)
+		box.Parent = group
+		local function image(name: string, rect: { number }, zindex: number): ImageLabel
+			local img = Instance.new("ImageLabel")
+			img.Name = name
+			img.BackgroundTransparency = 1
+			img.Image = `rbxassetid://{art.image}`
+			img.ImageRectOffset = Vector2.new(rect[1], rect[2])
+			img.ImageRectSize = Vector2.new(rect[3], rect[4])
+			img.AnchorPoint = Vector2.new(0.5, 0.5)
+			img.ZIndex = zindex
+			img.Parent = box
+			return img
+		end
+		local body = image("Body", art.body, 2)
+		body.Position = UDim2.fromScale(0.5, 0.5)
+		body.Size = UDim2.fromScale(1, 1)
+		for _, m in art.movers or {} do
+			local part = tool:FindFirstChild(m.part)
+			local img = image(m.part, m.rect, if m.under then 1 else 3)
+			if part and part:IsA("BasePart") then
+				table.insert(movers, { img = img, part = part, rest = restRel(gun, part), z = m.z, y = m.y })
+			else -- (no such part on this gun: drawn where it rests)
+				img.Position =
+					UDim2.fromScale((art.z[2] - (m.z[1] + m.z[2]) / 2) / aw, (art.y[2] - (m.y[1] + m.y[2]) / 2) / ah)
+				img.Size = UDim2.fromScale((m.z[2] - m.z[1]) / aw, (m.y[2] - m.y[1]) / ah)
+			end
+		end
 	end
 	local disc = circle(group, "drum", 1)
-	disc.Position = UDim2.fromScale(cx, 0.5)
-	disc.Size = UDim2.fromScale(2 * radius * k / cw, 2 * radius * k / chh)
 	local hub = circle(group, "hub", 2)
-	hub.Position = UDim2.fromScale(cx, 0.5)
-	hub.Size = UDim2.fromScale(dia * 0.7 * k / cw, dia * 0.7 * k / chh)
 	local chambers = {}
 	for _, src in sources do
 		local hole = circle(group, "hole", 2)
-		hole.Size = UDim2.fromScale(dia * D.hole * k / cw, dia * D.hole * k / chh)
 		local head = circle(hole, "head", 3)
 		head.Position = UDim2.fromScale(0.5, 0.5)
 		head.Size = UDim2.fromScale(0.86, 0.86)
 		table.insert(chambers, { source = src, hole = hole, head = head })
 	end
-	return { tool = tool, gun = gun, cyl = cyl, group = group, chambers = chambers, k = k, w = cw, h = chh, cx = cx }
+	return {
+		tool = tool,
+		gun = gun,
+		cyl = cyl,
+		cylRest = cylRest,
+		group = group,
+		disc = disc,
+		hub = hub,
+		chambers = chambers,
+		movers = movers,
+		art = art,
+		k = k,
+		radius = radius,
+		hole = dia * D.hole,
+		w = cw,
+		h = chh,
+		cx = cx,
+	}
 end
 
 local function updateDrum(dr: Drum)
-	local centre = if dr.cyl then dr.gun.CFrame:ToObjectSpace(dr.cyl.CFrame).Position else Vector3.zero
+	local D = G.drum
+	-- the gun's drawing: each part drawn apart where its own part is (side on: gun -Z to the right, +Y up)
+	local art = dr.art
+	if art then
+		local aw, ah = art.z[2] - art.z[1], art.y[2] - art.y[1]
+		for _, m in dr.movers do
+			local cf = dr.gun.CFrame:ToObjectSpace(m.part.CFrame) * m.rest:Inverse()
+			local c = cf:PointToWorldSpace(Vector3.new(0, (m.y[1] + m.y[2]) / 2, (m.z[1] + m.z[2]) / 2))
+			local look = cf.LookVector
+			m.img.Position = UDim2.fromScale((art.z[2] - c.Z) / aw, (art.y[2] - c.Y) / ah)
+			m.img.Size = UDim2.fromScale((m.z[2] - m.z[1]) / aw, (m.y[2] - m.y[1]) / ah)
+			m.img.Rotation = math.deg(math.atan2(-look.Y, -look.Z))
+		end
+	end
+	-- the cylinder from behind (the gun's +X to the right, +Y up): its back face, tipped as the cylinder is
+	local now = if dr.cyl then dr.gun.CFrame:ToObjectSpace(dr.cyl.CFrame) else dr.cylRest
+	local tipped = now * dr.cylRest:Inverse()
+	local axis = tipped.LookVector -- (the cylinder's own -Z: at rest the gun's)
+	local flat = math.max(math.abs(axis.Z), D.tip) -- the face's height, of its width
+	local back = math.sqrt(1 - flat * flat) -- how far up the card a stud behind the face shows
+	local tilt = CFrame.lookAt(Vector3.zero, axis) -- (the tip alone, without the cylinder's own turn)
+	local moved = now.Position - dr.cylRest.Position
+	local x, y = dr.cx + moved.X * dr.k / dr.w, 0.5 - moved.Y * dr.k / dr.h
+	local function size(across: number): UDim2
+		return UDim2.fromScale(across * dr.k / dr.w, across * dr.k * flat / dr.h)
+	end
+	dr.disc.Position = UDim2.fromScale(x, y)
+	dr.disc.Size = size(2 * dr.radius)
+	dr.hub.Position = UDim2.fromScale(x, y)
+	dr.hub.Size = size(dr.hole * 0.66)
 	for _, c in dr.chambers do
-		-- (from behind: the gun's +X to the right, +Y up)
-		local rel = dr.gun.CFrame:ToObjectSpace(c.source.CFrame).Position - centre
-		c.hole.Position = UDim2.fromScale(dr.cx + rel.X * dr.k / dr.w, 0.5 - rel.Y * dr.k / dr.h)
+		local rel = tilt:VectorToObjectSpace(dr.gun.CFrame:ToObjectSpace(c.source.CFrame).Position - now.Position)
+		c.hole.Position =
+			UDim2.fromScale(x + rel.X * dr.k / dr.w, y - (rel.Y * flat + math.max(rel.Z, 0) * back) * dr.k / dr.h)
+		c.hole.Size = size(dr.hole)
 		c.head.Visible = c.source.Transparency < 1
 	end
 end
@@ -1334,7 +1413,9 @@ function AmmoHud.start()
 	local words = panel.node.HintText :: TextLabel
 	words.RichText = true
 	-- the card: no plate (user 2026-11-12: "lets do an ink wash, no plate"), a brushed ink wash behind the gun with its
-	-- brass rule drawn under it (Config/GunArt.wash, one drawing)
+	-- brass rule drawn under it (Config/GunArt.wash, one drawing); the gun sits in the middle of the wash and its
+	-- name under the rule, at the row's right end (the layout; user 2026-11-12: "centre the dark background plate on the
+	-- gun, and move the name/count text so it sits with it")
 	local plate = panel.node.GunPlate :: Frame
 	plate.BackgroundTransparency = 1
 	panel.node.GunRule.Visible = false
@@ -1388,6 +1469,7 @@ function AmmoHud.show(tool: Tool?, weapon: string?, state: F.State?, gun: F.Gun?
 		drum.group:Destroy()
 		drum = nil
 	end
+	canvas.ClipsDescendants = not F.revolver(gun) -- (a top-break's barrel swings down past the canvas)
 	if F.revolver(gun) then -- a revolver: its cylinder
 		if current then
 			destroy(current)
