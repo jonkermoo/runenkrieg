@@ -44,6 +44,8 @@ local JoinRules = require(Shared.Rules.JoinLoading)
 local MapLoader = require(script.Parent.MapLoader)
 local SketchCfg = require(Shared.Config.SketchMap) :: any
 local Ink = require(script.Parent.Ink)
+local PaperArt = require(script.Parent.PaperArt)
+local GunArt = require(Shared.Config.GunArt)
 local MatchCam = require(script.Parent.MatchCam)
 local SettingsMenu = require(script.Parent.SettingsMenu)
 local SquadPanel = require(script.Parent.SquadPanel)
@@ -394,6 +396,16 @@ function Menus.start()
 		b.Parent = list
 		local glyph = b:FindFirstChild("RiflemanRune") :: Frame?
 		r.rune = glyph and Ink.canvas(glyph)
+		if glyph then
+			-- (the picked class sealed in wax, its rune pressed in in ink: Config/PaperArt, user 2026-11-12)
+			local wax = PaperArt.new("wax")
+			wax.SizeConstraint = Enum.SizeConstraint.RelativeYY
+			wax.Size = UDim2.fromScale(Classes.Preview.Seal, Classes.Preview.Seal)
+			wax.ZIndex = 0
+			wax.Visible = false
+			wax.Parent = glyph
+			r.wax = wax
+		end
 		rows[key] = r
 		table.insert(order, key)
 	end
@@ -432,7 +444,63 @@ function Menus.start()
 	local P = Classes.Preview
 	view.Ambient = Color3.fromRGB(P.Ambient[1], P.Ambient[2], P.Ambient[3])
 	view.LightColor = Color3.fromRGB(P.Light[1], P.Light[2], P.Light[3])
-	view.LightDirection = Vector3.new(-1, -1, -1)
+	view.LightDirection = -Vector3.new(P.Key[1], P.Key[2], -1) -- (from over the camera's shoulder)
+	-- the soldier's page (user 2026-11-12: the loadout reworked as the map was, "the soldier in the centre should be
+	-- different: an animated pose that fits each class", "it also looks oddly coloured"): a paybook page (the paper
+	-- sheet, Config/SketchMap.Paper) with a brushed ink wash under the soldier's feet (the gun card's, Config/GunArt),
+	-- a red pencil loop behind and the class's name on a paper ribbon (Config/PaperArt); the soldier seen from the
+	-- front, in a warmer light, going through its class's poses (Config/Classes.Preview)
+	do
+		local page = view.Parent :: GuiObject
+		local D = P.Page
+		local paper = SketchCfg.Paper
+		local sheet = Instance.new("ImageLabel")
+		sheet.Name = "Page"
+		sheet.BackgroundTransparency = 1
+		sheet.Image = `rbxassetid://{paper.image}`
+		sheet.ScaleType = Enum.ScaleType.Slice
+		sheet.SliceCenter = Rect.new(paper.slice[1], paper.slice[2], paper.slice[3], paper.slice[4])
+		sheet.SliceScale = 0.5
+		sheet.AnchorPoint = Vector2.new(0.5, 0.5)
+		sheet.Position = UDim2.fromScale(0.5, 0.5)
+		sheet.Size = UDim2.new(1, D.pad[1], 1, D.pad[2])
+		sheet.Rotation = D.lean
+		sheet.ZIndex = 0
+		sheet.Parent = page
+		local loop = PaperArt.new("loop")
+		loop.AnchorPoint = Vector2.new(0.5, 0.5)
+		loop.Position = UDim2.fromScale(0.5, D.loop[2])
+		loop.SizeConstraint = Enum.SizeConstraint.RelativeXX
+		loop.Size = UDim2.fromScale(D.loop[1], D.loop[1])
+		loop.ImageColor3 = gcol("pencil")
+		loop.ImageTransparency = D.loop[3]
+		loop.ZIndex = 1
+		loop.Parent = page
+		local wash = Instance.new("ImageLabel")
+		wash.Name = "Wash"
+		wash.BackgroundTransparency = 1
+		wash.Image = `rbxassetid://{GunArt.wash}`
+		wash.ImageRectSize = Vector2.new(1024, 290) -- (the wash alone, without the brass rule drawn under it)
+		wash.AnchorPoint = Vector2.new(0.5, 0.5)
+		wash.Position = UDim2.fromScale(0.5, D.wash[2])
+		wash.Size = UDim2.fromScale(D.wash[1], D.wash[3])
+		wash.ZIndex = 1
+		wash.Parent = page
+		view.ZIndex = 2
+		local className = L.ClassName :: TextLabel
+		local ribbon = PaperArt.new("ribbon", D.ribbon)
+		ribbon.AnchorPoint = className.AnchorPoint
+		ribbon.Position = className.Position
+		ribbon.Size = className.Size
+		ribbon.ZIndex = 2
+		ribbon.Parent = page
+		className:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+			ribbon.Position, ribbon.Size = className.Position, className.Size
+		end)
+		className.TextColor3 = gcol("ink")
+		className.TextStrokeTransparency = 1
+		className.ZIndex = 3
+	end
 	local viewCam = Instance.new("Camera")
 	viewCam.FieldOfView = P.Fov
 	viewCam.Parent = view
@@ -474,6 +542,39 @@ function Menus.start()
 		local w = type(primary) == "string" and W[primary]
 		if w then
 			play(w.holds.ready, Enum.AnimationPriority.Action)
+			-- its class's poses, one after another over the ready hold (Config/Classes.Preview.Poses: the weapon's own
+			-- holds by name, seconds each), for as long as this soldier is shown
+			local poses = P.Poses[tostring(m:GetAttribute("Class"))] or P.Poses.Rifleman
+			local tracks: { [string]: AnimationTrack } = {}
+			for _, pose in poses do
+				local id = (w.holds :: any)[pose[1]]
+				if id and id ~= 0 and not tracks[pose[1]] then
+					local a = Instance.new("Animation")
+					a.AnimationId = "rbxassetid://" .. id
+					local track = (animator :: Animator):LoadAnimation(a)
+					track.Priority = Enum.AnimationPriority.Action2
+					tracks[pose[1]] = track
+				end
+			end
+			task.spawn(function()
+				local on: AnimationTrack? = nil
+				while m.Parent do
+					for _, pose in poses do
+						local track = tracks[pose[1]]
+						if on and on ~= track then
+							on:Stop(P.Blend)
+						end
+						if track and on ~= track then
+							track:Play(P.Blend)
+						end
+						on = track
+						task.wait(pose[2])
+						if not m.Parent then
+							return
+						end
+					end
+				end
+			end)
 		end
 	end
 	playerGui.ChildAdded:Connect(function(c)
@@ -529,6 +630,11 @@ function Menus.start()
 				local canvas = r.rune
 				if canvas and runeName then
 					local colour = if on and magic then Color3.fromRGB(magic[1], magic[2], magic[3]) else gcol("blue")
+					if r.wax then
+						r.wax.Visible = on
+						r.wax.ImageColor3 = colour:Lerp(Color3.new(), Classes.Preview.SealShade)
+						colour = if on then gcol("ink") else colour
+					end
 					canvas.set(function(holder, w, h)
 						Ink.rune(holder, runeName, 0, 0, w, h, math.max(1.5, h * 0.09), colour, fade)
 					end)
@@ -985,8 +1091,9 @@ function Menus.start()
 			else
 				setDeploy(deployWord(), true)
 			end
-			-- the soldier turns slowly in its view
-			local t = os.clock() * P.Turn
+			-- the soldier seen from the front, a little to its side, the view swaying slowly (user 2026-11-12: it turned
+			-- all the way round before, its back to you half the time)
+			local t = math.rad(P.Angle + math.sin(os.clock() * P.Turn) * P.Sway)
 			local look = Vector3.new(0, P.Look, 0)
 			local out = Vector3.new(math.sin(t) * P.Distance, P.Up, -math.cos(t) * P.Distance)
 			viewCam.CFrame = CFrame.lookAt(look + out, look)

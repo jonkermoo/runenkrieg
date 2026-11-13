@@ -433,7 +433,9 @@ function SketchMap.new(
 				local x = borderX(borders[k + 1], z) + (borderX(borders[k + 2], z) - borderX(borders[k + 1], z)) * fr
 				local p = Vector2.new(u(x) * w, v(z) * h)
 				if prev then
-					Ink.segment(holder, prev, p, math.max(2, Cfg.Front.thick * w), ink)
+					-- (in red pencil over the painted sheet, user 2026-11-12 "Map A"; an ink line under it)
+					Ink.segment(holder, prev, p, math.max(3, Cfg.Front.thick * w * Cfg.Front.under), ink)
+					Ink.segment(holder, prev, p, math.max(2, Cfg.Front.thick * w), rgb(C.pencil))
 				end
 				prev = p
 			end
@@ -442,7 +444,9 @@ function SketchMap.new(
 
 	-- the points: a seal (ink disc, ring, rune: src/client/PointSeal, the same as the beacon over its flag) and the name
 	-- under it
-	type Seal = PointSeal.Seal & { label: TextLabel }
+	-- (drawn, user 2026-11-12 "Map A": the seal a blob of wax in its holder's colour, Config/PaperArt `wax`, its rune
+	-- pressed in in ink, as on the front strip; its name in ink on the paper)
+	type Seal = PointSeal.Seal & { label: TextLabel, wax: ImageLabel? }
 	local seals: { [string]: Seal } = {}
 	local rings: { UIStroke } = {} -- (on a sheet: the pencil rings)
 	for i, p in points do
@@ -499,7 +503,28 @@ function SketchMap.new(
 		end
 		local s = seal :: Seal
 		s.label = label
+		if not sheet then
+			disc.BackgroundTransparency = 1
+			seal.ring.Enabled = false
+			local wax = PaperArt.new("wax")
+			wax.Size = UDim2.fromScale(Cfg.Drawn.wax, Cfg.Drawn.wax)
+			wax.ZIndex = 0
+			wax.Parent = disc
+			s.wax = wax
+			label.TextColor3 = ink
+			label.TextStrokeColor3 = rgb(C.paper)
+		end
 		seals[p.id] = s
+	end
+	-- a seal in its colours: drawn, the wax takes them (beating toward amber while contested) and the rune stays ink
+	local function paintSeal(s: Seal, colour: Color3, beat: Color3)
+		local wax = s.wax
+		if wax then
+			PointSeal.paint(s, ink, ink)
+			wax.ImageColor3 = beat:Lerp(Color3.new(), Cfg.Drawn.waxShade)
+		else
+			PointSeal.paint(s, colour, beat)
+		end
 	end
 	local function placeLabels()
 		local a = area.AbsoluteSize
@@ -755,7 +780,7 @@ function SketchMap.new(
 			local sector = folder and folder:FindFirstChild(p.id)
 			if not sector then
 				live = false
-				PointSeal.paint(s, rgb(C.neutral), rgb(C.neutral))
+				paintSeal(s, rgb(C.neutral), rgb(C.neutral))
 				continue
 			end
 			local owner = if r then r.owners[i] else sector:GetAttribute("Owner")
@@ -763,7 +788,7 @@ function SketchMap.new(
 			total += (control + 1) / 2
 			local kit = if owner == "West" then west elseif owner == "East" then east else nil
 			local w, e = (sector:GetAttribute("West") :: number?) or 0, (sector:GetAttribute("East") :: number?) or 0
-			PointSeal.paint(s, PointSeal.colours(kit, not r and w > 0 and w == e, now))
+			paintSeal(s, PointSeal.colours(kit, not r and w > 0 and w == e, now))
 			if total >= i - 1 and total < i then
 				frontName = p.name
 			end

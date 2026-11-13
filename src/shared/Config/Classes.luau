@@ -58,15 +58,45 @@ local Classes = {
 		RayDepth = 800,
 	},
 	-- the loadout menu's soldier (src/client/Menus): the view's light, the camera `Distance` out and `Up` over the point
-	-- it looks at (`Look` up from the rig's root), at `Fov` degrees, circling at `Turn` rad/s
+	-- it looks at (`Look` up from the rig's root), at `Fov` degrees
+	-- reworked (user 2026-11-12: "the soldier in the centre should be different: an animated pose that fits each class.
+	-- It also looks oddly coloured"): seen from the front, `Angle` degrees to its side, swaying `Sway` degrees either
+	-- way at `Turn` rad/s; a warmer, less flat light (`Ambient`, `Light`; was 170 grey under white), falling from over
+	-- the camera's shoulder (`Key`: how far to the side and how high); each class goes through `Poses`, its weapon's
+	-- own holds by name (Config/Weapons `holds`) for so many seconds each, blended over `Blend` seconds; the page
+	-- (`Page`): the paper `pad` px wider and taller than the soldier's box, leaning `lean` degrees, the pencil loop
+	-- (of the box's width across, how far down it, how see-through), the ink wash under the feet (of the box's width,
+	-- how far down it, of its height), the name's ribbon nine-sliced at `ribbon`; the picked class's wax seal `Seal`
+	-- of its rune's height across, darkened by `SealShade`
 	Preview = {
-		Ambient = { 170, 170, 170 },
-		Light = { 255, 255, 255 },
-		Distance = 19,
-		Up = 0.9,
-		Look = 0.6,
+		Ambient = { 150, 144, 138 },
+		Light = { 255, 240, 214 },
+		Distance = 17,
+		Up = 1.2,
+		Look = 0.4,
 		Fov = 28,
 		Turn = 0.35,
+		Angle = 26,
+		Sway = 9,
+		Key = { 0.3, 0.9 },
+		Blend = 0.35,
+		Poses = {
+			Rifleman = { { "ready", 2.4 }, { "aim", 3 } },
+			Grenadier = { { "carry", 2.6 }, { "ready", 2 }, { "aim", 2.2 } },
+			Engineer = { { "ready", 2.2 }, { "aim", 2.8 } },
+			AutoRifler = { { "aim", 3.2 }, { "walk", 2.2 } },
+			Shotgunner = { { "ready", 2 }, { "aim", 2.4 }, { "carry", 2 } },
+			Mage = { { "ready", 2.2 }, { "charge", 2.8 }, { "aim", 2 } },
+		} :: { [string]: { { any } } },
+		Page = {
+			pad = { 30, 40 },
+			lean = -1.5,
+			loop = { 0.82, 0.42, 0.45 },
+			wash = { 0.92, 0.8, 0.2 },
+			ribbon = 0.5,
+		},
+		Seal = 1.25,
+		SealShade = 0.22,
 	},
 	-- points at the start of every match: enough to unlock and play the Grenadier or the Engineer (user 2026-11-05:
 	-- "give all soldiers a starting fee enough to pay for engineer or to pay for grenadier")
