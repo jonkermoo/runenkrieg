@@ -772,7 +772,7 @@ local Assets = {
 				.. "with the Mage's rune (ansuz, raised, in the lens colour) on the wearer's left.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 80, 82, 86 },
+				color = { 62, 66, 74 }, -- the Mage's tone (2026-11-13)
 				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
 				parts = {
 					Strap = { 46, 39, 34 },
@@ -795,7 +795,7 @@ local Assets = {
 				.. "shells on gold heads on the wearer's right, held by a thin flat strap. Grey team.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 80, 82, 86 },
+				color = { 88, 84, 80 }, -- the Shotgunner's tone (2026-11-13)
 				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
 				parts = {
 					Band = { 46, 39, 34 },
@@ -838,7 +838,7 @@ local Assets = {
 				.. "with the Mage's rune (ansuz, raised, in the lens colour) on the wearer's left.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 116, 114, 72 },
+				color = { 91, 91, 63 }, -- the Mage's tone (2026-11-13)
 				brim = -0.13, -- raised 0.05 so the eyes show (user 2026-10-13; was -0.18)
 				parts = {
 					Strap = { 106, 72, 46 },
@@ -861,7 +861,7 @@ local Assets = {
 				.. "shells on brass heads on the wearer's right, held by a thin flat strap. Olive team.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 116, 114, 72 },
+				color = { 124, 116, 66 }, -- the Shotgunner's tone (2026-11-13)
 				brim = -0.13, -- raised 0.05 so the eyes show (user 2026-10-13; was -0.18)
 				parts = {
 					Band = { 106, 72, 46 },
@@ -921,7 +921,7 @@ local Assets = {
 				.. "with the Mage's rune (ansuz, raised, in the lens colour) on the wearer's left.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 96, 70, 50 }, -- chocolate, as the brown uniform (user 2026-10-21)
+				color = { 75, 56, 45 }, -- the Mage's tone (2026-11-13)
 				brim = 0.06,
 				parts = {
 					Strap = { 58, 40, 28 },
@@ -943,7 +943,7 @@ local Assets = {
 				.. "shells on steel heads on the wearer's right, held by a thin flat strap. Brown team.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 96, 70, 50 }, -- chocolate, as the brown uniform (user 2026-10-21)
+				color = { 104, 72, 44 }, -- the Shotgunner's tone (2026-11-13)
 				brim = 0.06,
 				parts = { Band = { 58, 40, 28 }, Hull = { 150, 54, 44 }, Brass = { 168, 170, 174 } }, -- dark leather band
 				shell = "brodie",
@@ -1000,7 +1000,7 @@ local Assets = {
 				.. "three flames). The Grenadier's. Grey team.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 80, 82, 86 },
+				color = { 70, 72, 76 }, -- the Grenadier's tone (2026-11-13)
 				brim = -0.27,
 				parts = { Strap = { 46, 39, 34 }, Badge = { 204, 172, 92 }, Lugs = { 204, 172, 92 } },
 				shell = "stahl",
@@ -1034,7 +1034,7 @@ local Assets = {
 				.. "(--tufts --base helmet_stahl_badge). Worn by Katzlings (Rules/Looks.helmetEntry). Grey team.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 80, 82, 86 },
+				color = { 70, 72, 76 }, -- the Grenadier's tone (2026-11-13)
 				brim = -0.27,
 				parts = { Strap = { 46, 39, 34 }, Badge = { 204, 172, 92 }, Lugs = { 204, 172, 92 } },
 				shell = "stahl",
@@ -1068,7 +1068,7 @@ local Assets = {
 				.. "three flames). The Grenadier's. Olive team.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 116, 114, 72 },
+				color = { 102, 100, 63 }, -- the Grenadier's tone (2026-11-13)
 				brim = -0.13,
 				parts = { Strap = { 106, 72, 46 }, Badge = { 176, 146, 80 }, Lugs = { 176, 146, 80 } },
 				shell = "m33",
@@ -1102,7 +1102,7 @@ local Assets = {
 				.. "three flames). The Grenadier's. Brown team.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 96, 70, 50 },
+				color = { 84, 62, 44 }, -- the Grenadier's tone (2026-11-13)
 				brim = 0.06,
 				parts = { Strap = { 58, 40, 28 }, Badge = { 168, 136, 74 } },
 				shell = "brodie",
@@ -1136,7 +1136,7 @@ local Assets = {
 				.. "(--shape hull --tufts --base helmet_brodie_badge). Worn by Fenneks (Rules/Looks.helmetEntry). Brown team.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 96, 70, 50 },
+				color = { 84, 62, 44 }, -- the Grenadier's tone (2026-11-13)
 				brim = 0.06,
 				parts = { Strap = { 58, 40, 28 }, Badge = { 168, 136, 74 } },
 				shell = "brodie",
@@ -1155,7 +1155,7 @@ local Assets = {
 				.. "whose helmet-on hairs it wears.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 96, 70, 50 },
+				color = { 101, 76, 58 }, -- the Auto rifler's tone (2026-11-13)
 				brim = 0,
 				parts = { Plate = { 176, 116, 58 }, Bolts = { 168, 136, 74 } },
 				shell = "adrian",
@@ -1172,11 +1172,99 @@ local Assets = {
 				.. "helmet_turtle_plate). Worn by Fenneks (Rules/Looks.helmetEntry). Brown team.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 96, 70, 50 },
+				color = { 101, 76, 58 }, -- the Auto rifler's tone (2026-11-13)
 				brim = 0,
 				parts = { Plate = { 176, 116, 58 }, Bolts = { 168, 136, 74 } },
 				shell = "adrian",
 				center = { 0, 0.5536, 0 },
+			},
+		},
+		-- The Supplier's helmets (user 2026-11-13: "let's make a helmet for each team for that new class"; "just the
+		-- straps", the mark "painted on"): the strap helmet with a broad arrow (the stores mark) painted on the front
+		-- in ochre (accessory.py --kind supply), in the lightest tone of the team's steel; ear-hole versions (slit.py).
+		helmet_stahl_supply = {
+			id = 87978076056072, -- 2026-11-13
+			category = "Teams",
+			folder = "Grey/Helmets",
+			source = "assets/teams/grey/helmets/variants/helmet_stahl_supply.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "The default helmet_stahl (unchanged) with the chin strap worn up over the front rim, as helmet_stahl_strap, "
+				.. "and a broad arrow (the stores mark) painted flat on the front of the steel. The Supplier's. Grey team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 95, 96, 98 }, -- the Supplier's tone
+				brim = -0.27,
+				parts = { Paint = { 196, 158, 70 }, Strap = { 46, 39, 34 }, Lugs = { 204, 172, 92 } },
+				shell = "stahl",
+				center = { 0, 0.672, -0.034 },
+			},
+		},
+		helmet_m33_supply = {
+			id = 88641861582273, -- 2026-11-13
+			category = "Teams",
+			folder = "Olive/Helmets",
+			source = "assets/teams/olive/helmets/variants/helmet_m33_supply.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "The default helmet_m33 (unchanged) with the chin strap worn up over the front rim, as helmet_m33_strap, "
+				.. "and a broad arrow (the stores mark) painted flat on the front of the steel. The Supplier's. Olive team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 137, 133, 82 }, -- the Supplier's tone
+				brim = -0.13,
+				parts = { Paint = { 196, 158, 70 }, Strap = { 106, 72, 46 }, Lugs = { 176, 146, 80 } },
+				shell = "m33",
+				center = { 0, 0.5397, 0 },
+			},
+		},
+		helmet_brodie_supply = {
+			id = 134019997250425, -- 2026-11-13
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_brodie_supply.fbx",
+			generator = "tools/blender/gear/accessory.py",
+			description = "The default helmet_brodie (unchanged) with the chin strap worn up over the front rim, as helmet_brodie_strap, "
+				.. "and a broad arrow (the stores mark) painted flat on the front of the steel. The Supplier's. Brown team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 113, 82, 56 }, -- the Supplier's tone
+				brim = 0.06,
+				parts = { Paint = { 196, 158, 70 }, Strap = { 58, 40, 28 } },
+				shell = "brodie",
+				center = { 0, 0.3781, 0.0023 },
+			},
+		},
+		helmet_stahl_supply_katzling = {
+			id = 82728302059407, -- 2026-11-13
+			category = "Teams",
+			folder = "Grey/Helmets",
+			source = "assets/teams/grey/helmets/variants/helmet_stahl_supply_katzling.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_stahl_supply (unchanged) with the Katzling ear holes and rolled rings (--tufts --base "
+				.. "helmet_stahl_supply). Worn by Katzlings (Rules/Looks.helmetEntry). Grey team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 95, 96, 98 }, -- the Supplier's tone
+				brim = -0.27,
+				parts = { Paint = { 196, 158, 70 }, Strap = { 46, 39, 34 }, Lugs = { 204, 172, 92 } },
+				shell = "stahl",
+				center = { 0, 0.6834, -0.034 },
+			},
+		},
+		helmet_brodie_supply_fennek = {
+			id = 86807870126611, -- 2026-11-13
+			category = "Teams",
+			folder = "White/Helmets",
+			source = "assets/teams/white/helmets/variants/helmet_brodie_supply_fennek.fbx",
+			generator = "tools/blender/gear/slit.py",
+			description = "helmet_brodie_supply (unchanged) with the Fennek ear holes and rolled rings (--shape hull --tufts --base "
+				.. "helmet_brodie_supply). Worn by Fenneks (Rules/Looks.helmetEntry). Brown team.",
+			fit = {
+				attachment = "HatAttachment",
+				color = { 113, 82, 56 }, -- the Supplier's tone
+				brim = 0.06,
+				parts = { Paint = { 196, 158, 70 }, Strap = { 58, 40, 28 } },
+				shell = "brodie",
+				center = { 0, 0.3902, 0.0023 },
 			},
 		},
 		helmet_stahl_plate = {
@@ -1189,7 +1277,7 @@ local Assets = {
 				.. "forehead, in a darker grey. Grey team.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 80, 82, 86 },
+				color = { 83, 89, 97 }, -- the Auto rifler's tone (2026-11-13)
 				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
 				parts = { Plate = { 58, 60, 64 }, Lugs = { 204, 172, 92 } },
 				shell = "stahl",
@@ -1206,7 +1294,7 @@ local Assets = {
 				.. "olive, two brass bolts. Olive team.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 116, 114, 72 },
+				color = { 122, 123, 82 }, -- the Auto rifler's tone (2026-11-13)
 				brim = -0.13,
 				parts = { Plate = { 90, 90, 56 }, Bolts = { 176, 146, 80 }, Lugs = { 176, 146, 80 } },
 				shell = "m33",
@@ -1242,7 +1330,7 @@ local Assets = {
 				.. "(--tufts --base helmet_stahl_plate). Worn by Katzlings (Rules/Looks.helmetEntry). Grey team (1210 tris).",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 80, 82, 86 },
+				color = { 83, 89, 97 }, -- the Auto rifler's tone (2026-11-13)
 				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
 				parts = { Plate = { 58, 60, 64 }, Lugs = { 204, 172, 92 } },
 				shell = "stahl",
@@ -1262,7 +1350,7 @@ local Assets = {
 				.. "with the Mage's rune (ansuz, raised, in the lens colour) on the wearer's left.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 80, 82, 86 },
+				color = { 62, 66, 74 }, -- the Mage's tone (2026-11-13)
 				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
 				parts = {
 					Strap = { 46, 39, 34 },
@@ -1414,7 +1502,7 @@ local Assets = {
 				.. "with the Mage's rune (ansuz, raised, in the lens colour) on the wearer's left.",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 96, 70, 50 }, -- chocolate, as the white uniform (user 2026-10-21)
+				color = { 75, 56, 45 }, -- the Mage's tone (2026-11-13)
 				brim = 0.06,
 				parts = {
 					Strap = { 58, 40, 28 },
@@ -1437,7 +1525,7 @@ local Assets = {
 				.. "(--tufts --base helmet_stahl_ammo). Worn by Katzlings (Rules/Looks.helmetEntry). Grey team (1958 tris).",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 80, 82, 86 },
+				color = { 88, 84, 80 }, -- the Shotgunner's tone (2026-11-13)
 				brim = -0.27, -- the traced Stahlhelm: its back rim; the front rim sits 0.125 above the head centre (eyes show)
 				parts = {
 					Band = { 46, 39, 34 },
@@ -1460,7 +1548,7 @@ local Assets = {
 				.. "helmet_brodie_ammo; user 2026-10-27). Worn by Fenneks (Rules/Looks.helmetEntry). White team (1668 tris).",
 			fit = {
 				attachment = "HatAttachment",
-				color = { 96, 70, 50 }, -- chocolate, as the brown uniform (user 2026-10-21)
+				color = { 104, 72, 44 }, -- the Shotgunner's tone (2026-11-13)
 				brim = 0.06,
 				parts = { Band = { 58, 40, 28 }, Hull = { 150, 54, 44 }, Brass = { 168, 170, 174 } }, -- dark leather band
 				shell = "brodie",
