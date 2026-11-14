@@ -41,6 +41,7 @@ local ZoneCfg = require(Shared.Config.ZoneMatch)
 local Playtest = require(Shared.Config.Maps.Playtest)
 local LiveMap = require(Shared.LiveMap)
 local Ink = require(script.Parent.Ink)
+local PaperArt = require(script.Parent.PaperArt)
 local PointSeal = require(script.Parent.PointSeal)
 
 local SketchMap = {}
@@ -63,8 +64,20 @@ type Seen = { me: Player, kit: string? }
 type Marker = {
 	on: string,
 	list: (seen: Seen) -> { { at: Vector3, colour: Color3 } },
-	make: (ink: Color3) -> Frame,
+	make: () -> Frame,
 }
+
+-- a marker's drawn dot (Config/PaperArt `dot`: white with an ink edge, tinted), `size` of the area's width across (the
+-- drawing's dot `Cfg.Drawn.dot` of its sprite)
+local function drawnDot(size: number): Frame
+	local f = Instance.new("Frame")
+	f.BackgroundTransparency = 1
+	f.Size = UDim2.fromScale(size / Cfg.Drawn.dot, size / Cfg.Drawn.dot)
+	local aspect = Instance.new("UIAspectRatioConstraint")
+	aspect.Parent = f
+	PaperArt.new("dot").Parent = f
+	return f
+end
 
 -- the marker kinds, drawn in this order under the local arrow; each is pooled (its frames reused, hidden when spare)
 local MARKERS: { Marker } = {
@@ -106,20 +119,8 @@ local MARKERS: { Marker } = {
 			end
 			return marks
 		end,
-		make = function(ink)
-			local dot = Instance.new("Frame")
-			dot.BorderSizePixel = 0
-			dot.Size = UDim2.fromScale(Cfg.Teammate.size, Cfg.Teammate.size)
-			local aspect = Instance.new("UIAspectRatioConstraint")
-			aspect.Parent = dot
-			local corner = Instance.new("UICorner")
-			corner.CornerRadius = UDim.new(0.5, 0)
-			corner.Parent = dot
-			local edge = Instance.new("UIStroke")
-			edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-			edge.Color = ink
-			edge.Parent = dot
-			return dot
+		make = function()
+			return drawnDot(Cfg.Teammate.size)
 		end,
 	},
 }
@@ -144,20 +145,8 @@ table.insert(MARKERS, {
 		end
 		return { { at = zone:GetPivot().Position, colour = colour } }
 	end,
-	make = function(ink)
-		local disc = Instance.new("Frame")
-		disc.BorderSizePixel = 0
-		disc.Size = UDim2.fromScale(Cfg.Zone.size, Cfg.Zone.size)
-		local aspect = Instance.new("UIAspectRatioConstraint")
-		aspect.Parent = disc
-		local corner = Instance.new("UICorner")
-		corner.CornerRadius = UDim.new(0.5, 0)
-		corner.Parent = disc
-		local edge = Instance.new("UIStroke")
-		edge.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-		edge.Color = ink
-		edge.Parent = disc
-		return disc
+	make = function()
+		return drawnDot(Cfg.Zone.size)
 	end,
 })
 
@@ -444,7 +433,9 @@ function SketchMap.new(
 				local x = borderX(borders[k + 1], z) + (borderX(borders[k + 2], z) - borderX(borders[k + 1], z)) * fr
 				local p = Vector2.new(u(x) * w, v(z) * h)
 				if prev then
-					Ink.segment(holder, prev, p, math.max(2, Cfg.Front.thick * w), ink)
+					-- (in red pencil over the painted sheet, user 2026-11-12 "Map A"; an ink line under it)
+					Ink.segment(holder, prev, p, math.max(3, Cfg.Front.thick * w * Cfg.Front.under), ink)
+					Ink.segment(holder, prev, p, math.max(2, Cfg.Front.thick * w), rgb(C.pencil))
 				end
 				prev = p
 			end
@@ -453,7 +444,9 @@ function SketchMap.new(
 
 	-- the points: a seal (ink disc, ring, rune: src/client/PointSeal, the same as the beacon over its flag) and the name
 	-- under it
-	type Seal = PointSeal.Seal & { label: TextLabel }
+	-- (drawn, user 2026-11-12 "Map A": the seal a blob of wax in its holder's colour, Config/PaperArt `wax`, its rune
+	-- pressed in in ink, as on the front strip; its name in ink on the paper)
+	type Seal = PointSeal.Seal & { label: TextLabel, wax: ImageLabel? }
 	local seals: { [string]: Seal } = {}
 	local rings: { UIStroke } = {} -- (on a sheet: the pencil rings)
 	for i, p in points do
@@ -510,7 +503,28 @@ function SketchMap.new(
 		end
 		local s = seal :: Seal
 		s.label = label
+		if not sheet then
+			disc.BackgroundTransparency = 1
+			seal.ring.Enabled = false
+			local wax = PaperArt.new("wax")
+			wax.Size = UDim2.fromScale(Cfg.Drawn.wax, Cfg.Drawn.wax)
+			wax.ZIndex = 0
+			wax.Parent = disc
+			s.wax = wax
+			label.TextColor3 = ink
+			label.TextStrokeColor3 = rgb(C.paper)
+		end
 		seals[p.id] = s
+	end
+	-- a seal in its colours: drawn, the wax takes them (beating toward amber while contested) and the rune stays ink
+	local function paintSeal(s: Seal, colour: Color3, beat: Color3)
+		local wax = s.wax
+		if wax then
+			PointSeal.paint(s, ink, ink)
+			wax.ImageColor3 = beat:Lerp(Color3.new(), Cfg.Drawn.waxShade)
+		else
+			PointSeal.paint(s, colour, beat)
+		end
 	end
 	local function placeLabels()
 		local a = area.AbsoluteSize
@@ -544,17 +558,13 @@ function SketchMap.new(
 		r.Visible = false
 		local aspect = Instance.new("UIAspectRatioConstraint")
 		aspect.Parent = r
-		local round = Instance.new("UICorner")
-		round.CornerRadius = UDim.new(0.5, 0)
-		round.Parent = r
-		local line = Instance.new("UIStroke")
-		line.Color = rgb(C.pencil)
-		line.Parent = r
+		-- (a red pencil loop, drawn: Config/PaperArt)
+		local loop = PaperArt.new("loop")
+		loop.Size = UDim2.fromScale(Cfg.Drawn.loop, Cfg.Drawn.loop)
+		loop.ImageColor3 = rgb(C.pencil)
+		loop.Parent = r
 		r.Parent = area
 		ring = r
-		area:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-			line.Thickness = math.max(2, Cfg.Deploy.thick * area.AbsoluteSize.X)
-		end)
 	end
 
 	-- The match's replay at its end (src/client/Results; user 2026-10-31: "a slight animation of the progression of the
@@ -770,7 +780,7 @@ function SketchMap.new(
 			local sector = folder and folder:FindFirstChild(p.id)
 			if not sector then
 				live = false
-				PointSeal.paint(s, rgb(C.neutral), rgb(C.neutral))
+				paintSeal(s, rgb(C.neutral), rgb(C.neutral))
 				continue
 			end
 			local owner = if r then r.owners[i] else sector:GetAttribute("Owner")
@@ -778,7 +788,7 @@ function SketchMap.new(
 			total += (control + 1) / 2
 			local kit = if owner == "West" then west elseif owner == "East" then east else nil
 			local w, e = (sector:GetAttribute("West") :: number?) or 0, (sector:GetAttribute("East") :: number?) or 0
-			PointSeal.paint(s, PointSeal.colours(kit, not r and w > 0 and w == e, now))
+			paintSeal(s, PointSeal.colours(kit, not r and w > 0 and w == e, now))
 			if total >= i - 1 and total < i then
 				frontName = p.name
 			end
@@ -853,24 +863,8 @@ function SketchMap.new(
 		arrow.ZIndex = 3
 		local aspect = Instance.new("UIAspectRatioConstraint")
 		aspect.Parent = arrow
-		local body = Instance.new("Frame")
-		body.BorderSizePixel = 0
-		body.BackgroundColor3 = rgb(C.pencil)
-		body.AnchorPoint = Vector2.new(0.5, 0.5)
-		body.Position = UDim2.fromScale(0.5, 0.62)
-		body.Size = UDim2.fromScale(0.5, 0.5)
-		body.Rotation = 45
-		body.Parent = arrow
-		local edge = Instance.new("UIStroke")
-		edge.Color = ink
-		edge.Parent = body
-		local tip = Instance.new("Frame")
-		tip.BorderSizePixel = 0
-		tip.BackgroundColor3 = rgb(C.pencil)
-		tip.AnchorPoint = Vector2.new(0.5, 1)
-		tip.Position = UDim2.fromScale(0.5, 0.5)
-		tip.Size = UDim2.fromScale(0.16, 0.5)
-		tip.Parent = arrow
+		-- (a red pencil arrowhead, drawn: Config/PaperArt)
+		PaperArt.new("arrow").Parent = arrow
 		arrow.Parent = area
 		you = arrow
 	end
@@ -913,23 +907,21 @@ function SketchMap.new(
 		local me = Players.LocalPlayer
 		local character = me.Character
 		local seen: Seen = { me = me, kit = deployKit or (character and character:GetAttribute("Kit") :: string?) }
-		local edge = math.max(1, Cfg.Teammate.edge * area.AbsoluteSize.X)
 		for _, layer in layers do
 			local marks = layer.marker.list(seen)
 			for n, mark in marks do
 				local f = layer.pool[n]
 				if not f then
-					f = layer.marker.make(ink)
+					f = layer.marker.make()
 					f.AnchorPoint = Vector2.new(0.5, 0.5)
 					f.ZIndex = 2
 					f.Parent = layer.box
 					layer.pool[n] = f
 				end
 				f.Position = UDim2.fromScale(math.clamp(u(mark.at.X), 0, 1), math.clamp(v(mark.at.Z), 0, 1))
-				f.BackgroundColor3 = mark.colour
-				local stroke = f:FindFirstChildOfClass("UIStroke")
-				if stroke then
-					stroke.Thickness = edge
+				local drawn = f:FindFirstChildOfClass("ImageLabel")
+				if drawn then
+					drawn.ImageColor3 = mark.colour
 				end
 				f.Visible = true
 			end

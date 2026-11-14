@@ -15,6 +15,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local HudCfg = require(Shared.Config.Hud) :: any
+local HudArt = require(Shared.Config.HudArt)
 local Palette = require(Shared.Config.Palette)
 local Spec = require(Shared.ui.CombatHud) :: any
 local Settings = require(script.Parent.Settings)
@@ -371,6 +372,96 @@ function HudKit.frameBox(
 	local eye = centre:PointToWorldSpace(from * dist)
 	camera.FieldOfView = fov
 	camera.CFrame = CFrame.lookAt(eye, centre.Position, centre:VectorToWorldSpace(up))
+end
+
+-- The gem drawn flat (Config/HudArt.gem; user 2026-11-12: drawn art in a brass ring): HudKit.gemArt(holder) fills the
+-- square `holder` with the brass ring, the crystal (Config/Hud.GemArt.crystal of the ring tall) and its shards;
+-- HudKit.poseGemArt(g, now, bob, swell) floats it (`bob` a share of the ring's height, `swell` its size), the shards
+-- going round it (behind it half the way, as Config/Hud.Gem.shards) and bobbing; HudKit.shineArt(g, share, dead,
+-- colour, now) tints it as HudKit.shine does the 3D one.
+export type GemArt = {
+	holder: Frame,
+	crystal: ImageLabel,
+	shards: { { img: ImageLabel, radius: number, phase: number, y: number, w: number, h: number } },
+	state: Crystal,
+	k: number, -- the holder's height per stud of the gem
+}
+
+local GA = HudCfg.GemArt
+
+function HudKit.gemArt(holder: Frame): GemArt
+	local art = HudArt.gem
+	local function image(rect: { number }, zindex: number): ImageLabel
+		local img = Instance.new("ImageLabel")
+		img.BackgroundTransparency = 1
+		img.Image = `rbxassetid://{art.image}`
+		img.ImageRectOffset = Vector2.new(rect[1], rect[2])
+		img.ImageRectSize = Vector2.new(rect[3], rect[4])
+		img.AnchorPoint = Vector2.new(0.5, 0.5)
+		img.Position = UDim2.fromScale(0.5, 0.5)
+		img.ZIndex = zindex
+		img.Parent = holder
+		return img
+	end
+	local ring = image(art.ring, 1)
+	ring.Name = "Ring"
+	ring.Size = UDim2.fromScale(1, 1)
+	local k = GA.crystal / art.crystalSize[2]
+	local crystal = image(art.crystal, 3)
+	crystal.Name = "Crystal"
+	local shards = {}
+	for i, s in art.shards do
+		local img = image(s.rect, 4)
+		img.Name = `Shard{i}`
+		table.insert(shards, {
+			img = img,
+			radius = math.sqrt(s.at[1] ^ 2 + s.at[3] ^ 2),
+			phase = math.atan2(s.at[3], s.at[1]),
+			y = s.at[2],
+			w = s.size[1],
+			h = s.size[2],
+		})
+	end
+	return { holder = holder, crystal = crystal, shards = shards, state = HudKit.crystal({}), k = k }
+end
+
+function HudKit.poseGemArt(g: GemArt, now: number, bob: number, swell: number)
+	local art, F = HudArt.gem, G.shards
+	local k = g.k * swell
+	g.crystal.Size = UDim2.fromScale(art.crystalSize[1] * k, art.crystalSize[2] * k)
+	g.crystal.Position = UDim2.fromScale(0.5, 0.5 - bob)
+	g.crystal.Rotation = math.sin(now * GA.rock.speed * math.pi * 2) * GA.rock.degrees
+	for i, s in g.shards do
+		local a = s.phase + math.rad((F.orbit[i] or 0) * now)
+		local up = math.sin(now * F.speed * math.pi * 2 + i * 1.9) * F.bob
+		local near = math.sin(a) -- (toward the eye: over the crystal, a little larger)
+		local size = 1 + GA.depth * near
+		s.img.Size = UDim2.fromScale(s.w * k * size, s.h * k * size)
+		s.img.Position = UDim2.fromScale(0.5 + s.radius * math.cos(a) * k, 0.5 - bob - (s.y + up) * k)
+		s.img.Rotation = math.sin(now * 0.9 + i * 2.1) * GA.shardTilt
+		s.img.ZIndex = if near >= 0 then 4 else 2
+	end
+end
+
+function HudKit.shineArt(g: GemArt, share: number, dead: boolean, color: Color3, now: number)
+	local c = g.state
+	share = math.clamp(share, 0, 1)
+	local grey, deadGrey = rgb("crystalHollow"), rgb("crystalDead")
+	local light = 1
+	if dead then
+		local f = CR.flicker
+		if now >= c.nextFlicker then
+			c.flickerUntil = now + f.time
+			c.nextFlicker = now + f.every * (1 + f.jitter * (2 * rng:NextNumber() - 1))
+		end
+		light = if now < c.flickerUntil then f.depth else 1
+	end
+	-- (the drawing's own tones shade it: its colour as lit, not dimmed as the 3D one's flat faces are)
+	local tint = if dead then Color3.new():Lerp(deadGrey, light) else grey:Lerp(color, share)
+	g.crystal.ImageColor3 = tint
+	for _, s in g.shards do
+		s.img.ImageColor3 = tint
+	end
 end
 
 return HudKit

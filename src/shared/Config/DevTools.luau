@@ -261,7 +261,6 @@ local DevTools = {
 			HudGuis = {
 				"Crosshair",
 				"AmmoHud",
-				"Vitals",
 				"KillFeed",
 				"DeathLine",
 				"HitNote",

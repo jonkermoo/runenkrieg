@@ -3,8 +3,8 @@
 -- the mode HUD drafts, the front bar). Built once from the spec; each Refresh it reads the live mode's replicated state:
 --   Territory Push: Workspace's Frontline folder (src/server/Frontline: West / East teams, Phase, Winner; a child
 --     folder per sector with Index, Owner, Control and the West / East soldiers in its zone). The viewer's side is on
---     the left; one diamond per sector joined by a line, filled as far as its control goes in the colour of the side it
---     leans to. Shown on the loadout screen; in play only while M is held, fading fast, with a dot over each teammate
+--     the left; one seal per sector (user 2026-11-12, "seal chain 2": the point's rune, ringed as far as its control
+--     goes in the colour of the side it leans to, ATTACK / DEFEND over the points in play). Shown on the loadout screen; in play only while M is held, fading fast, with a dot over each teammate
 --     seen through walls (user 2026-10-29: "make the bar appear and a dot above all teammates that you can see through
 --     walls appear (with a fast fade) when players hold v"), and a diamond over each point that can be taken now, its
 --     fill the bar's (user 2026-10-30: "show where the point is when you hold v", "only show the ones that arent
@@ -39,6 +39,7 @@ local FrontlineCfg = require(Shared.Config.Frontline)
 local SketchMap = require(script.Parent.SketchMap)
 local U = require(Shared.Config.Uniforms)
 local LiveMap = require(Shared.LiveMap)
+local PaperArt = require(script.Parent.PaperArt)
 local PointSeal = require(script.Parent.PointSeal)
 local Settings = require(script.Parent.Settings)
 local Playtest = require(Shared.Config.Maps.Playtest)
@@ -54,9 +55,6 @@ local C = Palette.UI.Hud :: any
 local T = Spec.theme
 local FONT = Font.new(`rbxasset://fonts/families/{T.fonts.body.family}.json`, Enum.FontWeight.Bold)
 local ALIGN = { left = Enum.TextXAlignment.Left, right = Enum.TextXAlignment.Right }
-local DIAG = math.sqrt(0.5) -- a diamond's side in its box (the square turned 45 degrees fits the box)
--- a diamond's fill runs up the screen: the gradient turned against the square's own 45 degrees
-local FILL_ROTATION = 225
 
 local function rgb(c: { number }): Color3
 	return Color3.fromRGB(c[1], c[2], c[3])
@@ -92,13 +90,30 @@ local function sectorOf(id: string): any
 	return nil
 end
 
-type Diamond = { box: Frame, face: Frame, grad: UIGradient, edge: UIStroke }
+-- one point on the front strip (user 2026-11-12, "seal chain 2", then drawn: "Both B", a map ribbon with wax seals;
+-- Config/PaperArt): a wax seal in its holder's colour with the point's rune pressed in it in ink; over its face a disc
+-- in the colour of the side it leans to, swept round clockwise from the top as far as its capture goes (two clipped
+-- halves, each with a hard-edged gradient turned to the sweep); a pencil loop round it while it is in play; the pulse
+-- while contested, its tag above (ATTACK / DEFEND) and its line under; `key` the sector and side it was drawn for
+type Seat = {
+	box: Frame,
+	seal: PointSeal.Seal,
+	wax: ImageLabel,
+	loop: ImageLabel,
+	arcs: { ImageLabel },
+	sweeps: { UIGradient },
+	pulse: UIScale,
+	tag: TextLabel,
+	name: TextLabel,
+	title: string,
+	key: string,
+}
 
 local gui: ScreenGui
 local nodes: { [string]: GuiObject } = {}
 local binds: { [string]: TextLabel } = {}
-local frontPins: { Diamond } = {}
-local frontLabels: { TextLabel } = {}
+local seats: { Seat } = {}
+local links: { ImageLabel } = {} -- the track between neighbouring seats, in the colour of the side holding both ends
 
 -- One spec node (and its children) as an instance; templates (Pin, PinHQ, PinLabel) are kept unparented.
 local function make(n: any, parent: Instance?): GuiObject
@@ -129,10 +144,10 @@ local function make(n: any, parent: Instance?): GuiObject
 		local g: GuiObject = if n.fade then Instance.new("CanvasGroup") else Instance.new("Frame")
 		g.BackgroundTransparency = 1
 		obj = g
-	else -- panel (a diamond when shape = "diamond")
+	else -- panel (bare when it has a shape: the code draws it)
 		local f = Instance.new("Frame")
 		f.BorderSizePixel = 0
-		if n.shape == "diamond" then
+		if n.shape then
 			f.BackgroundTransparency = 1
 		else
 			f.BackgroundColor3 = tok(n.color)
@@ -157,53 +172,6 @@ local function make(n: any, parent: Instance?): GuiObject
 	return obj
 end
 
--- A diamond in a spec template's box: the turned square (face) with the theme's one outline, filled by a hard-edged
--- gradient from its bottom tip.
-local function diamond(template: any, parent: Instance, x: number): Diamond
-	local box = make(template, nil) :: Frame
-	box.Position = UDim2.new(x, 0, box.Position.Y.Scale, box.Position.Y.Offset)
-	local face = Instance.new("Frame")
-	face.Name = "Face"
-	face.AnchorPoint = Vector2.new(0.5, 0.5)
-	face.Position = UDim2.fromScale(0.5, 0.5)
-	face.Size = UDim2.fromScale(DIAG, DIAG)
-	face.Rotation = 45
-	face.BorderSizePixel = 0
-	face.BackgroundColor3 = Color3.new(1, 1, 1) -- (the gradient's colours tint it)
-	face.ZIndex = box.ZIndex
-	face.Parent = box
-	local grad = Instance.new("UIGradient")
-	grad.Rotation = FILL_ROTATION
-	grad.Color = ColorSequence.new(tok("pinEmpty"))
-	grad.Parent = face
-	local edge = Instance.new("UIStroke")
-	edge.Thickness = T.outline
-	edge.Color = tok("pinEdge")
-	edge.Parent = face
-	box.Parent = parent
-	return { box = box, face = face, grad = grad, edge = edge }
-end
-
--- The diamond filled to `share` (0..1, from the bottom tip) in `color`, the rest empty.
-local function fillDiamond(d: Diamond, share: number, color: Color3)
-	local empty = tok("pinEmpty")
-	local seq
-	if share <= Cfg.Fill.min then
-		seq = ColorSequence.new(empty)
-	elseif share >= 1 - Cfg.Fill.min then
-		seq = ColorSequence.new(color)
-	else
-		local e = Cfg.Fill.edge
-		seq = ColorSequence.new({
-			ColorSequenceKeypoint.new(0, color),
-			ColorSequenceKeypoint.new(share - e, color),
-			ColorSequenceKeypoint.new(share, empty),
-			ColorSequenceKeypoint.new(1, empty),
-		})
-	end
-	d.grad.Color = seq
-end
-
 local function set(bind: string, text: string)
 	local l = binds[bind]
 	if l and l.Text ~= text then
@@ -214,6 +182,13 @@ end
 local function teamRim(kit: string?): Color3
 	local t = kit and C.Teams[kit]
 	return if t then rgb(t.rim) else tok("pinEmpty")
+end
+
+-- a side's magic colour (the seals' and the map's, Palette UI.Grimoire.Magic), neutral for none
+local function magic(kit: string?): Color3
+	local G = (Palette.UI :: any).Grimoire
+	local m = kit and G.Magic[kit]
+	return rgb(m or G.neutral)
 end
 
 local function nation(kit: string?): string
@@ -249,45 +224,142 @@ local function sectorsOf(folder: Instance): { Instance }
 	return list
 end
 
--- (re)builds the diamonds and labels for `n` sectors, evenly spaced along the bar, the line from the first to the last
-local function layoutPins(list: { Instance })
-	for _, d in frontPins do
-		d.box:Destroy()
+-- (re)builds the seats and the track for the sectors in `list` (west to east) as the viewer's side sees them, evenly
+-- spaced along the bar
+local function layoutPins(list: { Instance }, side: string?)
+	for _, seat in seats do
+		seat.box:Destroy()
+		seat.tag:Destroy()
+		seat.name:Destroy()
 	end
-	for _, l in frontLabels do
+	for _, l in links do
 		l:Destroy()
 	end
-	table.clear(frontPins)
-	table.clear(frontLabels)
+	table.clear(seats)
+	table.clear(links)
 	local bar = nodes.FrontBar
+	local G = (Palette.UI :: any).Grimoire
 	local n = #list
+	local lineY = (find(Spec.root, "Line").pos :: { number })[4]
 	for slot = 1, n do
 		local x = (slot - 0.5) / n
-		table.insert(frontPins, diamond(find(Spec.root, "Pin"), bar, x))
-		local label = make(find(Spec.root, "PinLabel"), nil) :: TextLabel
-		binds.pin = nil -- (each clone is set directly)
-		label.Position = UDim2.new(x, 0, label.Position.Y.Scale, label.Position.Y.Offset)
-		label.Parent = bar
-		table.insert(frontLabels, label)
+		local f = list[Rules.slot(slot, n, side)]
+		local s = sectorOf(f.Name)
+		local hq = s ~= nil and s.isHQ == true
+		local box = make(find(Spec.root, if hq then "PinHQ" else "Pin"), nil) :: Frame
+		box.Position = UDim2.new(x, 0, box.Position.Y.Scale, box.Position.Y.Offset)
+		local pulse = Instance.new("UIScale")
+		pulse.Parent = box
+		local R = Cfg.Strip.ring
+		-- the wax seal (its drawing's blob `wax.size` of the box across), the capture disc over its face in two clipped
+		-- halves (right, then left), the pencil loop round it
+		local Wx = Cfg.Strip.wax
+		local wax = PaperArt.new("wax")
+		wax.Size = UDim2.fromScale(Wx.size, Wx.size)
+		wax.ZIndex = 1
+		wax.Parent = box
+		local arcs, sweeps = {}, {}
+		for half = 1, 2 do
+			local clip = Instance.new("Frame")
+			clip.Name = if half == 1 then "Right" else "Left"
+			clip.BackgroundTransparency = 1
+			clip.ClipsDescendants = true
+			clip.AnchorPoint = Vector2.new(if half == 1 then 0 else 1, 0.5)
+			clip.Position = UDim2.fromScale(0.5, 0.5)
+			clip.Size = UDim2.fromScale(Wx.size / 2, Wx.size)
+			clip.ZIndex = 2
+			clip.Parent = box
+			local d = PaperArt.new("disc")
+			d.Size = UDim2.fromScale(2, 1)
+			d.Position = UDim2.fromScale(if half == 1 then 0 else 1, 0.5)
+			d.Parent = clip
+			local g = Instance.new("UIGradient")
+			g.Transparency = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0),
+				NumberSequenceKeypoint.new(0.499, 0),
+				NumberSequenceKeypoint.new(0.501, 1),
+				NumberSequenceKeypoint.new(1, 1),
+			})
+			g.Parent = d
+			table.insert(arcs, d)
+			table.insert(sweeps, g)
+		end
+		local loop = PaperArt.new("loop")
+		loop.Size = UDim2.fromScale(Wx.loop, Wx.loop)
+		loop.ZIndex = 4
+		loop.Visible = false
+		loop.Parent = box
+		local disc = Instance.new("Frame")
+		disc.Name = "Seal"
+		disc.AnchorPoint = Vector2.new(0.5, 0.5)
+		disc.Position = UDim2.fromScale(0.5, 0.5)
+		disc.Size = UDim2.fromScale(R.seal, R.seal)
+		disc.ZIndex = 3
+		disc.Parent = box
+		local index = (f:GetAttribute("Index") :: number?) or Rules.slot(slot, n, side)
+		-- (the rune alone, pressed in the wax: no disc or ring of its own)
+		local seal = PointSeal.new(disc, PointSeal.rune(index, n), rgb(G.ink), rgb(G.neutral))
+		seal.ring.Enabled = false
+		disc.BackgroundTransparency = 1
+		box.Parent = bar
+		local tag = make(find(Spec.root, "PinTag"), nil) :: TextLabel
+		tag.Position = UDim2.new(x, 0, tag.Position.Y.Scale, tag.Position.Y.Offset)
+		tag.Visible = false
+		tag.Parent = bar
+		local name = make(find(Spec.root, "PinName"), nil) :: TextLabel
+		name.Position = UDim2.new(x, 0, name.Position.Y.Scale, name.Position.Y.Offset)
+		-- (a point named only by its id, "S2", goes by its rune alone)
+		local title = if hq then Cfg.Strip.hq elseif s and s.name ~= s.id then string.upper(s.name) else ""
+		name.Text = title
+		name.TextTruncate = Enum.TextTruncate.AtEnd
+		name.TextColor3 = rgb(G.ink) -- (written on the paper)
+		name.TextStrokeTransparency = 1
+		name.Parent = bar
+		table.insert(seats, {
+			box = box,
+			seal = seal,
+			wax = wax,
+			loop = loop,
+			arcs = arcs,
+			sweeps = sweeps,
+			pulse = pulse,
+			tag = tag,
+			name = name,
+			title = title,
+			key = f.Name,
+		})
+		if slot < n then
+			local link = PaperArt.new("stroke")
+			link.Name = "Link"
+			link.AnchorPoint = Vector2.new(0, 0.5)
+			link.Position = UDim2.new(x, 0, 0, lineY)
+			link.Size = UDim2.new(1 / n, 0, 0, Cfg.Strip.link)
+			link.ZIndex = 3
+			link.Parent = bar
+			table.insert(links, link)
+		end
 	end
 	local line = nodes.Line
 	local ends = if n > 0 then 0.5 / n else 0.5
 	line.Position = UDim2.new(ends, 0, line.Position.Y.Scale, line.Position.Y.Offset)
 	line.Size = UDim2.new(1 - 2 * ends, 0, line.Size.Y.Scale, line.Size.Y.Offset)
+	local plate = nodes.Plate
+	plate.Size = UDim2.new(1 - 2 * ends, 2 * Cfg.Strip.plate.pad, plate.Size.Y.Scale, plate.Size.Y.Offset)
+end
+
+-- a seat's capture: the disc swept clockwise from the top to `share` of the way round, in `color`
+local function fillSeat(seat: Seat, share: number, color: Color3)
+	local a = 360 * math.clamp(share, 0, 1)
+	seat.sweeps[1].Rotation = math.min(a, 180)
+	seat.sweeps[2].Rotation = math.max(a, 180)
+	for _, arc in seat.arcs do
+		arc.ImageColor3 = color
+		arc.Visible = share > Cfg.Fill.min
+	end
 end
 
 local shownCount = -1
 local shownSide: string? = "?"
-
--- a diamond painted as its sector stands: filled toward the side its control leans to, its edge contested / attacked
-local function paint(d: Diamond, pin: Rules.Pin, west: string?, east: string?, flashOn: boolean)
-	local kit = if pin.fillSide == "West" then west elseif pin.fillSide == "East" then east else nil
-	fillDiamond(d, pin.fill, teamRim(kit))
-	d.edge.Color = if pin.state == "Contested"
-		then (if flashOn then tok("pinContested") else tok("pinEdge"))
-		elseif pin.state == "Attacked" then tok("pinAttacked")
-		else tok("pinEdge")
-end
 
 -- Territory Push: the points that can be taken now, marked in the world over their flagpole (src/server/Flagpoles), seen
 -- through walls: the point's seal as the sketch map draws it (src/client/PointSeal; user 2026-11-02: "make the flag
@@ -374,12 +446,23 @@ local function clearMarkers()
 	end
 end
 
+-- the strip's cue in play (Cfg.Strip): until when it shows by itself, and what the last refresh saw
+local alertUntil = 0
+local lastControl: { [string]: number } = {}
+local lastOpen: { [string]: boolean } = {}
+
 local function updateFront(folder: Instance, now: number)
 	local side = mySide(folder)
 	local list = sectorsOf(folder)
 	local n = #list
-	if n ~= shownCount then
-		layoutPins(list)
+	-- (the seats are drawn for the sectors as this side sees them: built again when either changes)
+	local stale = n ~= shownCount or side ~= shownSide
+	for slot, seat in seats do
+		local f = list[Rules.slot(slot, n, side)]
+		stale = stale or f == nil or seat.key ~= f.Name
+	end
+	if stale then
+		layoutPins(list, side)
 		shownCount = n
 		shownSide = "?"
 	end
@@ -392,7 +475,6 @@ local function updateFront(folder: Instance, now: number)
 		local leftFlag = nodes.LeftFlag :: ImageLabel
 		leftFlag.Image = flagImage(leftKit)
 	end
-	local flashOn = (now // Cfg.FlashSeconds) % 2 == 0
 	-- the points that can be taken now (either side's next: Rules/Frontline.target), marked in the world
 	local state = { owner = {}, control = {} }
 	for i, f in list do
@@ -400,30 +482,90 @@ local function updateFront(folder: Instance, now: number)
 		state.control[i] = (f:GetAttribute("Control") :: number?) or 0
 	end
 	local open: { [string]: boolean } = {}
+	local ours: { [string]: boolean } = {} -- (the viewer's side's next point: ATTACK; the enemy's: DEFEND)
 	if folder:GetAttribute("Phase") == "Playing" then
 		for _, s in { "West", "East" } do
 			local t = FrontRules.target(state, s)
 			if t then
 				open[list[t].Name] = true
+				if s == side then
+					ours[list[t].Name] = true
+				end
 			end
 		end
 	end
+	-- a point newly open (the match's first ones too): the strip shows for a while
+	local clock = os.clock()
+	for name in open do
+		if not lastOpen[name] then
+			alertUntil = math.max(alertUntil, clock + Cfg.Strip.fresh)
+		end
+	end
+	lastOpen = open
 	for slot = 1, n do
 		local f = list[Rules.slot(slot, n, side)]
-		local d = frontPins[slot]
+		local seat = seats[slot]
 		local s = sectorOf(f.Name)
-		local hq = s ~= nil and s.isHQ == true
-		local tmpl = find(Spec.root, if hq then "PinHQ" else "Pin")
-		d.box.Size = udim(tmpl.size)
-		local label = if hq then "HQ" else f.Name
-		frontLabels[slot].Text = label
+		local owner = f:GetAttribute("Owner") :: string?
 		local pin = Rules.pin(
-			f:GetAttribute("Owner") :: string?,
+			owner,
 			(f:GetAttribute("Control") :: number?) or 0,
 			(f:GetAttribute("West") :: number?) or 0,
 			(f:GetAttribute("East") :: number?) or 0
 		)
-		paint(d, pin, west, east, flashOn)
+		-- the wax in its holder's colour (toward amber, beating, while contested: the seal swells with it), its rune in
+		-- ink, the capture disc over it in the colour of the side it leans to
+		local holder = if owner == "West" then west elseif owner == "East" then east else nil
+		local contested = pin.state == "Contested"
+		local own, beat = PointSeal.colours(holder, contested, now)
+		local inkC = rgb(((Palette.UI :: any).Grimoire).ink)
+		PointSeal.paint(seat.seal, inkC, inkC)
+		seat.wax.ImageColor3 = (if contested then beat else own):Lerp(Color3.new(), Cfg.Strip.wax.shade)
+		local leans = if pin.fillSide == "West" then west elseif pin.fillSide == "East" then east else nil
+		fillSeat(seat, pin.fill, magic(leans))
+		local P = Cfg.Strip.pulse
+		seat.pulse.Scale = if contested
+			then 1 + P.grow * (math.sin(now / P.seconds * 2 * math.pi) + 1) / 2
+			elseif pin.state == "Attacked" then 1 + P.grow
+			else 1
+		-- the points in play: ATTACK (the viewer's side's next) in red, DEFEND (the enemy's) in the viewer's colour
+		local isOpen = open[f.Name] == true
+		local attack = ours[f.Name] == true
+		seat.tag.Visible = isOpen
+		seat.loop.Visible = isOpen
+		if isOpen then
+			-- (in pencil: red to attack, the viewer's own colour to defend; the loop round the seal the same)
+			seat.tag.Text = if attack or side == nil then Cfg.Strip.attack else Cfg.Strip.defend
+			local myKit = if side == "West" then west elseif side == "East" then east else nil
+			local pencil = if attack or side == nil
+				then tok("tagAttack")
+				else magic(myKit):Lerp(Color3.new(), Cfg.Strip.defendShade)
+			seat.tag.TextColor3 = pencil
+			seat.loop.ImageColor3 = pencil
+		end
+		-- under it: its name, and how far it's taken while it's being taken (not full, not empty)
+		local moving = pin.fill > Cfg.Fill.min and pin.fill < 1 - Cfg.Fill.min and pin.state ~= "Held"
+		local pct = if moving then `{math.floor(pin.fill * 100 + 0.5)}%` else ""
+		seat.name.Text = if seat.title ~= "" and pct ~= "" then `{seat.title} · {pct}` else seat.title .. pct
+		seat.name.TextTransparency = if isOpen or moving then 0 else Cfg.Strip.nameDim
+		-- the track to the next seat in the side's colour where that side holds both ends
+		local link = links[slot]
+		if link then
+			local nf = list[Rules.slot(slot + 1, n, side)]
+			local nOwner = nf and nf:GetAttribute("Owner") :: string?
+			local both = owner == nOwner and (owner == "West" or owner == "East")
+			link.Visible = both
+			if both then
+				link.ImageColor3 = magic(holder):Lerp(Color3.new(), Cfg.Strip.linkShade)
+			end
+		end
+		-- a point being taken: the strip shows while it is and a little after
+		local control = (f:GetAttribute("Control") :: number?) or 0
+		local was = lastControl[f.Name]
+		lastControl[f.Name] = control
+		if pin.state == "Contested" or pin.state == "Attacked" or (was ~= nil and math.abs(control - was) > 1e-3) then
+			alertUntil = math.max(alertUntil, clock + Cfg.Strip.linger)
+		end
 		local m = markers[f.Name]
 		local pole = poleOf(f.Name)
 		-- (a beacon over a pole that's gone, the match moved to another map or the poles stood again, is built anew on
@@ -604,6 +746,14 @@ function ModeHud.start()
 	mapBox.Size = UDim2.fromOffset(H.width, tall(FrontlineCfg.MapKey))
 	mapBox.Visible = false
 	mapBox.Parent = gui
+	-- in a leather map case (drawn: Config/PaperArt; user 2026-11-12: "Both B"), a little past the sheet all round
+	local function cased(box: Frame)
+		local case = PaperArt.new("case", H.case.slice)
+		case.Size = UDim2.new(1, 2 * H.case.pad, 1, 2 * H.case.pad)
+		case.ZIndex = 0
+		case.Parent = box
+	end
+	cased(mapBox)
 	-- one sheet per frontline map with sketch art, the match's map shown (the vote can move the match)
 	local sheets: { [string]: Frame } = {}
 	for _, key in LiveMap.frontline() do
@@ -632,6 +782,7 @@ function ModeHud.start()
 	local ffaBox = mapBox:Clone()
 	ffaBox.Name = "SketchMapFFA"
 	ffaBox:ClearAllChildren()
+	cased(ffaBox)
 	ffaBox.Size = UDim2.fromOffset(H.width, tall(Playtest.name))
 	ffaBox.Parent = gui
 	SketchMap.new(ffaBox, Playtest.name, { you = true, zone = true })
@@ -641,6 +792,22 @@ function ModeHud.start()
 	local screenK = 1
 	-- the wave countdown, shown only while the soldier stands in its wave line
 	nodes.WaveBar.Visible = false
+	do
+		-- the strip's plate: a ribbon of map paper, torn at its ends (user 2026-11-12: "Both B"; Config/PaperArt), and
+		-- the track along it inked in dashes
+		local plate = nodes.Plate
+		plate.ZIndex = 0
+		plate.BackgroundTransparency = 1
+		local P = Cfg.Strip.plate
+		PaperArt.new("ribbon", P.slice).Parent = plate
+		local line = nodes.Line
+		line.BackgroundTransparency = 1
+		line.Size = UDim2.new(line.Size.X.Scale, line.Size.X.Offset, 0, P.dash[2])
+		local dashes = PaperArt.new("dash")
+		dashes.ScaleType = Enum.ScaleType.Tile
+		dashes.TileSize = UDim2.new(0, P.dash[1], 1, 0)
+		dashes.Parent = line
+	end
 	set("waveTitle", Cfg.Wave.title)
 	for _, id in { "FrontBar", "ZoneBar", "WaveBar", "SketchMap", "SketchMapFFA" } do
 		local scale = Instance.new("UIScale")
@@ -676,6 +843,7 @@ function ModeHud.start()
 	local ffaOn = false -- Point Capture is running
 	local myKit: string? = nil
 	local barShown, dotsShown = 0, 0
+	local wasLive = false -- (in play last frame, past the wave hold)
 	task.spawn(function()
 		while true do
 			local now = os.clock()
@@ -711,12 +879,20 @@ function ModeHud.start()
 		local title, loadout = screenOn("TitleScreen"), screenOn("LoadoutMenu")
 		local held = Settings.held("Key_Map")
 		local inPlay = front and not title and not loadout
-		-- the front bar: big for the result; in play always on as a smaller strip (review 2026-11-12: the objective
-		-- only on M was backwards), off while the wave countdown stands in its place
+		-- the front bar: big for the result; in play a smaller strip while M is held, a point is being taken or one has
+		-- just opened (Cfg.Strip), off while the wave countdown stands in its place
 		local character = Players.LocalPlayer.Character
 		local waveAt = character and character:GetAttribute(FrontlineCfg.HoldAttribute)
 		local waiting = front and not title and not loadout and type(waveAt) == "number"
-		local strip = inPlay and not results and not waiting
+		local live = inPlay and not results and not waiting
+		if live and not wasLive then
+			alertUntil = math.max(alertUntil, os.clock() + Cfg.Strip.fresh) -- (into play: where the fight is)
+		end
+		wasLive = live
+		local strip = live and (held or os.clock() < alertUntil)
+		-- (your side's flag and name only off play, on the loadout screen; not over the result)
+		nodes.LeftFlag.Visible = not live and not results
+		nodes.LeftName.Visible = not live and not results
 		barShown = Rules.fade(
 			barShown,
 			if results and not title then 1 elseif strip then Cfg.Strip.shown else 0,

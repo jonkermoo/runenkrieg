@@ -495,9 +495,12 @@ local Palette = {
 			-- the hint's key as a red chip, its words (UI overhaul, user 2026-10-30: the clean gun display)
 			hintKey = { 200, 64, 46 },
 			hintKeyText = { 255, 242, 234 },
-			-- the gun's cut-away lit nearly flat (UI overhaul: "flat shades")
-			gunAmbient = { 205, 205, 205 },
-			gunLight = { 70, 66, 60 },
+			-- the gun's flat 2D display (Config/Hud.Gun): the pieces' outline, an empty chamber
+			gunInk = { 12, 13, 16 },
+			chamberHole = { 24, 25, 29 },
+			-- the gun card's plate (faded to the left) and the "/10" after the count
+			gunPlate = { 7, 8, 10 },
+			ammoOf = { 185, 178, 162 },
 			-- the kit list in bare ink (UI overhaul, user 2026-10-30: "remove the paper background completely, just have
 			-- the selected one be fully visible and the others semi transparent and smaller"): words, their dark edge
 			kitHeld = { 241, 235, 220 },
@@ -516,21 +519,24 @@ local Palette = {
 			pinEdge = { 10, 11, 12 },
 			pinContested = { 230, 160, 40 },
 			pinAttacked = { 220, 96, 70 },
+			-- the front strip (src/client/ModeHud; user 2026-11-12: "make it look actually good"): its plate (faded at the
+			-- ends), the brass hairlines on it (brass above), a point to take's ATTACK tag and the tags' words
+			stripPlate = { 7, 8, 10 },
+			tagAttack = { 196, 52, 42 },
+			tagText = { 246, 240, 226 },
 			-- the kit list (Config/Hud.Kit): the names and keys of the rows not in the hands, an empty row's name
 			kitName = { 168, 168, 158 },
 			kitKey = { 154, 154, 144 },
 			kitEmpty = { 118, 118, 110 },
 			kitHeldText = { 22, 24, 26 }, -- the words and key stamp on the row in the hands (on the team's rim colour)
 			-- the gun's cut-away (Config/Hud.Gun): its bolt and the bolt's darker steel, the magazine well and its edges,
-			-- a clip; the gun's body as a flat shadow (lit by `shadowAmbient` only)
+			-- a clip; the gun's body as a flat silhouette
 			bolt = { 150, 154, 160 },
 			steel = { 92, 96, 102 },
 			well = { 78, 82, 88 },
 			wellEdge = { 110, 114, 120 },
 			clip = { 120, 118, 112 },
 			shadow = { 16, 18, 22 },
-			shadowAmbient = { 255, 255, 255 },
-			shadowLight = { 0, 0, 0 },
 			-- each team's box (user 2026-10-26: "make it the team coloring"; by the "Kit": Config/Uniforms): its field,
 			-- its rim and rivets, as the uniforms (grey: slate; olive: olive drab; brown: chocolate and off-white)
 			Teams = {
