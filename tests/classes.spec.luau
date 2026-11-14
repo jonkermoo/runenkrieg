@@ -81,6 +81,22 @@ return {
 			end
 		end
 	end,
+	["every class wears its own pack, the grenadier's with its team's grenade (user 2026-11-13)"] = function()
+		for _, kitName in U.Teams do
+			local seen = {}
+			for key in C.Defs do
+				local g = R.gear(key, kitName, C.Defs, U.Kits, C.Gear)
+				local e = g.pack and A.Entries[g.pack]
+				assert(e and e.folder == "Shared/Packs", `{key} {kitName}: {g.pack} is not a class pack`)
+				assert(not seen[g.pack], `{key} {kitName}: {g.pack} is another class's too`)
+				seen[g.pack] = true
+			end
+			local grenadier = R.gear("Grenadier", kitName, C.Defs, U.Kits, C.Gear).pack :: string
+			local grenade = (U.Kits[kitName] :: any).grenade
+			local hung = ({ grenade_stick = "grey", grenade_sipe = "olive", grenade_mills = "brown" })[grenade]
+			assert(grenadier == `pack_grenadier_{hung}`, `{kitName}: the grenadier's pack hangs another team's grenade`)
+		end
+	end,
 	["the engineer carries its team's own pistol, a different one per team"] = function()
 		local seen = {}
 		for _, kitName in U.Teams do

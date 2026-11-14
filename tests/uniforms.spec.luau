@@ -33,7 +33,16 @@ return {
 	["every pack has a palette color for each of its parts"] = function()
 		local P = require("../src/shared/Config/Palette")
 		for name, e in A.Entries do
-			if string.find(e.folder, "/Packs$") then
+			if e.folder == "Shared/Packs" then
+				-- a class pack, worn by every team: each kit's colors (Config/Palette.ClassPacks)
+				for _, kit in U.Teams do
+					local c = P.ClassPacks[kit]
+					assert(
+						c and c.Body and c.Roll and c.Leather,
+						`{name}: Config/Palette.ClassPacks.{kit} colors missing`
+					)
+				end
+			elseif string.find(e.folder, "/Packs$") then
 				local c = P.Packs[name]
 				assert(c and c.Body and c.Roll, `{name}: Config/Palette.Packs colors missing`)
 			end

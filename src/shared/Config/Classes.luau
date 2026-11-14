@@ -15,6 +15,9 @@ export type Def = {
 	primary: string,
 	grenades: boolean, -- carries the kit's grenades
 	helmet: string?, -- a key of the kit's `Gear` (the alternate helmet); nil: the kit's own headwear
+	-- a key of the kit's `Gear`: the class's backpack (user 2026-11-13: one bag per class, the same for every team, the
+	-- cheaper classes the smaller; src/server/Packs)
+	pack: string,
 	builds: { string }, -- the Config/Build.Pieces kinds it may lay and build
 	locked: boolean?, -- shown, but not picked yet (coming later)
 	blurb: string, -- the loadout menu's line under the name (src/client/Menus)
@@ -85,6 +88,7 @@ local Classes = {
 			fee = 0,
 			primary = "weapon",
 			grenades = false,
+			pack = "riflemanPack",
 			builds = SMALL,
 		},
 		Grenadier = {
@@ -94,6 +98,7 @@ local Classes = {
 			fee = 50,
 			primary = "weapon",
 			grenades = true,
+			pack = "grenadierPack",
 			builds = SMALL,
 		},
 		-- the team's semi-automatic rifle and its alternate helmet (user: "these will use the alternate helmet")
@@ -105,6 +110,7 @@ local Classes = {
 			primary = "semi",
 			grenades = false,
 			helmet = "altHelmet",
+			pack = "autoRiflerPack",
 			builds = SMALL,
 		},
 		-- the team's pump shotgun and the shotgun shell helmet, no grenades (user 2026-10-27: "can you add the shotgun
@@ -117,6 +123,7 @@ local Classes = {
 			primary = "shotgun",
 			grenades = false,
 			helmet = "shellHelmet",
+			pack = "shotgunnerPack",
 			builds = SMALL,
 		},
 		-- the only class that builds artillery (user: "only they can build artilleries"); open to players (user
@@ -132,6 +139,7 @@ local Classes = {
 			-- the team's soft cloth cap (user 2026-10-27: "a cap that isnt bullet proof"; Config/Assets fit.soft)
 			helmet = "engineerCap",
 			-- (Nest: the MG nest, user 2026-10-27; Dugout: user 2026-11-02, "Engineers only")
+			pack = "engineerPack",
 			builds = { "Trench", "Foxhole", "Sandbags", "Wire", "Hesco", "Bridge", "Gun", "Nest", "Dugout" },
 		},
 		-- the team's goggles (user 2026-10-27: "goggles on mage")
@@ -143,6 +151,7 @@ local Classes = {
 			primary = "staff",
 			grenades = false,
 			helmet = "goggles",
+			pack = "magePack",
 			builds = SMALL,
 		},
 	} :: { [string]: Def },
@@ -158,6 +167,12 @@ local Classes = {
 			shotgun = "shotgun_m1897",
 			shellHelmet = "helmet_stahl_ammo",
 			engineerCap = "cap_feld",
+			riflemanPack = "pack_rifleman",
+			grenadierPack = "pack_grenadier_grey",
+			engineerPack = "pack_engineer",
+			autoRiflerPack = "pack_autorifler",
+			shotgunnerPack = "pack_shotgunner",
+			magePack = "pack_mage",
 		},
 		uniform2 = {
 			pistol = "pistol_nagant",
@@ -168,6 +183,12 @@ local Classes = {
 			shotgun = "shotgun_m1897",
 			shellHelmet = "helmet_m33_ammo",
 			engineerCap = "cap_side",
+			riflemanPack = "pack_rifleman",
+			grenadierPack = "pack_grenadier_olive",
+			engineerPack = "pack_engineer",
+			autoRiflerPack = "pack_autorifler",
+			shotgunnerPack = "pack_shotgunner",
+			magePack = "pack_mage",
 		},
 		uniform3 = {
 			pistol = "pistol_webley",
@@ -178,6 +199,12 @@ local Classes = {
 			shotgun = "shotgun_m1897",
 			shellHelmet = "helmet_brodie_ammo",
 			engineerCap = "cap_trench",
+			riflemanPack = "pack_rifleman",
+			grenadierPack = "pack_grenadier_brown",
+			engineerPack = "pack_engineer",
+			autoRiflerPack = "pack_autorifler",
+			shotgunnerPack = "pack_shotgunner",
+			magePack = "pack_mage",
 		},
 	} :: { [string]: { [string]: string } },
 	-- every award below paid this many times over, in every mode (user 2026-11-02 set 1.5; the marks rebalance,

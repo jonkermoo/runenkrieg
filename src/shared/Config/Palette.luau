@@ -130,6 +130,65 @@ local Palette = {
 			Tin = { 128, 132, 136 },
 		},
 	},
+	-- Class backpacks (Config/Assets "Shared/Packs", user 2026-11-13: the same bag for every team), by kit, coloured by
+	-- mesh name in the team's rig leather (Rigs below; user 2026-11-13: "make it match the color of the teams rig"): the
+	-- bag the rig's pouch leather, its flap and pouches a shade darker, its straps the rig's straps, the brown team's
+	-- fittings its rig's brass. G<part>: the Grenadier's hung grenade, in its Config/Weapons colors; Rune: the Mage's
+	-- rune in its team's staff glow.
+	ClassPacks = {
+		uniform1 = {
+			Body = { 88, 66, 48 },
+			Flap = { 72, 54, 40 },
+			Pocket = { 72, 54, 40 },
+			Leather = { 54, 42, 34 },
+			Roll = { 96, 92, 80 },
+			Brass = { 196, 164, 88 },
+			Steel = { 100, 102, 104 },
+			Alu = { 128, 130, 126 },
+			Felt = { 98, 84, 66 },
+			Wood = { 166, 120, 74 },
+			Cord = { 150, 140, 112 },
+			Rune = { 222, 150, 52 },
+			GHead = { 80, 82, 86 },
+			GCollar = { 60, 62, 66 },
+			GHandle = { 84, 60, 44 },
+			GCap = { 60, 62, 66 },
+		},
+		uniform2 = {
+			Body = { 136, 104, 72 },
+			Flap = { 118, 88, 60 },
+			Pocket = { 118, 88, 60 },
+			Leather = { 98, 70, 48 },
+			Roll = { 120, 106, 80 },
+			Brass = { 196, 164, 88 },
+			Steel = { 100, 102, 104 },
+			Alu = { 128, 130, 126 },
+			Felt = { 98, 84, 66 },
+			Wood = { 166, 120, 74 },
+			Cord = { 150, 140, 112 },
+			Rune = { 86, 150, 214 },
+			GBody = { 116, 114, 72 },
+			GFuse = { 70, 68, 58 },
+		},
+		uniform3 = {
+			Body = { 176, 160, 118 },
+			Flap = { 156, 140, 102 },
+			Pocket = { 156, 140, 102 },
+			Leather = { 150, 134, 96 },
+			Roll = { 110, 104, 92 },
+			Brass = { 150, 126, 70 },
+			Steel = { 100, 102, 104 },
+			Alu = { 128, 130, 126 },
+			Felt = { 98, 84, 66 },
+			Wood = { 166, 120, 74 },
+			Cord = { 150, 140, 112 },
+			Rune = { 72, 176, 150 },
+			GBody = { 128, 134, 140 },
+			GIron = { 60, 62, 66 },
+			GLever = { 90, 92, 96 },
+			GPin = { 150, 152, 156 },
+		},
+	},
 	-- Rigs (Config/Uniforms.Rigs, user 2026-10-22: each team's in its own colors), by kit, colored by mesh name. Like
 	-- the packs never the uniform's colour: each team's leather as its pack's. Grey: blackened German leather; olive:
 	-- the zaino's brown leather; brown: pale khaki British web, as the P08, with brass fittings.
