@@ -50,6 +50,15 @@ function Classes.pickable(key: unknown, defs: { [string]: any }): boolean
 	return d ~= nil and not d.locked
 end
 
+-- A gear colour in a class's tone (Config/Classes.Tones): each channel x `mul` + its `shift`, kept in 0..255.
+function Classes.tone(color: { number }, mul: number, shift: { number }): { number }
+	local out = {}
+	for i = 1, 3 do
+		out[i] = math.clamp(math.floor(color[i] * mul + shift[i] + 0.5), 0, 255)
+	end
+	return out
+end
+
 export type Gear = { Primary: string?, Grenade: string?, Shovel: string?, headwear: string?, pack: string? }
 
 -- What class `key` carries in kit `kitName`: the primary, grenades (or none), the shovel, the helmet and the backpack

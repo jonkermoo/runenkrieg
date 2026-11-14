@@ -12,6 +12,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local U = require(Shared.Config.Uniforms)
+local Classes = require(Shared.Config.Classes)
 local SpeciesCfg = require(Shared.Config.Species)
 local Faces = require(Shared.Rules.Faces)
 local Looks = require(Shared.Rules.Looks)
@@ -147,11 +148,17 @@ function Bodies.apply(character: Model, as: Player?)
 			c:Destroy()
 		end
 	end
+	-- the uniform in the class's tint (Config/Classes.Tones `cloth`), its rig and bag in the class's tone
+	local class = Loadouts.classOf(character)
+	local tone = Classes.Tones.classes[class]
+	local tint = if tone then rgb(tone.cloth) else Color3.new(1, 1, 1)
 	local shirt = Instance.new("Shirt")
 	shirt.ShirtTemplate = "rbxassetid://" .. kit.shirt
+	shirt.Color3 = tint
 	shirt.Parent = character
 	local pants = Instance.new("Pants")
 	pants.PantsTemplate = "rbxassetid://" .. kit.pants
+	pants.Color3 = tint
 	pants.Parent = character
 	-- the helmet stays off once it has been shot off this life
 	Helmets.dress(
@@ -160,8 +167,8 @@ function Bodies.apply(character: Model, as: Player?)
 		if character:GetAttribute("HelmetOn") == false then nil else Loadouts.gear(character).headwear,
 		Species.of(character, kitName)
 	)
-	Rigs.dress(character, kitName)
-	Packs.dress(character, Loadouts.gear(character).pack or kit.pack, kitName) -- the class's pack (Config/Classes)
+	Rigs.dress(character, kitName, class)
+	Packs.dress(character, Loadouts.gear(character).pack or kit.pack, kitName, class) -- the class's pack (Config/Classes)
 	-- the kit's species: ears and a tail (src/server/Species)
 	Species.dress(character, kitName)
 end

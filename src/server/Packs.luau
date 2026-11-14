@@ -10,6 +10,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local A = require(Shared.Config.Assets)
 local Palette = require(Shared.Config.Palette)
+local C = require(Shared.Config.Classes)
+local Rules = require(Shared.Rules.Classes)
 
 local Packs = {}
 
@@ -31,10 +33,27 @@ local function library(name: string): Model?
 end
 
 -- Puts `entry`'s pack on the character (replacing any old one); nil takes it off. A class pack (Config/Classes `pack`)
--- takes kit `kitName`'s colors (Config/Palette.ClassPacks), an old team pack its own (Config/Palette.Packs).
-function Packs.dress(character: Model, entry: string?, kitName: string?)
-	local colors = entry and Palette.Packs[entry] or kitName and Palette.ClassPacks[kitName] or {}
-	Packs.wear(character, "Pack", entry, colors)
+-- takes kit `kitName`'s colors (Config/Palette.ClassPacks) in class `class`'s tone, an old team pack its own
+-- (Config/Palette.Packs).
+function Packs.dress(character: Model, entry: string?, kitName: string?, class: string?)
+	local own = entry and Palette.Packs[entry]
+	local colors = own or kitName and Palette.ClassPacks[kitName] or {}
+	Packs.wear(character, "Pack", entry, if own then colors else Packs.toned(colors, class))
+end
+
+-- `colors` with the leather and canvas parts in class `class`'s tone (Config/Classes.Tones; none: as they are).
+function Packs.toned(colors: { [string]: { number } }, class: string?): { [string]: { number } }
+	local tone = class and C.Tones.classes[class]
+	if not tone then
+		return colors
+	end
+	local out = table.clone(colors)
+	for _, part in C.Tones.parts do
+		if out[part] then
+			out[part] = Rules.tone(out[part], tone.mul, tone.shift)
+		end
+	end
+	return out
 end
 
 -- Puts `entry`'s gear on the Torso as the model `name` (replacing any old one; nil takes it off), each part colored
