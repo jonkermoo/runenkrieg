@@ -161,7 +161,7 @@ function Bodies.apply(character: Model, as: Player?)
 		Species.of(character, kitName)
 	)
 	Rigs.dress(character, kitName)
-	Packs.dress(character, kit.pack)
+	Packs.dress(character, Loadouts.gear(character).pack or kit.pack, kitName) -- the class's pack (Config/Classes)
 	-- the kit's species: ears and a tail (src/server/Species)
 	Species.dress(character, kitName)
 end

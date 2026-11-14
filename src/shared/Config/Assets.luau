@@ -659,6 +659,88 @@ local Assets = {
 				.. "straps to steel buckles, a rounded mess tin on the flap, a cinched blanket roll across the top (1532 tris); "
 				.. "hangs from the rig's bands.",
 		},
+		-- Class backpacks (user 2026-11-13): one design per class worn by every team (the Grenadier's in three, each
+		-- with its team's grenade hung on it), the cheaper classes the smaller bags, low on the back so no helmet meets
+		-- them (the blanket roll under the pack), hanging a little below the belt line. Worn by class (Config/Classes `pack`), placed like the team packs
+		-- above (src/server/Packs), colored by mesh name from Config/Palette.ClassPacks in the kit's colors.
+		pack_rifleman = {
+			id = 133884177993894, -- bigger, in the rig's leather (user 2026-11-13; v1 80765004156492)
+			category = "Teams",
+			folder = "Shared/Packs",
+			source = "assets/teams/shared/packs/pack_rifleman.fbx",
+			generator = "tools/blender/gear/class_packs.py",
+			sling = 0.763,
+			description = "Rifleman's bread bag low on the belt: a sagging canvas bag under a round-cornered flap, two "
+				.. "buckled closure straps, the water bottle in its felt cover on a snap hook from a riveted D-ring tab (2656 tris).",
+		},
+		pack_grenadier_grey = {
+			id = 125406554436089, -- bigger, in the rig's leather (user 2026-11-13; v1 73962151565383)
+			category = "Teams",
+			folder = "Shared/Packs",
+			source = "assets/teams/shared/packs/pack_grenadier_grey.fbx",
+			generator = "tools/blender/gear/class_packs.py",
+			sling = 1.254,
+			description = "Grenadier's pack, grey: the full pack over a blanket roll, three grenade pouches closed by tongue "
+				.. "and stud, the bottle on the left, a stick grenade hung by its belt hook from a D-ring under the flap (5956 tris).",
+		},
+		pack_grenadier_olive = {
+			id = 91613659029479, -- bigger, in the rig's leather (user 2026-11-13; v1 97337448473329)
+			category = "Teams",
+			folder = "Shared/Packs",
+			source = "assets/teams/shared/packs/pack_grenadier_olive.fbx",
+			generator = "tools/blender/gear/class_packs.py",
+			sling = 1.06,
+			description = "Grenadier's pack, olive: as the grey, a SIPE grenade on a cord through its fuse from the D-ring (5806 tris).",
+		},
+		pack_grenadier_brown = {
+			id = 73921538641389, -- bigger, in the rig's leather (user 2026-11-13; v1 130716269821048)
+			category = "Teams",
+			folder = "Shared/Packs",
+			source = "assets/teams/shared/packs/pack_grenadier_brown.fbx",
+			generator = "tools/blender/gear/class_packs.py",
+			sling = 1.06,
+			description = "Grenadier's pack, brown: as the grey, a Mills bomb on a cord through its pin ring from the D-ring (5816 tris).",
+		},
+		pack_engineer = {
+			id = 78624345561771, -- bigger, in the rig's leather (user 2026-11-13; v1 107120346521526)
+			category = "Teams",
+			folder = "Shared/Packs",
+			source = "assets/teams/shared/packs/pack_engineer.fbx",
+			generator = "tools/blender/gear/class_packs.py",
+			sling = 0.91,
+			description = "Engineer's pack: the full pack over a blanket roll, a wooden maul and a ring spanner in strap loops "
+				.. "sewn down at one end and buckled at the other, wire cutters in a frog on a snap hook (6222 tris).",
+		},
+		pack_autorifler = {
+			id = 130294309858350, -- bigger, in the rig's leather (user 2026-11-13; v1 104328669571300)
+			category = "Teams",
+			folder = "Shared/Packs",
+			source = "assets/teams/shared/packs/pack_autorifler.fbx",
+			generator = "tools/blender/gear/class_packs.py",
+			sling = 1.044,
+			description = "Auto rifler's pack: the full pack over a blanket roll, three magazine pouches closed by tongue and "
+				.. "stud, the ridged gas mask tin on a snap hook by its lid bail (4810 tris).",
+		},
+		pack_shotgunner = {
+			id = 85119552322068, -- bigger, in the rig's leather (user 2026-11-13; v1 92376150588961)
+			category = "Teams",
+			folder = "Shared/Packs",
+			source = "assets/teams/shared/packs/pack_shotgunner.fbx",
+			generator = "tools/blender/gear/class_packs.py",
+			sling = 1.082,
+			description = "Shotgunner's pack: the full pack over a blanket roll, two wide shell pouches closed by tongue and "
+				.. "stud, the bottle on a snap hook (4176 tris).",
+		},
+		pack_mage = {
+			id = 91245224281287, -- bigger, in the rig's leather (user 2026-11-13; v1 127893646160924)
+			category = "Teams",
+			folder = "Shared/Packs",
+			source = "assets/teams/shared/packs/pack_mage.fbx",
+			generator = "tools/blender/gear/class_packs.py",
+			sling = 1.132,
+			description = "Mage's pack, the biggest: a wide pack over a long blanket roll, a mess tin under two buckled "
+				.. "straps, a scroll case in two bands, a brass-ringed rune in the team's color (3108 tris).",
+		},
 		helmet_stahl = {
 			id = 98976523443657, -- reworked 2026-10-19 (docs/HATS.md "Rework")
 			category = "Teams",

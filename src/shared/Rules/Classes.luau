@@ -50,9 +50,10 @@ function Classes.pickable(key: unknown, defs: { [string]: any }): boolean
 	return d ~= nil and not d.locked
 end
 
-export type Gear = { Primary: string?, Grenade: string?, Shovel: string?, headwear: string? }
+export type Gear = { Primary: string?, Grenade: string?, Shovel: string?, headwear: string?, pack: string? }
 
--- What class `key` carries in kit `kitName`: the primary, grenades (or none), the shovel and the helmet.
+-- What class `key` carries in kit `kitName`: the primary, grenades (or none), the shovel, the helmet and the backpack
+-- (the kit's own pack when the class names none).
 function Classes.gear(
 	key: string,
 	kitName: string,
@@ -71,6 +72,7 @@ function Classes.gear(
 		Grenade = if d.grenades then kit.grenade else nil,
 		Shovel = kit.shovel,
 		headwear = if d.helmet then own[d.helmet] or kit.headwear else kit.headwear,
+		pack = d.pack and own[d.pack] or kit.pack,
 	}
 end
 

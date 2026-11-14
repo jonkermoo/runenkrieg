@@ -1,8 +1,9 @@
 --!strict
--- Backpacks (docs/CHARACTERS.md "Backpacks"; user 2026-10-18/19): every soldier spawns with its kit's pack (Config/
--- Uniforms Kits `pack`) on the back of the Torso. The library model's Origin marker is the Torso center: each part
--- goes at its offset from it, keeping its imported rotation (never PivotTo the model: KNOWN_TRAPS), colored by mesh
--- name (Config/Palette.Packs). Purely visual: welded to the Torso, no collisions, never hit (CanQuery off).
+-- Backpacks (docs/CHARACTERS.md "Backpacks"; user 2026-10-18/19): every soldier spawns with its class's pack
+-- (Config/Classes `pack`, user 2026-11-13; else its kit's, Config/Uniforms Kits `pack`) on the back of the Torso. The
+-- library model's Origin marker is the Torso center: each part goes at its offset from it, keeping its imported
+-- rotation (never PivotTo the model: KNOWN_TRAPS), colored by mesh name (Config/Palette.ClassPacks / Packs). Purely
+-- visual: welded to the Torso, no collisions, never hit (CanQuery off).
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -29,9 +30,11 @@ local function library(name: string): Model?
 	return m :: Model
 end
 
--- Puts `entry`'s pack on the character (replacing any old one); nil takes it off.
-function Packs.dress(character: Model, entry: string?)
-	Packs.wear(character, "Pack", entry, entry and Palette.Packs[entry] or {})
+-- Puts `entry`'s pack on the character (replacing any old one); nil takes it off. A class pack (Config/Classes `pack`)
+-- takes kit `kitName`'s colors (Config/Palette.ClassPacks), an old team pack its own (Config/Palette.Packs).
+function Packs.dress(character: Model, entry: string?, kitName: string?)
+	local colors = entry and Palette.Packs[entry] or kitName and Palette.ClassPacks[kitName] or {}
+	Packs.wear(character, "Pack", entry, colors)
 end
 
 -- Puts `entry`'s gear on the Torso as the model `name` (replacing any old one; nil takes it off), each part colored
