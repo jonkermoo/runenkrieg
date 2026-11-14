@@ -1,8 +1,8 @@
 --!strict
--- Rigs (bandolier webbing, pouches only; docs/CHARACTERS.md; user 2026-10-22: "start using the random bandolier rigs
--- (use different coloring per team)"): every soldier wears one of Config/Uniforms.Rigs on the Torso, rolled once per
--- character (never the player's last life's: Rules/Looks.pick) and kept as the "Rig" attribute, colored by its kit
--- (Config/Palette.Rigs). Welded like the packs (src/server/Packs): purely visual.
+-- Rigs (bandolier webbing, pouches only; docs/CHARACTERS.md): every soldier wears one of Config/Uniforms.Rigs on the
+-- Torso (one rig for every class since 2026-11-14; with more, rolled once per character, never the player's last
+-- life's: Rules/Looks.pick), kept as the "Rig" attribute, colored by its kit (Config/Palette.Rigs) in its class's tone
+-- (Config/Classes.Tones), so it matches the class's bag. Welded like the packs (src/server/Packs): purely visual.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -34,9 +34,9 @@ function Rigs.of(character: Model): string
 	return U.Rigs[i].name
 end
 
--- Puts this life's rig on the character in its kit's colors.
-function Rigs.dress(character: Model, kitName: string)
-	Packs.wear(character, "Rig", Rigs.of(character), Palette.Rigs[kitName] or {})
+-- Puts this life's rig on the character in its kit's colors, in class `class`'s tone as its bag (Config/Classes.Tones).
+function Rigs.dress(character: Model, kitName: string, class: string?)
+	Packs.wear(character, "Rig", Rigs.of(character), Packs.toned(Palette.Rigs[kitName] or {}, class))
 end
 
 Players.PlayerRemoving:Connect(function(p)

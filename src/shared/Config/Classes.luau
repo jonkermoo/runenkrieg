@@ -159,6 +159,23 @@ local Classes = {
 			builds = SMALL,
 		},
 	} :: { [string]: Def },
+	-- each class's tone (user 2026-11-13: "can you make each class's helmet, uniform, and backpack slightly colored
+	-- differently?"; 2026-11-14: the one rig "with a different color matching the bag"), so a class reads at a glance
+	-- inside its team's colours. `mul` and `shift`: the leather and canvas of its bag and rig (the `parts` mesh names;
+	-- Rules/Classes.tone: colour x mul + shift, the same numbers as its helmet's steel, Config/Assets fit.color).
+	-- `cloth`: its uniform's tint (the Shirt's and Pants' Color3, which can only darken). No entry (the Rifleman): the
+	-- team's own colours. The Supplier's is ready for the class.
+	Tones = {
+		parts = { "Body", "Flap", "Pocket", "Leather", "Pouch" },
+		classes = {
+			Grenadier = { mul = 0.88, shift = { 0, 0, 0 }, cloth = { 226, 226, 226 } }, -- darker
+			AutoRifler = { mul = 1.08, shift = { -3, 0, 4 }, cloth = { 236, 243, 255 } }, -- lighter and cooler
+			Shotgunner = { mul = 1, shift = { 8, 2, -6 }, cloth = { 255, 240, 224 } }, -- warmer
+			Engineer = { mul = 0.94, shift = { -2, 3, -2 }, cloth = { 238, 250, 234 } }, -- a touch greener
+			Mage = { mul = 0.8, shift = { -2, 0, 5 }, cloth = { 206, 208, 224 } }, -- darkest
+			Supplier = { mul = 1.16, shift = { 2, 1, -2 }, cloth = { 255, 250, 238 } }, -- lightest
+		} :: { [string]: { mul: number, shift: { number }, cloth: { number } } },
+	},
 	-- each kit's class gear beyond Config/Uniforms.Kits (its bolt rifle, grenades, shovel and helmet): Config/Weapons
 	-- and Config/Assets entries
 	Gear = {

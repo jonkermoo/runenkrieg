@@ -17,6 +17,33 @@ LOCKED.Engineer.locked = true
 local ENGINEER = { Gun = true, Nest = true, Dugout = true }
 
 return {
+	["each class's tone: its bag and rig leather in the helmet's numbers, a uniform tint, the Rifleman the team's own"] = function()
+		local T = C.Tones
+		assert(T.classes.Rifleman == nil, "the Rifleman wears the team's own colours")
+		for key, t in T.classes do
+			assert(C.Defs[key] or key == "Supplier", `{key}: not a class`)
+			assert(t.mul > 0.7 and t.mul < 1.3 and #t.shift == 3 and #t.cloth == 3, `{key}: tone out of range`)
+			for _, v in t.cloth do
+				assert(v >= 190 and v <= 255, `{key}: the uniform's tint only darkens, slightly`)
+			end
+		end
+		-- the same numbers as the class helmets' steel (Config/Assets fit.color): the grey Grenadier's and Mage's
+		local g, m = T.classes.Grenadier, T.classes.Mage
+		local steel = (A.Entries.helmet_stahl :: any).fit.color
+		local badge = (A.Entries.helmet_stahl_badge :: any).fit.color
+		local goggles = (A.Entries.helmet_stahl_goggles :: any).fit.color
+		local a, b = R.tone(steel, g.mul, g.shift), R.tone(steel, m.mul, m.shift)
+		for i = 1, 3 do
+			assert(a[i] == badge[i] and b[i] == goggles[i], "a class's gear tone is its helmet's")
+		end
+		local dark = R.tone({ 10, 250, 100 }, 1.2, { -20, 20, 0 })
+		assert(dark[1] == 0 and dark[2] == 255 and dark[3] == 120, "a tone stays a colour")
+		-- every toned part is one a rig or a class bag has
+		local P = require("../src/shared/Config/Palette")
+		for _, part in T.parts do
+			assert(P.Rigs.uniform1[part] or P.ClassPacks.uniform1[part], `{part}: no such rig or bag part`)
+		end
+	end,
 	["the user's prices (2026-11-12): unlocks 100 / 200 / 200 / 100 / 300, then 50 / 100 / 100 / 50 / 150 a respawn"] = function()
 		local want = {
 			Rifleman = { 0, 0 },
