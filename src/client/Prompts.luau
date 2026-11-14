@@ -19,6 +19,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Cfg = require(Shared.Config.Prompts)
 local Palette = require(Shared.Config.Palette)
 local Rules = require(Shared.Rules.Prompts)
+local SupplyRules = require(Shared.Rules.Supply)
 local Spec = require(Shared.ui.Prompt) :: any
 
 local Prompts = {}
@@ -240,6 +241,12 @@ end
 -- and whether it was the kit
 local function blockedOf(prompt: ProximityPrompt): (string?, boolean)
 	local myKit = player.Character and player.Character:GetAttribute("Kit")
+	-- a wait of my own (Config/Prompts.WaitAttr: the Supplier's bag)
+	local waitAttr = prompt:GetAttribute(Cfg.WaitAttr)
+	local wait = if type(waitAttr) == "string" then player:GetAttribute(waitAttr) else nil
+	if type(wait) == "number" and workspace:GetServerTimeNow() < wait then
+		return "Wait", false
+	end
 	return Rules.blocked(prompt:GetAttribute(Cfg.BlockedAttr) :: string?, prompt:GetAttribute(Cfg.KitAttr), myKit)
 end
 
@@ -278,6 +285,12 @@ function Prompts.start()
 				local at = spot(inst)
 				if not at then
 					continue
+				end
+				-- kept for one kit and not for its owner (the Supplier's bag): off for everyone else, here only
+				local only, owner = inst:GetAttribute(Cfg.OnlyKitAttr), inst:GetAttribute(Cfg.OwnerAttr)
+				if only ~= nil or owner ~= nil then
+					inst.Enabled =
+						SupplyRules.shown(only, owner, player.UserId, character and character:GetAttribute("Kit"))
 				end
 				local id = tostring(i)
 				byId[id] = inst

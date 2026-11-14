@@ -23,6 +23,7 @@ local Loadouts = require(script.Parent.Loadouts)
 local Packs = require(script.Parent.Packs)
 local Rigs = require(script.Parent.Rigs)
 local Species = require(script.Parent.Species)
+local Supply = require(script.Parent.Supply)
 
 local Bodies = {}
 
@@ -169,6 +170,7 @@ function Bodies.apply(character: Model, as: Player?)
 	)
 	Rigs.dress(character, kitName, class)
 	Packs.dress(character, Loadouts.gear(character).pack or kit.pack, kitName, class) -- the class's pack (Config/Classes)
+	Supply.dress(character) -- a Supplier's bag: its prompt (src/server/Supply)
 	-- the kit's species: ears and a tail (src/server/Species)
 	Species.dress(character, kitName)
 end

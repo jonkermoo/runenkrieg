@@ -61,7 +61,8 @@
 					{ "id": "GunCanvas", "kind": "group", "pos": [0, 14, 0, 15], "size": [1, -28, 0, 112] },
 					{ "id": "GunRule", "kind": "panel", "color": "brass", "pos": [0, 16, 0, 160], "size": [1, -32, 0, 1] },
 					{ "id": "AmmoCount", "kind": "label", "overlay": true, "font": "plain", "bind": "ammo", "text": "", "textSize": 48, "textColor": "readout", "align": "right", "pos": [0, 10, 0, 166], "size": [0, 84, 0, 50] },
-					{ "id": "AmmoOf", "kind": "label", "overlay": true, "font": "plain", "bind": "ammoOf", "text": "", "textSize": 18, "textColor": "ammoOf", "align": "left", "pos": [0, 98, 0, 190], "size": [0, 50, 0, 22] },
+					{ "id": "AmmoOf", "kind": "label", "overlay": true, "font": "plain", "bind": "ammoOf", "text": "", "textSize": 18, "textColor": "ammoOf", "align": "left", "pos": [0, 98, 0, 172], "size": [0, 50, 0, 20] },
+					{ "id": "Reserve", "kind": "group", "overlay": true, "pos": [0, 98, 0, 194], "size": [0, 54, 0, 20] },
 					{ "id": "Pips", "kind": "group", "overlay": true, "pos": [0, 154, 0, 170], "size": [1, -170, 0, 28] },
 					{
 						"id": "Hint",

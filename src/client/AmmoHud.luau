@@ -22,7 +22,9 @@
 --   up into the chamber.
 -- - a revolver: its cylinder seen from behind, flat, each chamber a hole with a live round's head in it, turning with
 --   the gun's own cylinder;
--- - the rounds left as a number, RELOAD in red once none is left, and a red line saying what to do next.
+-- - the rounds left as a number, RELOAD in red once none is left, and a red line saying what to do next;
+-- - under the "/6", the spare rounds carried (limited ammunition, user 2026-11-14): one of the gun's own cartridges
+--   and their count, red at none (the hint then says to find a Supplier).
 -- The motion is worked out in gun space (studs) as before and only drawn flat: gun space +Y is up the screen, -Z to the
 -- right; a piece's own -Z (a round's nose) points along its length.
 -- src/client/Firing feeds it the predicted state every frame (AmmoHud.show).
@@ -1445,13 +1447,77 @@ local function buildPips(holder: Frame, weapon: string, full: number, look: Look
 	end
 end
 
--- the count and the row: `left` rounds of `full`
-local function showCount(p: HudKit.Panel, tool: Tool, weapon: string, left: number, full: number, look: Look?)
+-- the spare rounds' line: the gun's own cartridge and the count beside it
+local reserveText: TextLabel? = nil
+
+local function buildReserve(holder: Frame, weapon: string, look: Look?)
+	holder:ClearAllChildren()
+	local w = W[weapon]
+	local R = G.reserve
+	local art = GunArt.guns[weapon]
+	local kind = if look then look.kind elseif w.ammo.clip == "Loose" then "shell" else (art and art.round or "pistol")
+	local list = Instance.new("UIListLayout")
+	list.FillDirection = Enum.FillDirection.Horizontal
+	list.VerticalAlignment = Enum.VerticalAlignment.Center
+	list.SortOrder = Enum.SortOrder.LayoutOrder
+	list.Padding = UDim.new(0, R.gap)
+	list.Parent = holder
+	local sp = GunArt.parts.sprites[kind .. "_pip"]
+	local cell = Instance.new("Frame")
+	cell.Name = "Round"
+	cell.BackgroundTransparency = 1
+	cell.LayoutOrder = 1
+	cell.Size = UDim2.new(0, if kind == "shell" then R.shellWidth else R.width, 1, 0)
+	cell.Parent = holder
+	local box = Instance.new("Frame")
+	box.BackgroundTransparency = 1
+	box.AnchorPoint = Vector2.new(0.5, 0.5)
+	box.Position = UDim2.fromScale(0.5, 0.5)
+	box.Size = UDim2.fromScale(1, 1)
+	local ratio = Instance.new("UIAspectRatioConstraint")
+	ratio.AspectRatio = (sp.rect[3] - 2 * sp.bleed) / (sp.rect[4] - 2 * sp.bleed)
+	ratio.Parent = box
+	box.Parent = cell
+	sprite(kind .. "_pip", box)
+	local count = Instance.new("TextLabel")
+	count.Name = "Count"
+	count.BackgroundTransparency = 1
+	count.LayoutOrder = 2
+	count.AutomaticSize = Enum.AutomaticSize.X
+	count.Size = UDim2.fromScale(0, 1)
+	local of = (panel :: HudKit.Panel).node.AmmoOf :: TextLabel
+	count.FontFace = of.FontFace
+	count.TextSize = R.textSize
+	count.TextStrokeColor3 = of.TextStrokeColor3
+	count.TextStrokeTransparency = of.TextStrokeTransparency
+	count.TextXAlignment = Enum.TextXAlignment.Left
+	count.Parent = holder
+	reserveText = count
+end
+
+-- the count and the row: `left` rounds of `full`; `spare` rounds carried (nil: unlimited, no line)
+local function showCount(
+	p: HudKit.Panel,
+	tool: Tool,
+	weapon: string,
+	left: number,
+	full: number,
+	look: Look?,
+	spare: number?
+)
 	if pipsFor ~= tool or #pips ~= full then
 		buildPips(p.node.Pips :: Frame, weapon, full, look)
+		buildReserve(p.node.Reserve :: Frame, weapon, look)
 		pipsFor = tool
 		p.set("gunName", string.upper(W[weapon].display or weapon))
 		p.set("ammoOf", `/{full}`)
+	end
+	local holder = p.node.Reserve :: Frame
+	holder.Visible = spare ~= nil
+	local text = reserveText
+	if text and spare then
+		text.Text = tostring(spare)
+		text.TextColor3 = HudKit.rgb(if spare > 0 then "ammoOf" else "countLow")
 	end
 	p.set("ammo", tostring(left))
 	local count = p.node.AmmoCount :: TextLabel
@@ -1516,8 +1582,11 @@ function AmmoHud.show(tool: Tool?, weapon: string?, state: F.State?, gun: F.Gun?
 		return
 	end
 	p.gui.Enabled = true
-	-- the rounds as a number and a row under the gun (review 2026-11-12; the card, user 2026-11-12), red at none
+	-- the rounds as a number and a row under the gun (review 2026-11-12; the card, user 2026-11-12), red at none; the
+	-- spare rounds under the "/6" (those of a single load already pushed in taken off)
 	local left = F.magazineAt(state, now) + (if state.chambered then 1 else 0)
+	local spare = if state.spare ~= nil then math.max(state.spare - F.loadedBy(state, now), 0) else nil
+	local dry = spare == 0
 	local full = gun.capacity + (if F.revolver(gun) then 0 else 1)
 	local canvas = p.node.GunCanvas :: Frame
 	if drum and (drum.tool ~= tool or not F.revolver(gun)) then
@@ -1534,10 +1603,11 @@ function AmmoHud.show(tool: Tool?, weapon: string?, state: F.State?, gun: F.Gun?
 			drum = buildDrum(tool, weapon, body, canvas)
 		end
 		updateDrum(drum :: Drum)
-		showCount(p, tool, weapon, left, full, nil)
+		showCount(p, tool, weapon, left, full, nil, spare)
 		local next = F.next(state, now)
 		local hint = if next == "Load"
 			then G.hints.Load
+			elseif next == "Dry" and dry then G.hints.Supply
 			elseif next == "Dry" then (G.hints.Rounds:gsub("{key}", tostring(Settings.get("Key_Reload"))))
 			else ""
 		p.set("hint", chip(hint))
@@ -1554,7 +1624,7 @@ function AmmoHud.show(tool: Tool?, weapon: string?, state: F.State?, gun: F.Gun?
 		current.magWas, current.openWas = state.magazine, state.open
 	end
 	update(current :: View, state, gun, now, os.clock())
-	showCount(p, tool, weapon, left, full, (current :: View).look)
+	showCount(p, tool, weapon, left, full, (current :: View).look, spare)
 
 	-- the hint
 	local next = F.next(state, now)
@@ -1563,6 +1633,7 @@ function AmmoHud.show(tool: Tool?, weapon: string?, state: F.State?, gun: F.Gun?
 	local hint = if next == "Load"
 		then H.Load
 		elseif next == "Bolt" then (if gun.clip == "Loose" then H.Pump else H.Bolt)
+		elseif dry and (next == "Dry" or next == "Open" or (state.magazine == 0 and not state.chambered)) then H.Supply
 		elseif next == "Dry" or next == "Open" or (state.magazine == 0 and not state.chambered) then (if gun.clip
 				== "Loose"
 			then H.Shells

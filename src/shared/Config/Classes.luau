@@ -39,6 +39,7 @@ local Classes = {
 			AutoRifler = "tiwaz",
 			Shotgunner = "hagalaz",
 			Engineer = "othala",
+			Supplier = "gebo", -- (the gift rune)
 			Mage = "ansuz",
 		},
 		faded = 0.45,
@@ -108,7 +109,8 @@ local Classes = {
 	Start = 100,
 	Default = "Rifleman", -- free: anyone can always play it
 	-- the classes in the menu's order
-	List = { "Rifleman", "Grenadier", "Engineer", "AutoRifler", "Shotgunner", "Mage" }, -- (user 2026-11-11)
+	-- (user 2026-11-11; the Supplier beside the two classes of its price, 2026-11-14)
+	List = { "Rifleman", "Grenadier", "Engineer", "Supplier", "AutoRifler", "Shotgunner", "Mage" },
 	Defs = {
 		-- the kit's own helmet (user 2026-10-27: "the plated helmets should only be on soldiers with semi auto rifles")
 		-- with its chin strap worn up over the rim (user 2026-11-13, the class helmets: bolt-on pieces on the original
@@ -176,6 +178,20 @@ local Classes = {
 			pack = "engineerPack",
 			builds = { "Trench", "Foxhole", "Sandbags", "Wire", "Hesco", "Bridge", "Gun", "Nest", "Dugout" },
 		},
+		-- carries the team's stores (user 2026-11-14: "let's set up the supplier class"): the bolt rifle, no grenades, the
+		-- Grenadier's and Engineer's price ("same as grenadier and engineer"), the strap helmet with the stores arrow and
+		-- its own bag
+		Supplier = {
+			name = "Supplier",
+			blurb = "Bolt-action rifle, carries the stores",
+			unlock = 100,
+			fee = 50,
+			primary = "weapon",
+			grenades = false,
+			helmet = "supplierHelmet",
+			pack = "supplierPack",
+			builds = SMALL,
+		},
 		-- the team's goggles (user 2026-10-27: "goggles on mage")
 		Mage = {
 			name = "Mage",
@@ -216,7 +232,7 @@ local Classes = {
 			altHelmet = "helmet_stahl_plate",
 			strapHelmet = "helmet_stahl_strap",
 			badgeHelmet = "helmet_stahl_badge",
-			-- the Supplier's (user 2026-11-13; the class itself is added elsewhere: its Def names this key)
+			-- the Supplier's (user 2026-11-13)
 			supplierHelmet = "helmet_stahl_supply",
 			supplierPack = "pack_supplier_grey",
 			goggles = "helmet_stahl_goggles",
@@ -300,6 +316,8 @@ local Classes = {
 		Repair = 4, -- a wrecked gun made usable again (the swing that does it; src/server/Artillery)
 		Drag = 5, -- a downed teammate dragged at least `DragPay.least` studs (once per knock-down; src/server/Dragging)
 		Heal = 8, -- per `HealPer` health healed on a teammate (src/server/Healing)
+		-- a teammate took from the Supplier's bag and got something (user 2026-11-14; src/server/Supply)
+		Resupply = 4,
 	},
 	HealPer = 100,
 	DragPay = { least = 10 },

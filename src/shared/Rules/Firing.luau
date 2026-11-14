@@ -31,6 +31,10 @@
 --   short) breaks it open, the extractor throws out all six (a live round too) and six go in at once over
 --   `reloadTime`, the cylinder full again.
 -- A full rifle: one round chambered and a full clip in the magazine (Gewehr 5 + 1, Carcano 6 + 1; Config/Firing.RifleClip).
+-- - spare rounds (user 2026-11-14, limited ammunition; Config/Firing.Spare): a player's gun carries `spare` rounds
+--   besides those in it, and every reload takes its rounds from them: a clip that can't be filled goes in short, and
+--   with none left nothing reloads. Rounds a reload throws out live go back to the spare. nil: unlimited (bots).
+--   The Supplier's bag fills them again (refill).
 
 local Firing = {}
 
@@ -74,6 +78,7 @@ export type State = {
 	busyUntil: number,
 	paused: number, -- seconds of an action left when the rifle was put away
 	load: Load?, -- single rounds going in
+	spare: number?, -- rounds carried besides those in the gun (nil: unlimited)
 }
 
 -- A revolver: every pull turns the cylinder and fires; its capacity counts the chamber under the hammer too.
@@ -81,9 +86,50 @@ function Firing.revolver(gun: Gun): boolean
 	return gun.clip == "Gate" or gun.clip == "BreakOpen"
 end
 
-function Firing.new(gun: Gun): State
+function Firing.new(gun: Gun, spare: number?): State
 	local magazine = if Firing.revolver(gun) then gun.capacity - 1 else gun.capacity
-	return { magazine = magazine, chambered = true, spent = false, open = false, busyUntil = 0, paused = 0 }
+	return {
+		magazine = magazine,
+		chambered = true,
+		spent = false,
+		open = false,
+		busyUntil = 0,
+		paused = 0,
+		spare = spare,
+	}
+end
+
+-- The spare rounds a gun of `class` (Config/Weapons `class`) holding `capacity` carries a life (Config/Firing.Spare):
+-- `loads` fills of it, or `rounds`; nil: unlimited.
+function Firing.spareFor(
+	class: string,
+	capacity: number,
+	spare: { [string]: { loads: number?, rounds: number? } }
+): number?
+	local s = spare[class]
+	if not s then
+		return nil
+	end
+	return s.rounds or (s.loads or 0) * capacity
+end
+
+-- Fills the spare rounds back to `full` (the Supplier's bag). Whether it gave any.
+function Firing.refill(s: State, full: number?): boolean
+	if s.spare == nil or full == nil or s.spare >= full then
+		return false
+	end
+	s.spare = full
+	return true
+end
+
+-- Takes up to `want` rounds out of the spare; how many it got.
+local function take(s: State, want: number): number
+	local n = math.max(want, 0)
+	if s.spare ~= nil then
+		n = math.min(n, s.spare)
+		s.spare -= n
+	end
+	return n
 end
 
 local function idle(s: State, now: number, slack: number?): boolean
@@ -117,7 +163,7 @@ function Firing.settle(s: State, now: number)
 	if not l or l.elapsed or now < loadEnd(l) then
 		return
 	end
-	s.magazine += l.rounds or l.room
+	s.magazine += take(s, l.rounds or l.room)
 	s.load = nil
 	if not s.chambered and not s.spent and s.magazine > 0 then -- (loose shells: a fired hull waits for the pump)
 		s.magazine -= 1
@@ -229,7 +275,9 @@ function Firing.bolt(s: State, gun: Gun, now: number, slack: number?): (boolean,
 end
 
 function Firing.canReload(s: State, gun: Gun): boolean
-	if gun.clip == "Enbloc" then
+	if s.spare ~= nil and s.spare <= 0 then
+		return false -- nothing left to load
+	elseif gun.clip == "Enbloc" then
 		return s.magazine == 0
 	elseif Firing.revolver(gun) then
 		return Firing.rounds(s) < gun.capacity
@@ -245,11 +293,19 @@ function Firing.reload(s: State, gun: Gun, now: number, slack: number?): (boolea
 	if not idle(s, now, slack) then
 		return false, "busy", nil, nil
 	elseif not Firing.canReload(s, gun) then
-		return false, if gun.clip == "Enbloc" then "not empty" else "full", nil, nil
+		local why = if s.spare ~= nil and s.spare <= 0
+			then "no spare"
+			elseif gun.clip == "Enbloc" then "not empty"
+			else "full"
+		return false, why, nil, nil
 	end
 	if gun.clip == "BreakOpen" then
-		-- broken open: everything out (the extractor takes a live round too), six in, shut
-		s.magazine, s.chambered, s.spent, s.open = gun.capacity - 1, true, false, false
+		-- broken open: everything out (the extractor takes a live round too, back into the spare), six in, shut
+		if s.spare ~= nil then
+			s.spare += Firing.rounds(s)
+		end
+		local n = take(s, gun.capacity)
+		s.magazine, s.chambered, s.spent, s.open = math.max(n - 1, 0), n > 0, false, false
 		s.busyUntil = now + gun.reloadTime
 		return true, nil, nil, "Reload"
 	end
@@ -259,7 +315,7 @@ function Firing.reload(s: State, gun: Gun, now: number, slack: number?): (boolea
 		local clips = Firing.clipsFor(s, gun)
 		local time = gun.reloadTime + (clips - 1) * (gun.clipTime or 0)
 		s.open = false
-		s.magazine = gun.capacity
+		s.magazine += take(s, gun.capacity - s.magazine)
 		if not s.chambered then
 			s.magazine -= 1
 			s.chambered = true
@@ -282,11 +338,15 @@ function Firing.reload(s: State, gun: Gun, now: number, slack: number?): (boolea
 			s.open = false
 		else
 			out = if s.spent then "Casing" elseif s.chambered then "Round" else nil
+			if s.chambered and s.spare ~= nil then
+				s.spare += 1 -- (the live round thrown out goes back into the pouch)
+			end
 			s.spent, s.chambered, s.open = false, false, false
 		end
+		local room = if gun.clip == "Gate" then gun.capacity - Firing.rounds(s) else gun.capacity - s.magazine
 		local l: Load = {
 			start = now,
-			room = if gun.clip == "Gate" then gun.capacity - Firing.rounds(s) else gun.capacity - s.magazine,
+			room = if s.spare ~= nil then math.min(room, s.spare) else room, -- (taken from the spare as they go in)
 			rounds = nil,
 			open = gun.singleOpen,
 			round = gun.singleRound,
@@ -300,7 +360,7 @@ function Firing.reload(s: State, gun: Gun, now: number, slack: number?): (boolea
 	local out = if s.spent then "Casing" else nil
 	local wasOpen = s.open
 	s.spent, s.open = false, false
-	s.magazine = gun.capacity
+	s.magazine += take(s, gun.capacity - s.magazine)
 	if not s.chambered then
 		s.magazine -= 1
 		s.chambered = true
