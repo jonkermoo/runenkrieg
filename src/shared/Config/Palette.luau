@@ -134,7 +134,8 @@ local Palette = {
 	-- mesh name in the team's rig leather (Rigs below; user 2026-11-13: "make it match the color of the teams rig"): the
 	-- bag the rig's pouch leather, its flap and pouches a shade darker, its straps the rig's straps, the brown team's
 	-- fittings its rig's brass. G<part>: the Grenadier's hung grenade, in its Config/Weapons colors; Rune: the Mage's
-	-- rune in its team's staff glow.
+	-- rune in its team's staff glow. Trim: the Supplier's bound edges (the leather, darker); AmmoMark / AmmoPanel: its
+	-- ammunition mark, cream cartridges on a near-black sewn panel, the same on every team.
 	ClassPacks = {
 		uniform1 = {
 			Body = { 88, 66, 48 },
@@ -149,6 +150,9 @@ local Palette = {
 			Wood = { 166, 120, 74 },
 			Cord = { 150, 140, 112 },
 			Rune = { 222, 150, 52 },
+			Trim = { 39, 30, 24 },
+			AmmoMark = { 226, 216, 188 },
+			AmmoPanel = { 46, 42, 38 },
 			GHead = { 80, 82, 86 },
 			GCollar = { 60, 62, 66 },
 			GHandle = { 84, 60, 44 },
@@ -167,6 +171,9 @@ local Palette = {
 			Wood = { 166, 120, 74 },
 			Cord = { 150, 140, 112 },
 			Rune = { 86, 150, 214 },
+			Trim = { 71, 50, 35 },
+			AmmoMark = { 226, 216, 188 },
+			AmmoPanel = { 46, 42, 38 },
 			GBody = { 116, 114, 72 },
 			GFuse = { 70, 68, 58 },
 		},
@@ -183,6 +190,9 @@ local Palette = {
 			Wood = { 166, 120, 74 },
 			Cord = { 150, 140, 112 },
 			Rune = { 72, 176, 150 },
+			Trim = { 108, 96, 69 },
+			AmmoMark = { 226, 216, 188 },
+			AmmoPanel = { 46, 42, 38 },
 			GBody = { 128, 134, 140 },
 			GIron = { 60, 62, 66 },
 			GLever = { 90, 92, 96 },
