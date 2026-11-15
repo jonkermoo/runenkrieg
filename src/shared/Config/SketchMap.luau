@@ -14,8 +14,10 @@ local SketchMap = {
 		-- with room round them (tools/ui/sketchmap_ground.py from tools/ui/sketchmap_export.luau; was 88967963615019,
 		-- the Image behind the uploaded Decal 136207333793204, over x 120..2330)
 		Map1 = {
-			image = 84146277958910, -- (the Image behind the uploaded Decal 102592142569198; redrawn for the 2026-11-11
-			-- stretch, was 140380853576177 behind 124242256197041)
+			-- painted from the map itself (user 2026-11-12 "Map A", a staff map on parchment: the terrain's form lines and
+			-- shade, the river as it lies, every tree, roof, road, hedge and wall, exported from the place and drawn by
+			-- the local tools/gunart/build_map.py + final_map.py; was 84146277958910, the 2026-11-11 stretch's)
+			image = 135591178368016,
 			size = { 1024, 252 },
 			pad = 24,
 			x = { 80, 2760 }, -- (the 2026-11-11 stretch, points 600 apart and 560 wide; was 270..2570, 1024 x 286)
@@ -49,7 +51,14 @@ local SketchMap = {
 	-- chat sits under it, Config/Chat.Panel.y); height = width x aspect (the image's)
 	-- the in-play map, top left (reference pixels; its height follows the map image's shape); 1.35x wider than at first
 	-- (user 2026-10-31: "... and expand it")
-	Hud = { x = 12, y = 10, width = 486 },
+	-- (in a leather map case, drawn: Config/PaperArt `case`, user 2026-11-12 "Both B": `case.pad` px of leather round
+	-- the sheet, nine-sliced at `case.slice` of its drawn size)
+	-- bigger again (user 2026-11-12: "bigger by default"; was 486), still times the HUD size setting (src/client/ModeHud)
+	Hud = { x = 12, y = 10, width = 660, case = { pad = 9, slice = 0.5 } },
+	-- the drawn markers (Config/PaperArt): the dot `dot` of its sprite across, the deploy ring's pencil loop `loop` of
+	-- the ring's box
+	-- (a point's wax seal `wax` of its circle across, darkened by `waxShade` from its holder's colour)
+	Drawn = { dot = 0.62, loop = 1.16, wax = 2.1, waxShade = 0.22 },
 	-- sizes as shares of the drawn area's width
 	-- each point's rune by its place in the chain (the HQs at the two ends `hq`), the same on the sketch map and on the
 	-- beacon over its flag (src/client/PointSeal)
@@ -61,7 +70,7 @@ local SketchMap = {
 	Point = { radius = 0.028, hqRadius = 0.034, ring = 0.005, rune = 0.62 }, -- a rune's height in its circle's width
 	Label = { size = 0.038, below = 0.008 }, -- a point's name under it
 	Border = { thick = 0.0016, dash = 0.012, gap = 0.009, transparency = 0.35 }, -- the sector borders (dashed blue)
-	Front = { thick = 0.0075 }, -- the front (ink)
+	Front = { thick = 0.004, under = 1.4 }, -- the front: red pencil, an ink line `under` times as thick beneath it
 	You = { size = 0.05 }, -- the local soldier's arrow in play, across
 	Teammate = { size = 0.022, edge = 0.003 },
 	Zone = { size = 0.05, flash = 0.4 }, -- the FFA zone's mark, across; a contested one flashes every `flash` seconds -- a teammate's dot, across (under a point's seal), and its ink edge

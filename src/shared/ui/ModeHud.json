@@ -44,15 +44,18 @@
 				"fade": true,
 				"anchor": [0.5, 0],
 				"pos": [0.5, 0, 0, 10],
-				"size": [0, 560, 0, 100],
+				"size": [0, 560, 0, 110],
 				"children": [
-					{ "id": "LeftFlag", "kind": "image", "color": "pinEmpty", "pos": [0, 0, 0, 0], "size": [0, 34, 0, 22] },
-					{ "id": "LeftName", "kind": "label", "font": "body", "bind": "leftName", "text": "", "textSize": 17, "textColor": "readout", "stroke": "modeTrack", "align": "left", "pos": [0, 42, 0, 0], "size": [0, 200, 0, 22] },
-					{ "id": "Line", "kind": "panel", "color": "pinEdge", "anchor": [0, 0.5], "pos": [0.1, 0, 0, 40], "size": [0.8, 0, 0, 3] },
-					{ "id": "Pin", "kind": "panel", "shape": "diamond", "overlay": true, "color": "pinEmpty", "anchor": [0.5, 0.5], "pos": [0.3, 0, 0, 40], "size": [0, 24, 0, 24] },
-					{ "id": "PinHQ", "kind": "panel", "shape": "diamond", "overlay": true, "color": "pinEmpty", "anchor": [0.5, 0.5], "pos": [0.1, 0, 0, 40], "size": [0, 30, 0, 30] },
+					{ "id": "Plate", "kind": "panel", "color": "stripPlate", "anchor": [0.5, 0], "pos": [0.5, 0, 0, 0], "size": [0.9, 0, 0, 80] },
+					{ "id": "LeftFlag", "kind": "image", "color": "pinEmpty", "anchor": [1, 0], "pos": [0.5, -6, 0, 84], "size": [0, 30, 0, 19] },
+					{ "id": "LeftName", "kind": "label", "font": "body", "bind": "leftName", "text": "", "textSize": 16, "textColor": "readout", "stroke": "modeTrack", "align": "left", "pos": [0.5, 2, 0, 84], "size": [0, 200, 0, 19] },
+					{ "id": "Line", "kind": "panel", "color": "pinEmpty", "anchor": [0, 0.5], "pos": [0.1, 0, 0, 38], "size": [0.8, 0, 0, 3] },
+					{ "id": "Pin", "kind": "panel", "shape": "seal", "overlay": true, "color": "pinEmpty", "anchor": [0.5, 0.5], "pos": [0.3, 0, 0, 38], "size": [0, 34, 0, 34] },
+					{ "id": "PinHQ", "kind": "panel", "shape": "seal", "overlay": true, "color": "pinEmpty", "anchor": [0.5, 0.5], "pos": [0.1, 0, 0, 38], "size": [0, 40, 0, 40] },
+					{ "id": "PinTag", "kind": "label", "font": "body", "text": "", "textSize": 12, "textColor": "tagText", "anchor": [0.5, 0], "pos": [0.1, 0, 0, 3], "size": [0, 58, 0, 15] },
+					{ "id": "PinName", "kind": "label", "font": "body", "text": "", "textSize": 13, "textColor": "readout", "anchor": [0.5, 0], "pos": [0.1, 0, 0, 59], "size": [0, 110, 0, 16] },
 					{ "id": "PinLabel", "kind": "label", "font": "body", "bind": "pin", "text": "", "textSize": 15, "textColor": "readout", "stroke": "modeTrack", "anchor": [0.5, 0], "pos": [0.1, 0, 0, 57], "size": [0, 40, 0, 18] },
-					{ "id": "Result", "kind": "label", "font": "body", "bind": "result", "text": "", "textSize": 20, "textColor": "count", "stroke": "modeTrack", "anchor": [0.5, 0], "pos": [0.5, 0, 0, 76], "size": [1, 0, 0, 24] }
+					{ "id": "Result", "kind": "label", "font": "body", "bind": "result", "text": "", "textSize": 20, "textColor": "count", "stroke": "modeTrack", "anchor": [0.5, 0], "pos": [0.5, 0, 0, 84], "size": [1, 0, 0, 24] }
 				]
 			},
 			{
