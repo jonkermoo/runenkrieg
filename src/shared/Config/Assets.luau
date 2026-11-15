@@ -585,13 +585,17 @@ local Assets = {
 		-- rounded cells, a lid each in the darker Flap colour). Worn by every kit (Config/Uniforms.Kits rig),
 		-- coloured by Config/Palette.Rigs in the class's tone.
 		rig_k98 = {
-			id = 120637946942212, -- 2026-11-14: no closure tabs or studs on the pouches (user: "remove these buckles"; was 88116682634887)
+			id = 139173084578576, -- 2026-11-14: the back runs of the bands split off as BackBand (was 120637946942212: no tabs
+			-- or studs on the pouches, user "remove these buckles"; 88116682634887 before)
 			category = "Teams",
 			folder = "Shared/Rigs",
 			source = "assets/teams/shared/rigs/rig_k98.fbx",
 			generator = "tools/blender/gear/rig_team.py",
 			description = "rig1's bands and belt (the belt off the torso's underside) with German K98 triple pouches either side of a steel buckle plate. Every team's, in its own colours.",
-			-- welded to the Torso at each part's offset from the export's Origin marker (rig_team.py grey)
+			-- welded to the Torso at each part's offset from the export's Origin marker (rig_team.py grey --split-back).
+			-- BackBand: the bands' straight runs down the back (y 0.88 to the belt), apart so a pack with its own
+			-- shoulder straps can hide them (user 2026-11-14, of the backpack session's straps: "the green line is
+			-- where the strap would realistically be"; approved), coloured as the Leather.
 			fit = {
 				attachment = "Torso",
 				color = { 150, 104, 80 },
@@ -601,6 +605,7 @@ local Assets = {
 					Pouch = { 192, 158, 116 },
 					Flap = { 170, 136, 98 },
 					Metal = { 70, 66, 60 },
+					BackBand = { 150, 104, 80 },
 				},
 			},
 		},
