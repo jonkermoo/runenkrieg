@@ -582,10 +582,10 @@ local Assets = {
 		-- redo the pouches", then of the per-team pouches "i dont like that theres 5. honestly give the same rig (gray
 		-- teams) to everyone just adjust the coloring"): rig1's bands and belt, the belt raised off the Torso's underside
 		-- (-0.97..-0.71, was -1.0..-0.74), K98 triple pouches seated on the Torso's front, built like the class bags (soft
-		-- rounded cells, a lid each in the darker Flap colour, studs). Worn by every kit (Config/Uniforms.Kits rig),
+		-- rounded cells, a lid each in the darker Flap colour). Worn by every kit (Config/Uniforms.Kits rig),
 		-- coloured by Config/Palette.Rigs in the class's tone.
 		rig_k98 = {
-			id = 88116682634887, -- 2026-11-14
+			id = 120637946942212, -- 2026-11-14: no closure tabs or studs on the pouches (user: "remove these buckles"; was 88116682634887)
 			category = "Teams",
 			folder = "Shared/Rigs",
 			source = "assets/teams/shared/rigs/rig_k98.fbx",
