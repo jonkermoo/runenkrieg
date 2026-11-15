@@ -58,8 +58,8 @@ local Uniforms = {
 		{ name = "bald", weight = 1 },
 	},
 	-- Rigs (bandolier webbing, pouches only: Config/Assets, docs/CHARACTERS.md), worn over the uniform by src/server/Rigs.
-	-- Each kit wears its own (Kits `rig`; user 2026-11-14: "the old straps were fine. just have it not clip under the
-	-- torso and redo the pouches": rig1's bands and belt with the team's own pouches), in its leather
+	-- Each kit names its rig (Kits `rig`; user 2026-11-14: one for every team, "give the same rig (gray teams) to
+	-- everyone just adjust the coloring": rig1's bands and belt with K98 pouches), in its leather
 	-- (Config/Palette.Rigs) in the class's tone (Config/Classes.Tones), as its bag. This list is the fallback for a kit
 	-- with none (was one rig for every class, user 2026-11-14; a roll of rig1-3 each life before, user 2026-10-22),
 	-- rolled each life like the looks (Rules/Looks: by weight, never the soldier's last).
@@ -83,7 +83,7 @@ local Uniforms = {
 			skin = { 226, 176, 104 },
 			headwear = "helmet_stahl", -- Config/Assets entry
 			pack = "pack_tornister", -- Config/Assets entry, worn on the back (src/server/Packs)
-			rig = "rig_grey", -- Config/Assets entry: the team's rig, its own pouches (src/server/Rigs)
+			rig = "rig_k98", -- Config/Assets entry: the rig (the same for every team, its own colours)
 			weapon = "rifle_g98", -- Config/Weapons entry: the grey team's default rifle
 			grenade = "grenade_stick", -- its grenades (Config/Grenades): the Stielhandgranate
 			shovel = "shovel", -- Config/Weapons entry: every soldier's shovel (the same for every team)
@@ -99,7 +99,7 @@ local Uniforms = {
 			skin = { 226, 176, 104 },
 			headwear = "helmet_m33", -- Config/Assets entry
 			pack = "pack_zaino", -- Config/Assets entry, worn on the back (src/server/Packs)
-			rig = "rig_olive", -- Config/Assets entry: the team's rig, its own pouches (src/server/Rigs)
+			rig = "rig_k98", -- Config/Assets entry: the rig (the same for every team, its own colours)
 			weapon = "rifle_m91", -- Config/Weapons entry: the olive team's default rifle
 			grenade = "grenade_sipe", -- its grenades (Config/Grenades): the SIPE
 			shovel = "shovel", -- Config/Weapons entry: every soldier's shovel (the same for every team)
@@ -115,7 +115,7 @@ local Uniforms = {
 			skin = { 226, 176, 104 },
 			headwear = "helmet_brodie", -- Config/Assets entry
 			pack = "pack_p08", -- Config/Assets entry, worn on the back (src/server/Packs)
-			rig = "rig_brown", -- Config/Assets entry: the team's rig, its own pouches (src/server/Rigs)
+			rig = "rig_k98", -- Config/Assets entry: the rig (the same for every team, its own colours)
 			weapon = "rifle_smle", -- Config/Weapons entry: the brown team's default rifle (British, as its Brodie)
 			grenade = "grenade_mills", -- its grenades (Config/Grenades): the Mills bomb
 			shovel = "shovel", -- Config/Weapons entry: every soldier's shovel (the same for every team)

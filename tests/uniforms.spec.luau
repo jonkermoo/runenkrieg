@@ -62,14 +62,11 @@ return {
 			end
 		end
 	end,
-	["every kit wears its own team rig, every part of it coloured by that kit"] = function()
+	["every kit names a rig, every part of it coloured by that kit"] = function()
 		local P = require("../src/shared/Config/Palette")
-		local seen = {}
 		for kit, k in U.Kits do
 			local e = k.rig and A.Entries[k.rig]
 			assert(e and e.folder == "Shared/Rigs", `{kit}: its rig is not a rig entry`)
-			assert(not seen[k.rig], `{k.rig}: worn by two kits`)
-			seen[k.rig] = true
 			for part in (e.fit :: any).parts do
 				local c = P.Rigs[kit] and P.Rigs[kit][part]
 				assert(c and #c == 3, `{kit}: Config/Palette.Rigs has no {part} color`)
