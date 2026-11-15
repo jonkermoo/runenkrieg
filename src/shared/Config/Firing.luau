@@ -28,6 +28,16 @@ local Firing = {
 	-- .airSpread, .stray). In the air: `air` (`aimed` while aiming down the sights); landing: `landed`, easing to 0 over
 	-- `settle` seconds. Players and bots alike (bots add it to their aim error). At 50 studs, 6 degrees is ~5 studs off.
 	Airborne = { air = 7, aimed = 6, landed = 4, settle = 0.6 },
+	-- Limited ammunition (user 2026-11-14, with the Supplier class): the rounds a player's gun carries a life besides
+	-- those in it, by Config/Weapons `class` (Rules/Firing.spareFor): `loads` fills of the gun, or `rounds`. A bolt
+	-- rifle 8 clips (40, the Carcano 48), a semi-automatic 5 (40 / 50 / 75), a pistol 6 (36 / 42), the shotgun 25
+	-- shells. A new life starts full; the Supplier's bag fills them again (src/server/Supply). Bots: unlimited for now.
+	Spare = {
+		BoltRifle = { loads = 8 },
+		SemiRifle = { loads = 5 },
+		Pistol = { loads = 6 },
+		Shotgun = { rounds = 25 },
+	},
 	-- The server's own airborne check on a player's shot (Rules serverSpread): no ground within this many studs below
 	-- the HumanoidRootPart (an R6 root stands ~3 above the ground).
 	GroundProbe = 4.5,

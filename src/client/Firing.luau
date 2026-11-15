@@ -70,6 +70,8 @@ local function adopt(tool: Tool, l: Local)
 		l.state.chambered = tool:GetAttribute("Chambered") == true
 		l.state.spent = tool:GetAttribute("Spent") == true
 		l.state.open = tool:GetAttribute("Open") == true
+		local spare = tool:GetAttribute("Spare")
+		l.state.spare = if type(spare) == "number" then spare else nil -- (none: unlimited)
 		l.state.load = nil -- the server's numbers include any single rounds already in
 	end
 end
@@ -84,7 +86,11 @@ local function localState(tool: Tool, name: string): Local
 		-- once the server has answered every request and nothing is moving, its state is the truth
 		tool.AttributeChanged:Connect(function(attr)
 			local seq = tool:GetAttribute("Seq")
-			if (attr == "Seq" or attr == "Magazine") and (seq or 0) >= l.sent and os.clock() >= l.state.busyUntil then
+			if
+				(attr == "Seq" or attr == "Magazine" or attr == "Spare")
+				and (seq or 0) >= l.sent
+				and os.clock() >= l.state.busyUntil
+			then
 				adopt(tool, l)
 			end
 		end)

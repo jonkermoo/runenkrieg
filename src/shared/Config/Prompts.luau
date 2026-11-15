@@ -18,7 +18,13 @@ local Prompts = {
 	KitAttr = "PromptKit",
 	-- the action read, dimmed, by everyone outside that kit (the gun's own "Take over the gun" is only its teammates')
 	KitOthersAction = "Man the gun",
-	Reasons = { InUse = "In use", Broken = "Broken" },
+	-- a prompt shown only to this kit and hidden from this UserId (the Supplier's bag: their side, not themselves;
+	-- src/server/Supply); the client turns it off for everyone else (Rules/Supply.shown)
+	OnlyKitAttr = "PromptOnlyKit",
+	OwnerAttr = "PromptOwner",
+	-- names the player's attribute holding the server time until which they can't use it (shown as `Reasons.Wait`)
+	WaitAttr = "PromptWait",
+	Reasons = { InUse = "In use", Broken = "Broken", Wait = "Supplied lately" },
 
 	-- how far out the pins show, as a share of each prompt's own reach, and how many at most (the nearest)
 	FarReach = 2,

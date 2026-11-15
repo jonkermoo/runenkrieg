@@ -12,6 +12,8 @@
 --   ("Load"); StopLoad ends it after the round in the hand ("LoadStop"); when it has ended its rounds are settled into
 --   the magazine and published.
 -- Every remote is rate limited per player (Config/Firing.RatePerSecond). A new Tool (each spawn) starts full.
+-- A player's gun carries its spare rounds (Config/Firing.Spare, Rules/Firing; "Spare" on the Tool); reloads take from
+-- them and Firing.resupply (the Supplier's bag, src/server/Supply) fills them again. A bot's gun: unlimited.
 -- "Seq" counts the requests answered for the Tool (accepted or not), so the client knows when its own predictions are
 -- all in and the attributes are the whole truth. "Open": the bolt is held open on the empty rifle.
 -- Put away mid-action (the Tool goes to the Backpack), the action's time left is kept; drawn again it plays out after
@@ -37,7 +39,7 @@ local Firing = {}
 -- the action under way: its name, what it threw out, the share of its timeline it plays (from, to; Config/Firing
 -- BoltCycle / ReloadCycle) and when that span ends
 type Last = { action: string, out: string?, from: number, to: number, ends: number, span: number }
-type Entry = { state: F.State, gun: F.Gun, seq: number, last: Last? }
+type Entry = { state: F.State, gun: F.Gun, seq: number, last: Last?, full: number? }
 local states: { [Tool]: Entry } = setmetatable({}, { __mode = "k" }) :: any
 
 function Firing.gun(name: string): F.Gun
@@ -67,6 +69,7 @@ local function publish(tool: Tool, s: F.State, seq: number?)
 	tool:SetAttribute("Chambered", s.chambered)
 	tool:SetAttribute("Spent", s.spent)
 	tool:SetAttribute("Open", s.open)
+	tool:SetAttribute("Spare", s.spare)
 	if seq then
 		tool:SetAttribute("Seq", seq)
 	end
@@ -94,7 +97,11 @@ function Firing.entry(tool: Tool): Entry?
 	local e = states[tool]
 	if not e then
 		local gun = Firing.gun(name)
-		local made: Entry = { state = F.new(gun), gun = gun, seq = 0, last = nil }
+		-- a player's gun (in their Backpack or hands when first seen) carries its spare rounds; a bot's: unlimited
+		local owner = tool:FindFirstAncestorOfClass("Player")
+			or (tool.Parent and Players:GetPlayerFromCharacter(tool.Parent))
+		local full = if owner then F.spareFor(W[name].class, gun.capacity, Cfg.Spare) else nil
+		local made: Entry = { state = F.new(gun, full), gun = gun, seq = 0, last = nil, full = full }
 		e = made
 		states[tool] = made
 		publish(tool, made.state)
@@ -394,6 +401,22 @@ end
 
 function Firing.actAs(character: Model, action: string)
 	actAs(character, action, nil)
+end
+
+-- The Supplier's bag (src/server/Supply): every gun `player` carries (in the hands or the Backpack) gets its spare
+-- rounds back to full. Whether any gun got some.
+function Firing.resupply(player: Player): boolean
+	local gave = false
+	for _, holder in { player.Character, player:FindFirstChildOfClass("Backpack") } do
+		for _, t in if holder then holder:GetChildren() else {} do
+			local e = t:IsA("Tool") and Firing.entry(t)
+			if e and F.refill(e.state, e.full) then
+				publish(t :: Tool, e.state)
+				gave = true
+			end
+		end
+	end
+	return gave
 end
 
 function Firing.start()

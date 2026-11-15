@@ -44,13 +44,14 @@ return {
 			assert(P.Rigs.uniform1[part] or P.ClassPacks.uniform1[part], `{part}: no such rig or bag part`)
 		end
 	end,
-	["the user's prices (2026-11-12): unlocks 100 / 200 / 200 / 100 / 300, then 50 / 100 / 100 / 50 / 150 a respawn"] = function()
+	["the user's prices (2026-11-12): unlocks 100 / 200 / 200 / 100 / 300, then 50 / 100 / 100 / 50 / 150 a respawn; the Supplier as the Grenadier and Engineer (2026-11-14)"] = function()
 		local want = {
 			Rifleman = { 0, 0 },
 			Grenadier = { 100, 50 },
 			AutoRifler = { 200, 100 },
 			Shotgunner = { 200, 100 },
 			Engineer = { 100, 50 },
+			Supplier = { 100, 50 },
 			Mage = { 300, 150 },
 		}
 		for key, p in want do
@@ -59,7 +60,7 @@ return {
 		end
 		assert(not C.Defs.Engineer.locked, "the engineer is open to players (user 2026-11-01)")
 		assert(R.price(C.Defs[C.Default]) == 0 and not C.Defs[C.Default].locked, "the default is free and pickable")
-		for _, key in { "Grenadier", "Engineer" } do
+		for _, key in { "Grenadier", "Engineer", "Supplier" } do
 			assert(R.price(C.Defs[key]) <= C.Start, `the start pays a first life as the {key}`)
 		end
 		assert(R.price(C.Defs.Grenadier) + R.price(C.Defs.Engineer) > C.Start, "but not both")
@@ -138,6 +139,18 @@ return {
 			for _, part in { "Body", "Flap", "Leather", "Trim", "Brass", "Steel", "AmmoMark", "AmmoPanel" } do
 				assert(P.ClassPacks[kitName][part], `{kitName}: the supplier's pack's {part} has no colour`)
 			end
+		end
+	end,
+	["supplier: the kit's bolt rifle, no grenades, the strap helmet with the stores arrow (user 2026-11-14)"] = function()
+		assert(table.find(C.List, "Supplier") and C.Cards.runes.Supplier, "listed in the menu, with a rune")
+		for _, kitName in U.Teams do
+			local kit = U.Kits[kitName] :: any
+			local g = R.gear("Supplier", kitName, C.Defs, U.Kits, C.Gear)
+			assert(g.Primary == kit.weapon and W[g.Primary].class == "BoltRifle" and g.Grenade == nil, kitName)
+			assert(g.headwear == kit.headwear .. "_supply", `{kitName}: the kit's helmet with the stores arrow`)
+			local e, d = A.Entries[g.headwear] :: any, A.Entries[kit.headwear] :: any
+			assert(e.folder == d.folder and e.fit.shell == d.fit.shell, `{kitName}: {g.headwear} is the kit's helmet`)
+			assert(g.pack == (C.Gear[kitName] :: any).supplierPack, `{kitName}: the Supplier's own bag`)
 		end
 	end,
 	["the engineer carries its team's own pistol, a different one per team"] = function()

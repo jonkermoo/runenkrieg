@@ -57,6 +57,9 @@ local Hud = {
 		-- the round row: a cartridge `width` px wide (a shell `shellWidth`), `gap` px apart, the nose the top `nose` of
 		-- it (a shell's brass head the bottom `head`), corners `corner` px; a fired one's outline `spent` see-through
 		pips = { width = 9, shellWidth = 12, gap = 4, nose = 0.3, head = 0.28, corner = 2, spent = 0.6 },
+		-- the spare rounds (limited ammunition, user 2026-11-14), under the "/6": one of the gun's own cartridges `width`
+		-- px wide (a shell `shellWidth`) and the count beside it, `gap` px apart, `textSize`; red at none
+		reserve = { width = 7, shellWidth = 9, gap = 4, textSize = 16 },
 		-- the bolt, a simple piece (round widths): a round body from its face to `body` of the way to the gun's
 		-- bolt's rear, `radius` round; a ring of lugs at the face; the cocking piece behind, `cock` of the body's
 		-- width; its handle a rod (`stem` wide) out to the gun's own knob (Config/Weapons reload.knob, drawn when it
@@ -150,6 +153,7 @@ local Hud = {
 			Box = "{key}: new magazine",
 			Shells = "{key}: load shells",
 			Rounds = "{key}: load rounds", -- a revolver's gate
+			Supply = "No spare rounds, find a Supplier", -- (limited ammunition, user 2026-11-14)
 		},
 		-- a revolver's cylinder (src/client/AmmoHud) seen from behind, flat: `fill` of the view's height across, each
 		-- chamber `hole` of a round's width, a live round's primer `primer` of its head; the gun's drawing beside it
