@@ -212,7 +212,7 @@ local Classes = {
 	-- `cloth`: its uniform's tint (the Shirt's and Pants' Color3, which can only darken). No entry (the Rifleman): the
 	-- team's own colours. The Supplier's is ready for the class.
 	Tones = {
-		parts = { "Body", "Flap", "Pocket", "Leather", "Pouch" },
+		parts = { "Body", "Flap", "Pocket", "Leather", "Pouch", "BackBand" },
 		classes = {
 			Grenadier = { mul = 0.88, shift = { 0, 0, 0 }, cloth = { 226, 226, 226 } }, -- darker
 			AutoRifler = { mul = 1.08, shift = { -3, 0, 4 }, cloth = { 236, 243, 255 } }, -- lighter and cooler
