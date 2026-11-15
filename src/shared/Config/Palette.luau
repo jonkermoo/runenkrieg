@@ -201,11 +201,22 @@ local Palette = {
 	},
 	-- Rigs (Config/Uniforms.Rigs, user 2026-10-22: each team's in its own colors), by kit, colored by mesh name. Like
 	-- the packs never the uniform's colour: each team's leather as its pack's. Grey: blackened German leather; olive:
-	-- the zaino's brown leather; brown: pale khaki British web, as the P08, with brass fittings.
+	-- the zaino's brown leather; brown: pale khaki British web, as the P08, with brass fittings. Flap: the team
+	-- rigs' pouch lids, the Pouch a shade darker (as the bags' flaps; 2026-11-14).
 	Rigs = {
-		uniform1 = { Leather = { 54, 42, 34 }, Pouch = { 88, 66, 48 }, Metal = { 70, 66, 60 } },
-		uniform2 = { Leather = { 112, 82, 58 }, Pouch = { 136, 104, 72 }, Metal = { 70, 66, 60 } },
-		uniform3 = { Leather = { 150, 134, 96 }, Pouch = { 176, 160, 118 }, Metal = { 150, 126, 70 } },
+		uniform1 = { Leather = { 54, 42, 34 }, Pouch = { 88, 66, 48 }, Flap = { 72, 54, 40 }, Metal = { 70, 66, 60 } },
+		uniform2 = {
+			Leather = { 112, 82, 58 },
+			Pouch = { 136, 104, 72 },
+			Flap = { 116, 88, 62 },
+			Metal = { 70, 66, 60 },
+		},
+		uniform3 = {
+			Leather = { 150, 134, 96 },
+			Pouch = { 176, 160, 118 },
+			Flap = { 160, 144, 104 },
+			Metal = { 150, 126, 70 },
+		},
 	},
 	-- Species ears and tails (Config/Species; user 2026-10-18): the fur takes the soldier's hair colour; these are the
 	-- rest. Inner = the inside of an ear, Tip = the fennec tail's dark tip (user 2026-10-20), Cream = what the cup's fluff

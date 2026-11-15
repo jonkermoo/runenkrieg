@@ -578,6 +578,71 @@ local Assets = {
 			generator = "tools/blender/gear/bandages.py",
 			description = "Bandage worn round the head (2 crossing turns); its Origin goes at the head part centre. Place by the Origin position and keep each part's imported rotation (as Helmets / Armory do); never PivotTo the model (its pivot is rotated: KNOWN_TRAPS).",
 		},
+		-- The team rigs (user 2026-11-14: "lets redo the rigs look", then "the old straps were fine. just have it not
+		-- clip under the torso and redo the pouches"): rig1's bands and belt, the belt raised off the Torso's underside
+		-- (-0.97..-0.71, was -1.0..-0.74), each team's own cartridge pouches seated on the Torso's front, built like
+		-- the class bags (soft rounded cells, a lid each in the darker Flap colour, studs). Worn by the kit
+		-- (Config/Uniforms.Kits rig), coloured by Config/Palette.Rigs in the class's tone.
+		rig_grey = {
+			id = 88116682634887, -- 2026-11-14
+			category = "Teams",
+			folder = "Shared/Rigs",
+			source = "assets/teams/shared/rigs/rig_grey.fbx",
+			generator = "tools/blender/gear/rig_team.py",
+			description = "rig1's bands and belt (the belt off the torso's underside) with German K98 triple pouches either side of a steel buckle plate. Grey team.",
+			-- welded to the Torso at each part's offset from the export's Origin marker (rig_team.py grey)
+			fit = {
+				attachment = "Torso",
+				color = { 150, 104, 80 },
+				brim = 0,
+				parts = {
+					Leather = { 150, 104, 80 },
+					Pouch = { 192, 158, 116 },
+					Flap = { 170, 136, 98 },
+					Metal = { 70, 66, 60 },
+				},
+			},
+		},
+		rig_olive = {
+			id = 109673895603435, -- 2026-11-14
+			category = "Teams",
+			folder = "Shared/Rigs",
+			source = "assets/teams/shared/rigs/rig_olive.fbx",
+			generator = "tools/blender/gear/rig_team.py",
+			description = "rig1's bands and belt (the belt off the torso's underside) with two Italian M1907 twin-pocket pouches and a steel frame buckle. Olive team.",
+			-- welded to the Torso at each part's offset from the export's Origin marker (rig_team.py olive)
+			fit = {
+				attachment = "Torso",
+				color = { 150, 104, 80 },
+				brim = 0,
+				parts = {
+					Leather = { 150, 104, 80 },
+					Pouch = { 192, 158, 116 },
+					Flap = { 170, 136, 98 },
+					Metal = { 70, 66, 60 },
+				},
+			},
+		},
+		rig_brown = {
+			id = 82575834018232, -- 2026-11-14
+			category = "Teams",
+			folder = "Shared/Rigs",
+			source = "assets/teams/shared/rigs/rig_brown.fbx",
+			generator = "tools/blender/gear/rig_team.py",
+			description = "rig1's bands and belt (the belt off the torso's underside) with British 1908 web carriers, three pockets below and two above each side, and a brass buckle. Brown team.",
+			-- welded to the Torso at each part's offset from the export's Origin marker (rig_team.py brown)
+			fit = {
+				attachment = "Torso",
+				color = { 150, 104, 80 },
+				brim = 0,
+				parts = {
+					Leather = { 150, 104, 80 },
+					Pouch = { 192, 158, 116 },
+					Flap = { 170, 136, 98 },
+					Metal = { 70, 66, 60 },
+				},
+			},
+		},
 		rig1 = {
 			id = 127689166763929, -- belt off the torso's underside (user 2026-11-06: "still clipping with the underside"; was 117320424913312: no pouch below the torso or inside the arms, 2026-10-31)
 			category = "Teams",
