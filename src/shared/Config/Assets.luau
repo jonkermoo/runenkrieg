@@ -741,6 +741,38 @@ local Assets = {
 			description = "Mage's pack, the biggest: a wide pack over a long blanket roll, a mess tin under two buckled "
 				.. "straps, a scroll case in two bands, a brass-ringed rune in the team's color (3108 tris).",
 		},
+		-- The Supplier's (user 2026-11-14): the reference rucksack, one per team for its grenades, the ammunition mark
+		-- on the lid. Exactly one mesh named Body (the resupply prompt hangs on it). Its own generator.
+		pack_supplier_grey = {
+			id = 98800507611158,
+			category = "Teams",
+			folder = "Shared/Packs",
+			source = "assets/teams/shared/packs/pack_supplier_grey.fbx",
+			generator = "tools/blender/gear/supplier_pack.py",
+			sling = 1.392,
+			description = "Supplier's rucksack, grey: a tall canvas sack under a big lid, two webbing straps to brass "
+				.. "buckles, a front pouch and a deep pouch each side, three cartridges on a dark panel on the lid, two stick "
+				.. "grenades strapped across it behind the lid straps (6722 tris).",
+		},
+		pack_supplier_olive = {
+			id = 102336035822094,
+			category = "Teams",
+			folder = "Shared/Packs",
+			source = "assets/teams/shared/packs/pack_supplier_olive.fbx",
+			generator = "tools/blender/gear/supplier_pack.py",
+			sling = 1.184,
+			description = "Supplier's rucksack, olive: as the grey, its front pouch open with the flap thrown back and two "
+				.. "SIPE grenades standing in it (6206 tris).",
+		},
+		pack_supplier_brown = {
+			id = 86267869659654,
+			category = "Teams",
+			folder = "Shared/Packs",
+			source = "assets/teams/shared/packs/pack_supplier_brown.fbx",
+			generator = "tools/blender/gear/supplier_pack.py",
+			sling = 1.21,
+			description = "Supplier's rucksack, brown: as the olive, two Mills bombs standing in the open pouch (6226 tris).",
+		},
 		helmet_stahl = {
 			id = 98976523443657, -- reworked 2026-10-19 (docs/HATS.md "Rework")
 			category = "Teams",

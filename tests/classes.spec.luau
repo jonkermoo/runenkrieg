@@ -124,6 +124,22 @@ return {
 			assert(grenadier == `pack_grenadier_{hung}`, `{kitName}: the grenadier's pack hangs another team's grenade`)
 		end
 	end,
+	["the supplier's pack is ready in every kit: its own team's grenades, a class pack with every part coloured"] = function()
+		local P = require("../src/shared/Config/Palette")
+		for kitName, gear in C.Gear do
+			local grenade = (U.Kits[kitName] :: any).grenade
+			local own = ({ grenade_stick = "grey", grenade_sipe = "olive", grenade_mills = "brown" })[grenade]
+			assert(
+				gear.supplierPack == `pack_supplier_{own}`,
+				`{kitName}: the supplier's pack carries another team's grenades`
+			)
+			local e = A.Entries[gear.supplierPack]
+			assert(e and e.folder == "Shared/Packs" and e.sling, `{kitName}: {gear.supplierPack} is not a class pack`)
+			for _, part in { "Body", "Flap", "Leather", "Trim", "Brass", "Steel", "AmmoMark", "AmmoPanel" } do
+				assert(P.ClassPacks[kitName][part], `{kitName}: the supplier's pack's {part} has no colour`)
+			end
+		end
+	end,
 	["the engineer carries its team's own pistol, a different one per team"] = function()
 		local seen = {}
 		for _, kitName in U.Teams do
