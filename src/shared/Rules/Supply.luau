@@ -23,6 +23,11 @@ function Supply.canTake(
 	return true, nil
 end
 
+-- Whether a taker `distance` studs from the bag is close enough: within `reach` + `slack` (Config/Supply).
+function Supply.near(distance: number, reach: number, slack: number): boolean
+	return distance == distance and distance <= reach + slack -- (NaN: never)
+end
+
 -- Whether a prompt kept for kit `onlyKit` and not for player `owner` is shown to the player `me` of kit `myKit`
 -- (src/client/Prompts: the bag is hidden from its own Supplier and from the enemy).
 function Supply.shown(onlyKit: any, owner: any, me: number, myKit: any): boolean

@@ -1,6 +1,7 @@
 --!strict
 -- The Supplier's bag (Config/Supply, Rules/Supply; user 2026-11-13/14): a Supplier spawns with a prompt on their pack
--- (Supply.dress, from src/server/Bodies once the pack is on). A teammate who holds it gets every gun's spare rounds
+-- (Supply.dress, from src/server/Bodies once the pack is on). A teammate who holds it (and whose root the server finds
+-- within Config/Supply reach + slack of the bag) gets every gun's spare rounds
 -- back to full (src/server/Firing.resupply) and, as a Grenadier, their grenades back to Config/Grenades.Carried; then
 -- they wait Config/Supply.cooldown s (their "ResupplyUntil" attribute, shown on the prompt as the "Wait" reason). A
 -- take that gave something pays the Supplier Config/Classes.Earn.Resupply. The prompt is kept for the Supplier's kit
@@ -65,9 +66,14 @@ local function grenades(player: Player, character: Model): boolean
 	return true
 end
 
-local function take(owner: Player, bag: Instance, taker: Player)
+local function take(owner: Player, bag: Instance, part: BasePart, taker: Player)
 	local mine, theirs = owner.Character, taker.Character
 	if not mine or not theirs or bag.Parent ~= mine or not alive(mine) or not alive(theirs) then
+		return
+	end
+	-- close enough on the server too (the prompt's distance is the client's)
+	local root = theirs:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root or not Rules.near((root.Position - part.Position).Magnitude, Cfg.reach, Cfg.slack) then
 		return
 	end
 	local now = workspace:GetServerTimeNow()
@@ -115,7 +121,7 @@ function Supply.dress(character: Model)
 	prompt:SetAttribute(PromptCfg.WaitAttr, Cfg.WaitAttr)
 	CollectionService:AddTag(prompt, PromptCfg.Tag)
 	prompt.Triggered:Connect(function(taker: Player)
-		take(owner, pack, taker)
+		take(owner, pack, part :: BasePart, taker)
 	end)
 	prompt.Parent = part
 end

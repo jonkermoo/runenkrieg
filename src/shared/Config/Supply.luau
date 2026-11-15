@@ -11,6 +11,9 @@ local Supply = {
 	-- the part of the pack the prompt hangs on (the bag's main mesh); else the pack's largest part
 	Part = "Body",
 	reach = 8, -- studs
+	-- the server checks the taker's root is within `reach` + this of the bag part (studs; the prompt's own distance is
+	-- the client's, and the bag and the taker move between the hold and the server seeing it)
+	slack = 3,
 	hold = 0.6, -- seconds the key is held
 	cooldown = 60, -- seconds before the same taker can take again
 	object = "Supplier's bag",
