@@ -1180,61 +1180,73 @@ local Assets = {
 			},
 		},
 		-- The Supplier's helmets (user 2026-11-13: "let's make a helmet for each team for that new class"; "just the
-		-- straps", the mark "painted on"): the strap helmet with a broad arrow (the stores mark) painted on the front
-		-- in ochre (accessory.py --kind supply), in the lightest tone of the team's steel; ear-hole versions (slit.py).
+		-- straps", the mark "painted on"): the strap helmet with the Supplier bag's ammunition mark on the front (user
+		-- 2026-11-14: "add that same ammo thing to the helmet"; was a broad arrow in ochre): three cartridges standing in
+		-- a row (AmmoMark) on a small dark panel (AmmoPanel), laid flat on the steel, the bag's colours (accessory.py
+		-- --kind supply), in the lightest tone of the team's steel; ear-hole versions (slit.py).
 		helmet_stahl_supply = {
-			id = 87978076056072, -- 2026-11-13
+			id = 81084356603705, -- 2026-11-14: the ammunition mark (was 87978076056072, the arrow)
 			category = "Teams",
 			folder = "Grey/Helmets",
 			source = "assets/teams/grey/helmets/variants/helmet_stahl_supply.fbx",
 			generator = "tools/blender/gear/accessory.py",
 			description = "The default helmet_stahl (unchanged) with the chin strap worn up over the front rim, as helmet_stahl_strap, "
-				.. "and a broad arrow (the stores mark) painted flat on the front of the steel. The Supplier's. Grey team.",
+				.. "and the Supplier bag's ammunition mark (three cartridges on a dark panel) flat on the front of the steel. The Supplier's. Grey team.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 95, 96, 98 }, -- the Supplier's tone
 				brim = -0.27,
-				parts = { Paint = { 196, 158, 70 }, Strap = { 46, 39, 34 }, Lugs = { 204, 172, 92 } },
+				parts = {
+					AmmoMark = { 226, 216, 188 },
+					AmmoPanel = { 46, 42, 38 },
+					Strap = { 46, 39, 34 },
+					Lugs = { 204, 172, 92 },
+				},
 				shell = "stahl",
 				center = { 0, 0.672, -0.034 },
 			},
 		},
 		helmet_m33_supply = {
-			id = 88641861582273, -- 2026-11-13
+			id = 112848382124594, -- 2026-11-14: the ammunition mark (was 88641861582273, the arrow)
 			category = "Teams",
 			folder = "Olive/Helmets",
 			source = "assets/teams/olive/helmets/variants/helmet_m33_supply.fbx",
 			generator = "tools/blender/gear/accessory.py",
 			description = "The default helmet_m33 (unchanged) with the chin strap worn up over the front rim, as helmet_m33_strap, "
-				.. "and a broad arrow (the stores mark) painted flat on the front of the steel. The Supplier's. Olive team.",
+				.. "and the Supplier bag's ammunition mark (three cartridges on a dark panel) flat on the front of the steel. The Supplier's. Olive team.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 137, 133, 82 }, -- the Supplier's tone
 				brim = -0.13,
-				parts = { Paint = { 196, 158, 70 }, Strap = { 106, 72, 46 }, Lugs = { 176, 146, 80 } },
+				parts = {
+					AmmoMark = { 226, 216, 188 },
+					AmmoPanel = { 46, 42, 38 },
+					Strap = { 106, 72, 46 },
+					Lugs = { 176, 146, 80 },
+				},
 				shell = "m33",
 				center = { 0, 0.5397, 0 },
 			},
 		},
 		helmet_brodie_supply = {
-			id = 134019997250425, -- 2026-11-13
+			id = 139971911348918, -- 2026-11-14: the ammunition mark (was 134019997250425, the arrow)
 			category = "Teams",
 			folder = "White/Helmets",
 			source = "assets/teams/white/helmets/variants/helmet_brodie_supply.fbx",
 			generator = "tools/blender/gear/accessory.py",
 			description = "The default helmet_brodie (unchanged) with the chin strap worn up over the front rim, as helmet_brodie_strap, "
-				.. "and a broad arrow (the stores mark) painted flat on the front of the steel. The Supplier's. Brown team.",
+				.. "and the Supplier bag's ammunition mark (three cartridges on a dark panel) flat on the front of the steel. The Supplier's. Brown team.",
 			fit = {
 				attachment = "HatAttachment",
 				color = { 113, 82, 56 }, -- the Supplier's tone
 				brim = 0.06,
-				parts = { Paint = { 196, 158, 70 }, Strap = { 58, 40, 28 } },
+				parts = { AmmoMark = { 226, 216, 188 }, AmmoPanel = { 46, 42, 38 }, Strap = { 58, 40, 28 } },
 				shell = "brodie",
 				center = { 0, 0.3781, 0.0023 },
 			},
 		},
 		helmet_stahl_supply_katzling = {
-			id = 82728302059407, -- 2026-11-13
+			id = 93532358599031, -- 2026-11-14: the ammunition mark (was 82728302059407, the arrow)
 			category = "Teams",
 			folder = "Grey/Helmets",
 			source = "assets/teams/grey/helmets/variants/helmet_stahl_supply_katzling.fbx",
@@ -1245,13 +1257,18 @@ local Assets = {
 				attachment = "HatAttachment",
 				color = { 95, 96, 98 }, -- the Supplier's tone
 				brim = -0.27,
-				parts = { Paint = { 196, 158, 70 }, Strap = { 46, 39, 34 }, Lugs = { 204, 172, 92 } },
+				parts = {
+					AmmoMark = { 226, 216, 188 },
+					AmmoPanel = { 46, 42, 38 },
+					Strap = { 46, 39, 34 },
+					Lugs = { 204, 172, 92 },
+				},
 				shell = "stahl",
 				center = { 0, 0.6834, -0.034 },
 			},
 		},
 		helmet_brodie_supply_fennek = {
-			id = 86807870126611, -- 2026-11-13
+			id = 96404561828658, -- 2026-11-14: the ammunition mark (was 86807870126611, the arrow)
 			category = "Teams",
 			folder = "White/Helmets",
 			source = "assets/teams/white/helmets/variants/helmet_brodie_supply_fennek.fbx",
@@ -1262,7 +1279,7 @@ local Assets = {
 				attachment = "HatAttachment",
 				color = { 113, 82, 56 }, -- the Supplier's tone
 				brim = 0.06,
-				parts = { Paint = { 196, 158, 70 }, Strap = { 58, 40, 28 } },
+				parts = { AmmoMark = { 226, 216, 188 }, AmmoPanel = { 46, 42, 38 }, Strap = { 58, 40, 28 } },
 				shell = "brodie",
 				center = { 0, 0.3902, 0.0023 },
 			},
