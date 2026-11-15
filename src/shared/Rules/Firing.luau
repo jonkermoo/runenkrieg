@@ -113,6 +113,16 @@ function Firing.spareFor(
 	return s.rounds or (s.loads or 0) * capacity
 end
 
+-- A gun with unlimited rounds (first seen with no player: made elsewhere) that has reached a player: from now on it
+-- carries `full` spare rounds (nil: stays unlimited). Whether it changed.
+function Firing.limit(s: State, full: number?): boolean
+	if s.spare ~= nil or full == nil then
+		return false
+	end
+	s.spare = full
+	return true
+end
+
 -- Fills the spare rounds back to `full` (the Supplier's bag). Whether it gave any.
 function Firing.refill(s: State, full: number?): boolean
 	if s.spare == nil or full == nil or s.spare >= full then

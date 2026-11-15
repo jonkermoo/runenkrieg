@@ -141,4 +141,23 @@ return {
 		assert(SupplyCfg.cooldown == 60 and C.Earn.Resupply == 4, "the user's numbers: 60 s, 4 Marks")
 		assert(C.Defs[SupplyCfg.Class], "the bag's class exists")
 	end,
+	["the bag: the server wants the taker within reach + slack (user 2026-11-14: fix both)"] = function()
+		local reach, slack = SupplyCfg.reach, SupplyCfg.slack
+		assert(slack > 0 and slack < reach, "a small slack")
+		assert(R.near(0, reach, slack) and R.near(reach + slack, reach, slack), "at the edge: still near")
+		assert(not R.near(reach + slack + 0.01, reach, slack), "past it: refused")
+		assert(not R.near(0 / 0, reach, slack), "NaN: refused")
+		assert(not R.near(math.huge, reach, slack))
+	end,
+	["a gun first seen with no player takes its spare rounds once it reaches one, never unlimited"] = function()
+		local g = gun(5, "Stripper")
+		local s = F.new(g) -- (made elsewhere: no player yet, unlimited)
+		assert(s.spare == nil)
+		assert(F.limit(s, 40) and s.spare == 40, "handed to a player: limited")
+		assert(not F.limit(s, 99) and s.spare == 40, "already limited: kept, not refilled")
+		local bot = F.new(g)
+		assert(not F.limit(bot, nil) and bot.spare == nil, "no spare rule (a bot's, the staff): stays unlimited")
+		s.spare = 0
+		assert(not F.limit(s, 40) and s.spare == 0, "an empty spare is not filled again this way")
+	end,
 }

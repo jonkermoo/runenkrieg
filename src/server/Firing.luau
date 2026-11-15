@@ -88,19 +88,30 @@ local function settleLater(tool: Tool, s: F.State)
 	end)
 end
 
+-- The player whose gun `tool` is (in their Backpack or hands), if any.
+local function ownerOf(tool: Tool): Player?
+	return tool:FindFirstAncestorOfClass("Player") or (tool.Parent and Players:GetPlayerFromCharacter(tool.Parent))
+end
+
 -- The weapon's state (a full rifle the first time it's seen); nil for an item that doesn't fire (no ammo: the staff).
+-- A player's gun carries its spare rounds; a bot's: unlimited. A gun first seen with no player (made elsewhere) takes
+-- its spare rounds the moment it reaches one, so a gun handed over later is never unlimited.
 function Firing.entry(tool: Tool): Entry?
 	local name = tool:GetAttribute("Weapon")
 	if type(name) ~= "string" or not W[name] or not W[name].ammo then
 		return nil
 	end
 	local e = states[tool]
+	if e and e.full == nil and ownerOf(tool) then
+		local full = F.spareFor(W[name].class, e.gun.capacity, Cfg.Spare)
+		if F.limit(e.state, full) then
+			e.full = full
+			publish(tool, e.state)
+		end
+	end
 	if not e then
 		local gun = Firing.gun(name)
-		-- a player's gun (in their Backpack or hands when first seen) carries its spare rounds; a bot's: unlimited
-		local owner = tool:FindFirstAncestorOfClass("Player")
-			or (tool.Parent and Players:GetPlayerFromCharacter(tool.Parent))
-		local full = if owner then F.spareFor(W[name].class, gun.capacity, Cfg.Spare) else nil
+		local full = if ownerOf(tool) then F.spareFor(W[name].class, gun.capacity, Cfg.Spare) else nil
 		local made: Entry = { state = F.new(gun, full), gun = gun, seq = 0, last = nil, full = full }
 		e = made
 		states[tool] = made
@@ -109,6 +120,9 @@ function Firing.entry(tool: Tool): Entry?
 		-- put away / drawn again: the action under way pauses, then plays out after the draw
 		tool:GetPropertyChangedSignal("Parent"):Connect(function()
 			local parent = tool.Parent
+			if made.full == nil and parent then
+				Firing.entry(tool) -- (handed to a player: its spare rounds now)
+			end
 			local now = os.clock()
 			if parent and parent:IsA("Backpack") then
 				F.pause(made.state, now)
