@@ -578,6 +578,32 @@ local Assets = {
 			generator = "tools/blender/gear/bandages.py",
 			description = "Bandage worn round the head (2 crossing turns); its Origin goes at the head part centre. Place by the Origin position and keep each part's imported rotation (as Helmets / Armory do); never PivotTo the model (its pivot is rotated: KNOWN_TRAPS).",
 		},
+		-- The rig every team wears (user 2026-11-14: "the old straps were fine. just have it not clip under the torso and
+		-- redo the pouches", then of the per-team pouches "i dont like that theres 5. honestly give the same rig (gray
+		-- teams) to everyone just adjust the coloring"): rig1's bands and belt, the belt raised off the Torso's underside
+		-- (-0.97..-0.71, was -1.0..-0.74), K98 triple pouches seated on the Torso's front, built like the class bags (soft
+		-- rounded cells, a lid each in the darker Flap colour). Worn by every kit (Config/Uniforms.Kits rig),
+		-- coloured by Config/Palette.Rigs in the class's tone.
+		rig_k98 = {
+			id = 120637946942212, -- 2026-11-14: no closure tabs or studs on the pouches (user: "remove these buckles"; was 88116682634887)
+			category = "Teams",
+			folder = "Shared/Rigs",
+			source = "assets/teams/shared/rigs/rig_k98.fbx",
+			generator = "tools/blender/gear/rig_team.py",
+			description = "rig1's bands and belt (the belt off the torso's underside) with German K98 triple pouches either side of a steel buckle plate. Every team's, in its own colours.",
+			-- welded to the Torso at each part's offset from the export's Origin marker (rig_team.py grey)
+			fit = {
+				attachment = "Torso",
+				color = { 150, 104, 80 },
+				brim = 0,
+				parts = {
+					Leather = { 150, 104, 80 },
+					Pouch = { 192, 158, 116 },
+					Flap = { 170, 136, 98 },
+					Metal = { 70, 66, 60 },
+				},
+			},
+		},
 		rig1 = {
 			id = 127689166763929, -- belt off the torso's underside (user 2026-11-06: "still clipping with the underside"; was 117320424913312: no pouch below the torso or inside the arms, 2026-10-31)
 			category = "Teams",

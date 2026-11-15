@@ -62,6 +62,17 @@ return {
 			end
 		end
 	end,
+	["every kit names a rig, every part of it coloured by that kit"] = function()
+		local P = require("../src/shared/Config/Palette")
+		for kit, k in U.Kits do
+			local e = k.rig and A.Entries[k.rig]
+			assert(e and e.folder == "Shared/Rigs", `{kit}: its rig is not a rig entry`)
+			for part in (e.fit :: any).parts do
+				local c = P.Rigs[kit] and P.Rigs[kit][part]
+				assert(c and #c == 3, `{kit}: Config/Palette.Rigs has no {part} color`)
+			end
+		end
+	end,
 	["a face per health third, each with its closed face"] = function()
 		local files = { healthy = "face_dots", hurt = "face_dots_hurt", wounded = "face_dots_wounded" }
 		assert(#U.Faces == 3, "three health faces")

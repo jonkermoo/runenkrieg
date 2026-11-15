@@ -1,5 +1,6 @@
 --!strict
--- Rigs (bandolier webbing, pouches only; docs/CHARACTERS.md): every soldier wears one of Config/Uniforms.Rigs on the
+-- Rigs (bandolier webbing, pouches only; docs/CHARACTERS.md): every soldier wears its kit's rig (Config/Uniforms.Kits
+-- `rig`, one per team since 2026-11-14), or else one of Config/Uniforms.Rigs on the
 -- Torso (one rig for every class since 2026-11-14; with more, rolled once per character, never the player's last
 -- life's: Rules/Looks.pick), kept as the "Rig" attribute, colored by its kit (Config/Palette.Rigs) in its class's tone
 -- (Config/Classes.Tones), so it matches the class's bag. Welded like the packs (src/server/Packs): purely visual.
@@ -35,8 +36,11 @@ function Rigs.of(character: Model): string
 end
 
 -- Puts this life's rig on the character in its kit's colors, in class `class`'s tone as its bag (Config/Classes.Tones).
+-- The kit's own rig (Config/Uniforms.Kits `rig`, user 2026-11-14) when it names one.
 function Rigs.dress(character: Model, kitName: string, class: string?)
-	Packs.wear(character, "Rig", Rigs.of(character), Packs.toned(Palette.Rigs[kitName] or {}, class))
+	local kit = U.Kits[kitName]
+	local entry = kit and kit.rig or Rigs.of(character)
+	Packs.wear(character, "Rig", entry, Packs.toned(Palette.Rigs[kitName] or {}, class))
 end
 
 Players.PlayerRemoving:Connect(function(p)
